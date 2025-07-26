@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "502704204773",
+    "project_id": "taptrade-d4ca5",
+    "storage_bucket": "taptrade-d4ca5.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:502704204773:android:131e0e6943908364781d0c",
+        "android_client_info": {
+          "package_name": "com.tap.trade"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "502704204773-v9g3q2nmd77ucmis719oknqij038q081.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.tap.trade",
+            "certificate_hash": "9249905f3c31dc4a39b7ac9d5c8c0dabcc94c8f7"
+          }
+        },
+        {
+          "client_id": "502704204773-n3lt16ucipfhkemt3uuq8kubk7r7mfhv.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDZbW7ClLUAXYH3xcqQOcLSrBXBshbYpyw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "502704204773-n3lt16ucipfhkemt3uuq8kubk7r7mfhv.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
