@@ -4,7 +4,7 @@ import 'package:taptrade/Utills/soundManager.dart';
 
 class AppButton extends StatefulWidget {
   String? text;
-  VoidCallback onPressed;
+  final VoidCallback? onPressed;
   double? width;
   double? height;
   double? fontSize;
@@ -16,7 +16,7 @@ class AppButton extends StatefulWidget {
   AppButton(
       {Key? key,
         this.text,
-        required this.onPressed,
+        this.onPressed,
         required this.width,
         this.height,
         this.fontSize,
@@ -39,7 +39,7 @@ class _AppButtonState extends State<AppButton> {
       onTap: (widget.isLoading ?? false) ? null :() {
         SoundManager().play("anyButton");
         print("=========================");
-        widget.onPressed();
+        widget.onPressed!();
       },
       child: Container(
         height: widget.height ?? Size.height * 0.067,
