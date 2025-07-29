@@ -1,0 +1,27 @@
+# Build outputs
+build/
+
+# Dart/Flutter tools
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+
+# Environment
+.env
+.env.local
+
+# Platform specific
+android/app/debug
+android/app/profile
+android/app/release
+ios/Runner.xcworkspace/xcuserdata/
+ios/Runner.xcuserdata/
+
+# Web
+web/build/
