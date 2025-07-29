@@ -1,12 +1,10 @@
 import 'dart:io';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:taptrade/Const/apiEndPoint.dart';
 import 'package:taptrade/Const/globleKey.dart';
 import 'package:taptrade/Controller/userController.dart';
 import 'package:taptrade/Models/UserProfile/userProfile.dart';
@@ -153,21 +151,18 @@ class _ProfileSettingState extends State<ProfileSetting> {
   }
 
   Future<void> updateProfileImage(File imageFile) async {
-    if (imageFile != null) {
-      Map<String, dynamic> body = {
-        'image': imageFile,
-      };
-      String id = userController.userProfile.value.data?.id ?? '';
-      setState(() {
-        isLoading = true;
-      });
-      final result =
-          await ProfileService.instance.updateProfile(context, body, id);
-      await ProfileService.instance.getProfile(context);
-      setState(() {
-        isLoading = false;
-      });
-    }
+    Map<String, dynamic> body = {
+      'image': imageFile,
+    };
+    String id = userController.userProfile.value.data?.id ?? '';
+    setState(() {
+      isLoading = true;
+    });
+    await ProfileService.instance.updateProfile(context, body, id);
+    await ProfileService.instance.getProfile(context);
+    setState(() {
+      isLoading = false;
+    });
   }
 
   @override
@@ -222,7 +217,7 @@ class _ProfileSettingState extends State<ProfileSetting> {
                   children: [
                     Container(
                       width: size.width,
-                      height: size.height / 2.6,
+                      height: size.height / 3.0, // Reduced from 2.6 to 3.0
                       color: Colors.white,
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.start,
@@ -231,15 +226,15 @@ class _ProfileSettingState extends State<ProfileSetting> {
                           Stack(
                             children: [
                               Container(
-                                height: size.height / 3.5,
-                                width: size.height / 4,
+                                height: size.height / 4.0, // Reduced from 3.5 to 4.0
+                                width: size.height / 4.0, // Reduced from 4 to 4.0
                                 decoration: const BoxDecoration(
                                   color: Colors.transparent,
                                 ),
                               ),
                               Container(
-                                height: size.height / 4,
-                                width: size.height / 4,
+                                height: size.height / 4.5, // Reduced from 4 to 4.5
+                                width: size.height / 4.5, // Reduced from 4 to 4.5
                                 padding: EdgeInsets.all(10),
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
@@ -248,17 +243,15 @@ class _ProfileSettingState extends State<ProfileSetting> {
                                     colors: [
                                       AppColors.primaryColor,
                                       AppColors.primaryTextColor
-                                          .withOpacity(0.8)
-                                    ], // Define your gradient colors
-                                    begin: Alignment
-                                        .topCenter, // Starting point of the gradient
-                                    end: Alignment
-                                        .bottomCenter, // Ending point of the gradient
+                                          .withAlpha((0.8 * 255).toInt())
+                                    ],
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
                                   ),
                                 ),
                                 child: Container(
-                                  height: size.height / 4,
-                                  width: size.height / 4,
+                                  height: size.height / 4.5, // Reduced from 4 to 4.5
+                                  width: size.height / 4.5, // Reduced from 4 to 4.5
                                   decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       color: AppColors.primaryColor,
@@ -324,8 +317,8 @@ class _ProfileSettingState extends State<ProfileSetting> {
                     ),
                     Container(
                       width: size.width,
-                      height: size.height / 2.4,
-                      color: Colors.black.withOpacity(0.1),
+                      height: size.height / 2.8, // Reduced from 2.4 to 2.8
+                      color: Colors.black.withAlpha((0.1 * 255).toInt()),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         crossAxisAlignment: CrossAxisAlignment.center,
@@ -340,7 +333,7 @@ class _ProfileSettingState extends State<ProfileSetting> {
                                 child: Stack(
                                   children: [
                                     Container(
-                                      height: size.height * 0.17,
+                                      height: size.height * 0.15, // Reduced from 0.17 to 0.15
                                       width: size.width * 0.3,
                                       decoration: BoxDecoration(
                                           color: Colors.white,
@@ -385,7 +378,7 @@ class _ProfileSettingState extends State<ProfileSetting> {
                                 child: Stack(
                                   children: [
                                     Container(
-                                      height: size.height * 0.17,
+                                      height: size.height * 0.15, // Reduced from 0.17 to 0.15
                                       width: size.width * 0.3,
                                       decoration: BoxDecoration(
                                           color: Colors.white,
@@ -438,7 +431,7 @@ class _ProfileSettingState extends State<ProfileSetting> {
                                 child: Stack(
                                   children: [
                                     Container(
-                                      height: size.height * 0.17,
+                                      height: size.height * 0.15, // Reduced from 0.17 to 0.15
                                       width: size.width * 0.3,
                                       decoration: BoxDecoration(
                                           color: Colors.white,
@@ -481,7 +474,7 @@ class _ProfileSettingState extends State<ProfileSetting> {
                                 child: Stack(
                                   children: [
                                     Container(
-                                      height: size.height * 0.17,
+                                      height: size.height * 0.15, // Reduced from 0.17 to 0.15
                                       width: size.width * 0.3,
                                       decoration: BoxDecoration(
                                           color: Colors.white,

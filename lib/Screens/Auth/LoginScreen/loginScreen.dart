@@ -12,6 +12,7 @@ import 'package:taptrade/Services/SharedPreferenceService/sharePreferenceService
 import 'package:taptrade/Utills/appColors.dart';
 import 'package:taptrade/Utills/showMessages.dart';
 import 'package:taptrade/Widgets/customButtom.dart';
+import 'package:taptrade/Screens/Auth/ForgotPassword/forgotPasswordScreen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -402,6 +403,26 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                                               ],
                                             ),
                                           ),
+                                        
+                                        // Forgot Password link right under password field
+                                        SizedBox(height: 12),
+                                        Align(
+                                          alignment: Alignment.centerRight,
+                                          child: GestureDetector(
+                                            onTap: () {
+                                              Get.to(() => const ForgotPasswordScreen());
+                                            },
+                                            child: Text(
+                                              "Forgot Password?",
+                                              style: TextStyle(
+                                                color: AppColors.primaryColor,
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w500,
+                                                decoration: TextDecoration.underline,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
                                       ],
                                     ),
                                     
@@ -426,45 +447,68 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                                                 final result = await AuthService.instance.login(context, body);
 
                                                 // Handle response
-                                                if (result.status == Status.COMPLETED && (result.responseData['success'] ?? false)) {
-                                                  print("-=-=-=-=-=-=-=-=- ${result.responseData}");
-                                                  // Save token and user ID in shared preferences
-                                                  await SharedPreferencesService().setString(
-                                                    KeyConstants.accessToken,
-                                                    result.responseData['token'],
-                                                  );
-                                                  await SharedPreferencesService().setString(
-                                                    KeyConstants.userId,
-                                                    result.responseData['id'],
-                                                  );
+                                                if (result.status == Status.COMPLETED) {
+                                                  if (result.responseData['success'] == true) {
+                                                    // Save token and user ID in shared preferences
+                                                    if (result.responseData['token'] != null) {
+                                                      await SharedPreferencesService().setString(
+                                                        KeyConstants.accessToken,
+                                                        result.responseData['token'],
+                                                      );
+                                                    }
+                                                    
+                                                    if (result.responseData['id'] != null) {
+                                                      await SharedPreferencesService().setString(
+                                                        KeyConstants.userId,
+                                                        result.responseData['id'].toString(),
+                                                      );
+                                                    }
 
-                                                  // Notify user of success
-                                                  ShowMessage.notify(
-                                                    context,
-                                                    result.responseData['message'],
-                                                  );
+                                                    // Notify user of success
+                                                    ShowMessage.notify(
+                                                      context,
+                                                      result.responseData['message'] ?? "Login successful!",
+                                                    );
 
-                                                  // Fetch profile data
-                                                  final response = await ProfileService.instance.getProfile(context);
+                                                    // Fetch profile data
+                                                    try {
+                                                      final response = await ProfileService.instance.getProfile(context);
 
-                                                  // Check if the profile is complete
-                                                  bool isProfileComplete =
-                                                      response.responseData['data']?['is_profile_completed'] ?? false;
+                                                      // Check if the profile is complete
+                                                      bool isProfileComplete =
+                                                          response.responseData['data']?['is_profile_completed'] ?? false;
 
-                                                  if (isProfileComplete) {
-                                                    // Load match products and navigate to main screen
-                                                    await ProductService.instance.getMatchProduct(
-                                                        context, result.responseData['id']);
-                                                    setState(() {
-                                                      isLoading = false;
-                                                    });
-                                                    Get.offAll(() => const BottomNavigationScreen());
+                                                      if (isProfileComplete) {
+                                                        // Load match products and navigate to main screen
+                                                        await ProductService.instance.getMatchProduct(
+                                                            context, result.responseData['id']);
+                                                        setState(() {
+                                                          isLoading = false;
+                                                        });
+                                                        Get.offAll(() => const BottomNavigationScreen());
+                                                      } else {
+                                                        // Navigate to profile setup screen
+                                                        setState(() {
+                                                          isLoading = false;
+                                                        });
+                                                        Get.to(() => const AddProfileScreen());
+                                                      }
+                                                    } catch (profileError) {
+                                                      // If profile fetch fails, still proceed to main screen
+                                                      setState(() {
+                                                        isLoading = false;
+                                                      });
+                                                      Get.offAll(() => const BottomNavigationScreen());
+                                                    }
                                                   } else {
-                                                    // Navigate to profile setup screen
+                                                    // Handle unsuccessful login
                                                     setState(() {
                                                       isLoading = false;
                                                     });
-                                                    Get.to(() => const AddProfileScreen());
+                                                    ShowMessage.notify(
+                                                      context,
+                                                      result.responseData['message'] ?? "Invalid credentials",
+                                                    );
                                                   }
                                                 } else {
                                                   // Handle error response
@@ -473,7 +517,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                                                   });
                                                   ShowMessage.notify(
                                                     context,
-                                                    result.responseData['message'] ?? "An error occurred",
+                                                    result.message ?? "An error occurred during login",
                                                   );
                                                 }
                                               } catch (e) {
@@ -484,10 +528,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
 
                                                 ShowMessage.notify(
                                                   context,
-                                                  "An error occurred. Please try again later.",
+                                                  "Network error. Please check your internet connection and try again.",
                                                 );
-
-                                                debugPrint("Login Error: $e"); // Log the error for debugging
                                               }
                                             }
                                           : null,
@@ -500,38 +542,36 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                                           ? AppColors.primaryColor 
                                           : AppColors.greyTextColor.withValues(alpha: 0.3),
                                     ),
+                                    
+                                    // Additional options
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          "Don't have an account? ",
+                                          style: TextStyle(
+                                            color: AppColors.greyTextColor,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                        GestureDetector(
+                                          onTap: () {
+                                            // Navigate to sign up screen
+                                            Get.to(() => UserNameScreen());
+                                          },
+                                          child: Text(
+                                            "Sign Up",
+                                            style: TextStyle(
+                                              color: AppColors.primaryColor,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ],
                                 ),
-                              ),
-                              
-                              const SizedBox(height: 24),
-                              
-                              // Additional options
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    "Don't have an account? ",
-                                    style: TextStyle(
-                                      color: AppColors.greyTextColor,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  GestureDetector(
-                                    onTap: () {
-                                      // Navigate to sign up screen
-                                      Get.to(() => UserNameScreen());
-                                    },
-                                    child: Text(
-                                      "Sign Up",
-                                      style: TextStyle(
-                                        color: AppColors.primaryColor,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ],
                               ),
                             ],
                           ),

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:taptrade/Models/SignUpRequestModel/signUpRequestModel.dart';
 import 'package:taptrade/Utills/appColors.dart';
-import 'package:taptrade/Utills/showMessages.dart';
 import 'package:taptrade/Widgets/customButtom.dart';
 import 'package:taptrade/Widgets/customText.dart';
 
@@ -10,14 +9,14 @@ import 'createFullName.dart';
 
 class PasswordScreen extends StatefulWidget {
   PasswordScreen({Key? key, required this.requestModel}) : super(key: key);
-  SignUpRequestModel requestModel;
+  final SignUpRequestModel requestModel;
   @override
   State<PasswordScreen> createState() => _PasswordScreenState();
 }
 
 class _PasswordScreenState extends State<PasswordScreen> {
-  TextEditingController passCon = TextEditingController();
-  TextEditingController confirmPassCon = TextEditingController();
+  final TextEditingController passCon = TextEditingController();
+  final TextEditingController confirmPassCon = TextEditingController();
   bool obscureText = true;
   bool obscureConfirmText = true;
   bool isPasswordValid = false;
@@ -48,7 +47,14 @@ class _PasswordScreenState extends State<PasswordScreen> {
       hasNumbers = password.contains(RegExp(r'[0-9]'));
       hasSpecialChar = password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
       
-      isPasswordValid = hasMinLength && hasUpperCase && hasLowerCase && hasNumbers && hasSpecialChar;
+      // Make password validation less strict - only require min length and at least 3 other criteria
+      int criteriaMet = 0;
+      if (hasUpperCase) criteriaMet++;
+      if (hasLowerCase) criteriaMet++;
+      if (hasNumbers) criteriaMet++;
+      if (hasSpecialChar) criteriaMet++;
+      
+      isPasswordValid = hasMinLength && criteriaMet >= 2; // Require min length + at least 2 other criteria
       isPasswordStrong = isPasswordValid;
     });
   }
@@ -68,45 +74,37 @@ class _PasswordScreenState extends State<PasswordScreen> {
     if (hasNumbers) strength++;
     if (hasSpecialChar) strength++;
 
-    switch (strength) {
-      case 0:
-      case 1:
-        return Colors.red;
-      case 2:
-        return Colors.orange;
-      case 3:
-        return Colors.yellow;
-      case 4:
-        return Colors.lightGreen;
-      case 5:
-        return Colors.green;
-      default:
-        return Colors.grey;
+    // Adjust strength based on new validation logic
+    if (strength >= 3 && hasMinLength) {
+      return Colors.green;
+    } else if (strength >= 2 && hasMinLength) {
+      return Colors.lightGreen;
+    } else if (strength >= 1 && hasMinLength) {
+      return Colors.yellow;
+    } else if (hasMinLength) {
+      return Colors.orange;
+    } else {
+      return Colors.red;
     }
   }
 
   String _getStrengthText() {
     int strength = 0;
-    if (hasMinLength) strength++;
     if (hasUpperCase) strength++;
     if (hasLowerCase) strength++;
     if (hasNumbers) strength++;
     if (hasSpecialChar) strength++;
 
-    switch (strength) {
-      case 0:
-      case 1:
-        return "Very Weak";
-      case 2:
-        return "Weak";
-      case 3:
-        return "Fair";
-      case 4:
-        return "Good";
-      case 5:
-        return "Strong";
-      default:
-        return "";
+    if (!hasMinLength) {
+      return "Too Short";
+    } else if (strength >= 3) {
+      return "Strong";
+    } else if (strength >= 2) {
+      return "Good";
+    } else if (strength >= 1) {
+      return "Fair";
+    } else {
+      return "Weak";
     }
   }
 
@@ -126,7 +124,7 @@ class _PasswordScreenState extends State<PasswordScreen> {
               Container(
                 height: 4,
                 width: Get.width,
-                color: Colors.grey.withOpacity(.40),
+                color: Colors.grey.withAlpha((0.1 * 255).toInt()),
                 child: Row(
                   children: [
                     Container(
@@ -378,6 +376,42 @@ class _PasswordScreenState extends State<PasswordScreen> {
                   width: Get.width * 0.88,
                 ),
               ),
+              
+              // Debug information (can be removed in production)
+              if (passCon.text.isNotEmpty || confirmPassCon.text.isNotEmpty)
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: Get.width * 0.065),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(height: 8),
+                      AppText(
+                        text: "Debug Info:",
+                        fontSize: Get.width * 0.03,
+                        textcolor: Colors.grey,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      AppText(
+                        text: "Password Valid: $isPasswordValid",
+                        fontSize: Get.width * 0.028,
+                        textcolor: isPasswordValid ? Colors.green : Colors.red,
+                        fontWeight: FontWeight.w400,
+                      ),
+                      AppText(
+                        text: "Confirm Valid: $isConfirmPasswordValid",
+                        fontSize: Get.width * 0.028,
+                        textcolor: isConfirmPasswordValid ? Colors.green : Colors.red,
+                        fontWeight: FontWeight.w400,
+                      ),
+                      AppText(
+                        text: "Button Enabled: ${isPasswordValid && isConfirmPasswordValid}",
+                        fontSize: Get.width * 0.028,
+                        textcolor: (isPasswordValid && isConfirmPasswordValid) ? Colors.green : Colors.red,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ],
+                  ),
+                ),
               
               SizedBox(height: Get.height * 0.02),
             ],

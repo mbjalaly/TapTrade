@@ -67,8 +67,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   likeDislike(Map<String, dynamic> body) async {
-    final result =
-        await ProductService.instance.productLikeDislike(context, body);
+    await ProductService.instance.productLikeDislike(context, body);
   }
 
   addItems() {
@@ -136,7 +135,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 fontWeight: FontWeight.w700,
               ),
               SizedBox(
-                height: size.height * 0.8,
+                height: size.height * 0.70, // Reduced from 0.75 to 0.70
                 width: size.width,
                 child: GestureDetector(
                   onTap: () {
@@ -159,17 +158,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               matchEngine?.currentItem?.content.otherProduct;
                           NearbyUser nearbyUser =
                               matchEngine?.currentItem?.content.nearbyUser;
-                          int matchingCount =
-                              matchEngine?.currentItem?.content.matchCount;
+                          // Removed unused variable 'matchingCount'
 
-                          if (userProduct == null || otherProduct == null) {
-                            return const Center(
-                              child: Text('No product data available'),
-                            );
-                          }
                           return Center(
                             child: Container(
-                                height: size.height * 0.78,
+                                height: size.height * 0.68, // Reduced from 0.73 to 0.68
                                 width: size.width * 0.94,
                                 alignment: Alignment.center,
                                 decoration: BoxDecoration(
@@ -183,228 +176,137 @@ class _HomeScreenState extends State<HomeScreen> {
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Stack(
-                                      children: [
-                                        Container(
-                                          height: size.height * 0.6,
-                                          width: size.width,
-                                          decoration: BoxDecoration(
-                                            borderRadius:
-                                                BorderRadius.circular(15),
-                                            color: Colors.transparent,
-                                          ),
-                                        ),
-                                        Positioned(
-                                          left: 20,
-                                          bottom: 100,
-                                          child: FadeAnimation(
-                                            direction: AnimationDirection.ltr,
-                                            delay: 0.5,
-                                            child: Column(
-                                              children: [
-                                                Container(
-                                                  height: size.height * 0.3,
-                                                  width: size.width * 0.45,
-                                                  decoration: BoxDecoration(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            100),
-                                                    color: Colors.green,
-                                                    image: DecorationImage(
-                                                      image: NetworkImage(
-                                                          KeyConstants
-                                                                  .imageUrl +
-                                                              (userProduct
-                                                                      .image ??
-                                                                  '')),
-                                                      fit: BoxFit.fill,
-                                                    ),
-                                                  ),
-                                                ),
-                                                SizedBox(
-                                                  height: 10,
-                                                ),
-                                                FadeAnimation(
-                                                  direction:
-                                                      AnimationDirection.ltr,
-                                                  delay: 0.5,
-                                                  child: SizedBox(
-                                                    width: size.width * 0.4,
-                                                    child: Text(
-                                                      "${(userProduct.title ?? '').capitalize}",
-                                                      textAlign:
-                                                          TextAlign.center,
-                                                      style: TextStyle(
-                                                          fontFamily: 'Cinzel',
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          color: AppColors
-                                                              .primaryTextColor,
-                                                          fontSize: size.width *
-                                                              0.045),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
+                                    Expanded(
+                                      child: Stack(
+                                        children: [
+                                          Container(
+                                            height: size.height * 0.50, // Reduced from 0.55 to 0.50
+                                            width: size.width,
+                                            decoration: BoxDecoration(
+                                              borderRadius:
+                                                  BorderRadius.circular(15),
+                                              color: Colors.transparent,
                                             ),
                                           ),
-                                        ),
-                                        Positioned(
-                                          right: 20,
-                                          bottom: 100,
-                                          child: FadeAnimation(
-                                            direction: AnimationDirection.rtl,
-                                            delay: 0.5,
-                                            child: Column(
-                                              children: [
-                                                Container(
-                                                  height: size.height * 0.3,
-                                                  width: size.width * 0.45,
-                                                  decoration: BoxDecoration(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            100),
-                                                    color: Colors.green,
-                                                    image: DecorationImage(
-                                                      image: NetworkImage(
-                                                          KeyConstants
-                                                                  .imageUrl +
-                                                              (otherProduct
-                                                                      .image ??
-                                                                  '')),
-                                                      fit: BoxFit.fill,
+                                          Positioned(
+                                            left: 20,
+                                            bottom: 100,
+                                            child: FadeAnimation(
+                                              direction: AnimationDirection.ltr,
+                                              delay: 0.5,
+                                              child: Column(
+                                                children: [
+                                                  Container(
+                                                    height: size.height * 0.25, // Reduced from 0.3
+                                                    width: size.width * 0.45,
+                                                    decoration: BoxDecoration(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              100),
+                                                      color: Colors.green,
+                                                      image: DecorationImage(
+                                                        image: NetworkImage(
+                                                            KeyConstants
+                                                                    .imageUrl +
+                                                                (userProduct
+                                                                        .image ??
+                                                                    '')),
+                                                        fit: BoxFit.fill,
+                                                      ),
                                                     ),
                                                   ),
-                                                ),
-                                                SizedBox(
-                                                  height: 10,
-                                                ),
-                                                FadeAnimation(
-                                                  direction:
-                                                      AnimationDirection.rtl,
-                                                  delay: 0.5,
-                                                  child: SizedBox(
-                                                    width: size.width * 0.4,
-                                                    child: Text(
-                                                      "${(otherProduct.title ?? '').capitalize}",
-                                                      textAlign:
-                                                          TextAlign.center,
-                                                      style: TextStyle(
-                                                          fontFamily: 'Cinzel',
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          color: AppColors
-                                                              .primaryTextColor,
-                                                          fontSize: size.width *
-                                                              0.045),
+                                                  SizedBox(
+                                                    height: 10,
+                                                  ),
+                                                  FadeAnimation(
+                                                    direction:
+                                                        AnimationDirection.ltr,
+                                                    delay: 0.5,
+                                                    child: SizedBox(
+                                                      width: size.width * 0.4,
+                                                      child: Text(
+                                                        "${(userProduct.title ?? '').capitalize}",
+                                                        textAlign:
+                                                            TextAlign.center,
+                                                        style: TextStyle(
+                                                            fontFamily: 'Cinzel',
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            color: AppColors
+                                                                .primaryTextColor,
+                                                            fontSize: size.width *
+                                                                0.045),
+                                                      ),
                                                     ),
                                                   ),
-                                                )
-                                              ],
+                                                ],
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                        // Positioned(
-                                        //   bottom: 150,
-                                        //   left: 3,
-                                        //   right: 3,
-                                        //   child: Row(
-                                        //     mainAxisAlignment:
-                                        //         MainAxisAlignment.spaceBetween,
-                                        //     children: [
-                                        //       FadeAnimation(
-                                        //         direction:
-                                        //             AnimationDirection.ltr,
-                                        //         delay: 0.5,
-                                        //         child: CircleAvatar(
-                                        //           radius: 30,
-                                        //           backgroundColor: Colors.white,
-                                        //           child: Text(
-                                        //             "$matchingCount Word\nInterest",
-                                        //             style: const TextStyle(
-                                        //               fontSize: 10,
-                                        //               color: Colors.black,
-                                        //             ),
-                                        //             textAlign: TextAlign.center,
-                                        //           ),
-                                        //         ),
-                                        //       ),
-                                        //       FadeAnimation(
-                                        //         direction:
-                                        //             AnimationDirection.rtl,
-                                        //         delay: 0.5,
-                                        //         child: CircleAvatar(
-                                        //           radius: 30,
-                                        //           backgroundColor: Colors.white,
-                                        //           child: Text(
-                                        //             "$matchingCount Word\nInterest",
-                                        //             style: const TextStyle(
-                                        //               fontSize: 10,
-                                        //               color: Colors.black,
-                                        //             ),
-                                        //             textAlign: TextAlign.center,
-                                        //           ),
-                                        //         ),
-                                        //       ),
-                                        //     ],
-                                        //   ),
-                                        // ),
-                                        // Positioned(
-                                        //   left: 20,
-                                        //   right: 20,
-                                        //   top: size.height * 0.43,
-                                        //   child: Row(
-                                        //     mainAxisAlignment: MainAxisAlignment.spaceAround,
-                                        //     children: [
-                                        //       FadeAnimation(
-                                        //         direction:
-                                        //         AnimationDirection.ltr,
-                                        //         delay: 0.5,
-                                        //         child: SizedBox(
-                                        //           width: size.width * 0.4,
-                                        //           child: Text(
-                                        //             "${(userProduct.title ?? '').capitalize}",
-                                        //             textAlign: TextAlign.center,
-                                        //             style: TextStyle(
-                                        //                 fontFamily: 'Cinzel',
-                                        //                 fontWeight: FontWeight.bold,
-                                        //                 color: AppColors
-                                        //                     .primaryTextColor,
-                                        //                 fontSize:
-                                        //                     size.width * 0.045),
-                                        //           ),
-                                        //         ),
-                                        //       ),
-                                        //       FadeAnimation(
-                                        //         direction:
-                                        //         AnimationDirection.rtl,
-                                        //         delay: 0.5,
-                                        //         child: SizedBox(
-                                        //           width: size.width * 0.4,
-                                        //           child: Text(
-                                        //             "${(otherProduct.title ?? '').capitalize}",
-                                        //             textAlign: TextAlign.center,
-                                        //             style: TextStyle(
-                                        //                 fontFamily: 'Cinzel',
-                                        //                 fontWeight: FontWeight.bold,
-                                        //                 color: AppColors
-                                        //                     .primaryTextColor,
-                                        //                 fontSize:
-                                        //                 size.width * 0.045),
-                                        //           ),
-                                        //         ),
-                                        //       )
-                                        //     ],
-                                        //   ),
-                                        // )
-                                      ],
+                                          Positioned(
+                                            right: 20,
+                                            bottom: 100,
+                                            child: FadeAnimation(
+                                              direction: AnimationDirection.rtl,
+                                              delay: 0.5,
+                                              child: Column(
+                                                children: [
+                                                  Container(
+                                                    height: size.height * 0.25, // Reduced from 0.3
+                                                    width: size.width * 0.45,
+                                                    decoration: BoxDecoration(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              100),
+                                                      color: Colors.green,
+                                                      image: DecorationImage(
+                                                        image: NetworkImage(
+                                                            KeyConstants
+                                                                    .imageUrl +
+                                                                (otherProduct
+                                                                        .image ??
+                                                                    '')),
+                                                        fit: BoxFit.fill,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  SizedBox(
+                                                    height: 10,
+                                                  ),
+                                                  FadeAnimation(
+                                                    direction:
+                                                        AnimationDirection.rtl,
+                                                    delay: 0.5,
+                                                    child: SizedBox(
+                                                      width: size.width * 0.4,
+                                                      child: Text(
+                                                        "${(otherProduct.title ?? '').capitalize}",
+                                                        textAlign:
+                                                            TextAlign.center,
+                                                        style: TextStyle(
+                                                            fontFamily: 'Cinzel',
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            color: AppColors
+                                                                .primaryTextColor,
+                                                            fontSize: size.width *
+                                                                0.045),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                     FadeAnimation(
                                       direction: AnimationDirection.btt,
                                       delay: 0.5,
                                       child: Container(
                                         width: size.width,
-                                        height: size.height * 0.14,
+                                        height: size.height * 0.10, // Reduced from 0.12 to 0.10
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 10, vertical: 10),
                                         decoration: BoxDecoration(
@@ -416,9 +318,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                             end: Alignment.bottomCenter,
                                             colors: [
                                               Colors.black
-                                                  .withOpacity(0.1), // #ecfcff
+                                                  .withAlpha((0.1 * 255).toInt()),
                                               Colors.black
-                                                  .withOpacity(0.7), // #fff5db
+                                                  .withAlpha((0.7 * 255).toInt()),
                                             ],
                                           ),
                                         ),
@@ -434,16 +336,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                                       .spaceBetween,
                                               children: [
                                                 AppText(
-                                                  text: "Let’s Trade ?",
+                                                  text: "Let's Trade ?",
                                                   fontWeight: FontWeight.w900,
                                                   fontSize: size.width * 0.065,
                                                   textcolor: Colors.white,
                                                 ),
-                                                // const Icon(
-                                                //   Icons.info,
-                                                //   color: Colors.white,
-                                                //   size: 25,
-                                                // ),
                                               ],
                                             ),
                                             Row(
@@ -459,7 +356,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 AppText(
                                                   text:
                                                       "${calculateDistance(nearbyUser.latitude ?? 0.0, nearbyUser.longitude ?? 0.0).toStringAsFixed(1)} miles away",
-                                                  // "${(double.parse((nearbyUser.tradeRadius ?? 0.0).toString()) * 0.621371).toStringAsFixed(1)} miles away",
                                                   fontWeight: FontWeight.w400,
                                                   fontSize: size.width * 0.038,
                                                   textcolor: Colors.white,

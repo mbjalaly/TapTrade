@@ -4,12 +4,10 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:taptrade/Screens/Auth/LoginScreen/loginScreen.dart';
-import 'package:taptrade/Screens/Auth/SsoAccount/phoneNumberSignIn.dart';
 import 'package:taptrade/Screens/Auth/createAccount/userNameScreen.dart';
-import 'package:taptrade/Services/IntegrationServices/generalService.dart';
-import 'package:taptrade/Services/IntegrationServices/googleSignIn.dart';
 import 'package:taptrade/Utills/appColors.dart';
 import 'package:taptrade/Widgets/customText.dart';
+import 'package:taptrade/Screens/Auth/ForgotPassword/forgotPasswordScreen.dart';
 
 class GetStartedScreen extends StatefulWidget {
   const GetStartedScreen({super.key});
@@ -428,7 +426,7 @@ class _GetStartedScreenState extends State<GetStartedScreen> with TickerProvider
                       // Trouble logging in (always visible)
                       GestureDetector(
                         onTap: () {
-
+                          Get.to(ForgotPasswordScreen());
                         },
                         child: AppText(
                           text: "Trouble logging in?",
@@ -458,7 +456,7 @@ class _GetStartedScreenState extends State<GetStartedScreen> with TickerProvider
                         child: Container(
                           padding: EdgeInsets.all(Get.width * 0.03),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
+                            color: Colors.white.withAlpha((0.1 * 255).toInt()),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Icon(
