@@ -20,13 +20,13 @@ class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
   List<String> bottomImages = [
     "assets/images/t.png",
     "assets/images/fav.png",
-    "assets/images/profile.png",
+    "assets/images/ProfileSettingImages/setting.png",
   ];
 
   List<String> bottomLabels = [
     "My Products",
     "Home",
-    "Profile",
+    "More",
   ];
 
   List<Widget> pages = [
@@ -168,8 +168,8 @@ class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
         children: [
           Image.asset(
             bottomImages[index],
-            height: 25,
-            width: 25,
+            height: index == 2 ? 30 : 25, // Bigger icon for "More" tab
+            width: index == 2 ? 30 : 25,  // Bigger icon for "More" tab
             color: isSelected ? AppColors.primaryColor : Colors.grey,
           ),
           const SizedBox(height: 4),
