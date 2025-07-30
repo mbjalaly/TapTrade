@@ -205,6 +205,7 @@ class _MyProductScreenState extends State<MyProductScreen> with SingleTickerProv
                 elevation: 3,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(18), // slightly larger radius
+                  side: BorderSide(color: AppColors.darkBlue, width: 1.5),
                 ),
                 margin: const EdgeInsets.only(bottom: 16), // more space between cards
                 child: InkWell(

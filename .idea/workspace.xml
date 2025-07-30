@@ -4,11 +4,7 @@
     <option name="autoReloadType" value="NONE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="9bea278c-9680-41a2-8cd0-668a2e52c8fc" name="Changes" comment="forget password modified + home screen adjustment + the my products">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/Screens/Dashboard/MyProduct/myProductScreen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/Screens/Dashboard/MyProduct/myProductScreen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pubspec.lock" beforeDir="false" afterPath="$PROJECT_DIR$/pubspec.lock" afterDir="false" />
-    </list>
+    <list default="true" id="9bea278c-9680-41a2-8cd0-668a2e52c8fc" name="Changes" comment="forget password modified + home screen adjustment + the my products" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
