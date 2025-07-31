@@ -538,7 +538,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                                       width: double.infinity,
                                       height: 56,
                                       fontSize: 18,
-                                      buttonColor: (isEmailValid && isPasswordValid) 
+                                      backgroundColor: (isEmailValid && isPasswordValid) 
                                           ? AppColors.primaryColor 
                                           : AppColors.greyTextColor.withValues(alpha: 0.3),
                                     ),

@@ -199,7 +199,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       onPressed: isLoading ? null : _submitForgotPassword,
                       width: double.infinity,
                       height: 55.0,
-                      buttonColor: AppColors.primaryColor,
+                      backgroundColor: AppColors.primaryColor,
                       isLoading: isLoading,
                     ),
                   ),

@@ -9,7 +9,8 @@ class AppButton extends StatefulWidget {
   final double? height;
   final double? fontSize;
   final Color? textColor;
-  final Color? buttonColor;
+  final Color? backgroundColor;
+  final Color? borderColor;
   final bool? isLoading;
   final EdgeInsetsGeometry? margin;
 
@@ -21,7 +22,8 @@ class AppButton extends StatefulWidget {
     this.height,
     this.fontSize,
     this.textColor,
-    this.buttonColor,
+    this.backgroundColor,
+    this.borderColor,
     this.isLoading,
     this.margin,
   }) : super(key: key);
@@ -48,8 +50,9 @@ class _AppButtonState extends State<AppButton> {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(25),
-          color: isDisabled ? Colors.grey.withValues(alpha: 0.3) : widget.buttonColor,
-          gradient: (widget.buttonColor != null || isDisabled) ? null : const LinearGradient(
+          color: isDisabled ? Colors.grey.withValues(alpha: 0.3) : widget.backgroundColor,
+          border: widget.borderColor != null ? Border.all(color: widget.borderColor!, width: 2) : null,
+          gradient: (widget.backgroundColor != null || isDisabled) ? null : const LinearGradient(
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
             colors: [
@@ -63,7 +66,7 @@ class _AppButtonState extends State<AppButton> {
         child: (widget.isLoading ?? false) ? const CircularProgressIndicator(color: AppColors.primaryTextColor,) : Text(
           widget.text ?? "",
           style: TextStyle(
-              color: isDisabled ? Colors.grey : Colors.white,
+              color: isDisabled ? Colors.grey : (widget.textColor ?? Colors.white),
               fontSize: Size.width > 500
                   ? Size.width * 0.03
                   : widget.fontSize ?? Size.width * 0.036,

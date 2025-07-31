@@ -94,9 +94,10 @@ class _MyProductScreenState extends State<MyProductScreen> with SingleTickerProv
                 ));
             getData();
           },
-          child: Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Image.asset("assets/images/t.png"),
+          child: Icon(
+            Icons.add,
+            color: AppColors.darkBlue, // Dark blue color
+            size: 45,
           ),
         ),
       ) : null,
@@ -200,7 +201,13 @@ class _MyProductScreenState extends State<MyProductScreen> with SingleTickerProv
             itemCount: myProductList.length,
             itemBuilder: (context, index) {
               final product = myProductList[index];
-              final likeCount = likedProductList.where((like) => like.userProduct?.id == product.id).length;
+              // Count unique products that liked this product
+              final uniqueLikes = likedProductList
+                  .where((like) => like.userProduct?.id == product.id)
+                  .map((like) => like.otherProduct?.id)
+                  .where((id) => id != null)
+                  .toSet()
+                  .length;
               return Card(
                 elevation: 3,
                 shape: RoundedRectangleBorder(
@@ -225,24 +232,51 @@ class _MyProductScreenState extends State<MyProductScreen> with SingleTickerProv
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16), // more padding
                     child: Row(
                       children: [
-                        (product.image != null && product.image!.isNotEmpty)
-                            ? Container(
-                                width: 64, // bigger image
-                                height: 64,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: AppColors.darkBlue, width: 2),
-                                  image: DecorationImage(
-                                    image: NetworkImage(KeyConstants.imageUrl + product.image!),
+                        Container(
+                          width: 64, // bigger image
+                          height: 64,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppColors.darkBlue, width: 2),
+                            color: Colors.grey[100],
+                          ),
+                          child: ClipOval(
+                            child: (product.image != null && product.image!.isNotEmpty)
+                                ? Image.network(
+                                    KeyConstants.imageUrl + product.image!,
                                     fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Container(
+                                        color: Colors.grey[200],
+                                        child: Icon(
+                                          Icons.image,
+                                          size: 32,
+                                          color: Colors.grey[400],
+                                        ),
+                                      );
+                                    },
+                                    loadingBuilder: (context, child, loadingProgress) {
+                                      if (loadingProgress == null) return child;
+                                      return Container(
+                                        color: Colors.grey[200],
+                                        child: const Center(
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  )
+                                : Container(
+                                    color: Colors.grey[200],
+                                    child: Icon(
+                                      Icons.image,
+                                      size: 32,
+                                      color: Colors.grey[400],
+                                    ),
                                   ),
-                                ),
-                              )
-                            : CircleAvatar(
-                                radius: 32,
-                                backgroundColor: Colors.grey[200],
-                                child: Icon(Icons.image, size: 36, color: Colors.grey[400]),
-                              ),
+                          ),
+                        ),
                         const SizedBox(width: 24), // more space between image and text
                         Expanded(
                           child: Column(
@@ -267,7 +301,7 @@ class _MyProductScreenState extends State<MyProductScreen> with SingleTickerProv
                                       children: [
                                         const Icon(Icons.favorite, color: Colors.red, size: 18),
                                         const SizedBox(width: 6),
-                                        Text('$likeCount likes', style: const TextStyle(fontSize: 14, color: Colors.black87)),
+                                        Text('$uniqueLikes likes', style: const TextStyle(fontSize: 14, color: Colors.black87)),
                                       ],
                                     ),
                                   ),

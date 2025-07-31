@@ -129,7 +129,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 height: 10,
               ),
               AppText(
-                text: "BAZAAR",
+                text: "TapTrade",
                 fontSize: size.width * 0.078,
                 textcolor: AppColors.darkBlue,
                 fontWeight: FontWeight.w700,
