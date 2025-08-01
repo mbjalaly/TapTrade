@@ -40,7 +40,6 @@ class SoundManager {
 
   /// Preload all sounds into memory.
   Future<void> loadSounds() async {
-    await _loadSound("anyButton", "sounds/anyButton.mp3");
     await _loadSound("bazaarMatch", "sounds/bazaarMatch.mp3");
     await _loadSound("bazaarSwipeLeft", "sounds/bazaarSwipeLeft.mp3");
     await _loadSound("bazaarSwipeRight", "sounds/bazaarSwipeRight.mp3");

@@ -20,7 +20,7 @@ class AddBioScreen extends StatefulWidget {
   State<AddBioScreen> createState() => _AddBioScreenState();
 }
 
-class _AddBioScreenState extends State<AddBioScreen> {
+class _AddBioScreenState extends State<AddBioScreen> with TickerProviderStateMixin {
   var userController = Get.find<UserController>();
   String code = "";
   TextEditingController name = TextEditingController();
@@ -30,11 +30,27 @@ class _AddBioScreenState extends State<AddBioScreen> {
   TextEditingController contact = TextEditingController();
   TextEditingController email = TextEditingController();
   bool isLoading = false;
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
 
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeOut));
+    
+    _animationController.forward();
+
     name.text = widget.profileData.data?.fullName ?? '';
     userName.text = widget.profileData.data?.username ?? '';
     gender.text = (widget.profileData.data?.gender ?? '').isEmpty ? 'Male' : widget.profileData.data?.gender ?? '';
@@ -45,318 +61,426 @@ class _AddBioScreenState extends State<AddBioScreen> {
 
   @override
   void dispose() {
-    // TODO: implement dispose
-    super.dispose();
     name.dispose();
     userName.dispose();
     gender.dispose();
     dob.dispose();
     contact.dispose();
     email.dispose();
+    _animationController.dispose();
+    super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    Size size = MediaQuery.of(context).size;
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        automaticallyImplyLeading: false,
-        centerTitle: false,
-        title: Image.asset(
-          "assets/images/t.png",
-          height: 30,
-          width: 30,
-        ),),
-      body: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Center(
-              child: AppText(
-                text: "User Information",
-                fontSize: size.width * 0.078,
-                textcolor: AppColors.darkBlue,
-                fontWeight: FontWeight.w700,
+  Widget _buildHeader() {
+    return Container(
+      margin: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.primaryColor.withOpacity(0.1),
+            AppColors.secondaryColor.withOpacity(0.05),
+            AppColors.darkBlue.withOpacity(0.02),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primaryColor.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.person_outline,
+            size: 60,
+            color: AppColors.primaryColor,
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Trader Information',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: AppColors.darkBlue,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Update your personal information to help other traders know you better.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFormField({
+    required String label,
+    required String hint,
+    required TextEditingController controller,
+    required IconData icon,
+    bool isRequired = false,
+    VoidCallback? onTap,
+    bool readOnly = false,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                icon,
+                size: 20,
+                color: AppColors.primaryColor,
               ),
-            ),
-            const SizedBox(
-              height: 10,
-            ),
-            Stack(
-              children: [
-                Container(
-                  width: size.width,
-                  height: size.height * 0.77,
-                  color: Colors.transparent,
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: AppColors.darkBlue,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
                 ),
-                Center(
-                  child: Material(
-                    elevation: 4.5,
-                    borderRadius: BorderRadius.circular(60),
-                    color: Colors.white,
-                    child: Container(
-                      width: size.width * 0.9,
-                      height: size.height * 0.75,
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 20, vertical: 40),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(60),
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            AppColors.primaryColor.withOpacity(0.2), // #ecfcff
-                            AppColors.secondaryColor
-                                .withOpacity(0.2), // #fff5db
-                          ],
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: [
-                          fieldWidget("NAME:", name, false,null),
-                          const SizedBox(
-                            height: 10,
-                          ),
-                          fieldWidget("USER NAME:", userName, false,null),
-                          const SizedBox(
-                            height: 10,
-                          ),
-                          genderDropdownWidget("GENDER:", gender.text.capitalize ?? '', (value){
-                            gender.text = value ?? '';
-                            setState(() {
-
-                            });
-                          }),
-                          const SizedBox(
-                            height: 10,
-                          ),
-                          fieldWidget("D.O.B :", dob, true,() async {
-                            DateTime? picked = await showDatePicker(
-                              context: context,
-                              initialDate: DateTime.now(),
-                              firstDate: DateTime(1900),
-                              lastDate: DateTime(2100),
-                            );
-                            if (picked != null) {
-                              setState(() {
-                                // Format the selected date as YYYY-MM-DD
-                                dob.text = DateFormat('yyyy-MM-dd').format(picked);
-                              });
-                            }
-                          },),
-                          const SizedBox(
-                            height: 10,
-                          ),
-                          fieldWidget("CONTACT#:", contact, false,null,keyboardType: TextInputType.number,prefix: true),
-                          const SizedBox(
-                            height: 10,
-                          ),
-                          fieldWidget("EMAIL:", email, true,null),
-                        ],
-                      ),
-                    ),
+              ),
+              if (isRequired)
+                const Text(
+                  ' *',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                Positioned(
-                  bottom: 0,
-                  left: size.width / 4.5,
-                  right: size.width / 4.5,
-                  child: AppButton(
-                    onPressed: () async {
-                      String? message;
-                      if (name.text.trim().isEmpty) {
-                        message = "Please add Name";
-                      } else if (userName.text.trim().isEmpty) {
-                        message = "Please add userName";
-                      } else if (gender.text.trim().isEmpty) {
-                        message = "Please select gender";
-                      } else if (dob.text.trim().isEmpty) {
-                        message = "Please add DOB";
-                      } else if (contact.text.trim().isEmpty) {
-                        message = "Please add contact number";
-                      } else if (email.text.trim().isEmpty) {
-                        message = "Please add email";
-                      } else {}
-
-                      if (message != null) {
-                        ShowMessage.notify(context, message);
-                        return;
-                      }
-                      Map<String, dynamic> body = {
-                        'username': userName.text,
-                        'gender': gender.text.trim().toLowerCase(),
-                        'dob': dob.text.trim(),
-                        'full_name': name.text.trim(),
-                        'contact': contact.text.trim(),
-                      };
-                      String id = userController.userProfile.value.data?.id ??
-                              '';
-                      setState(() {
-                        isLoading = true;
-                      });
-                      final result = await ProfileService.instance
-                          .updateProfile(context, body, id);
-                      await ProfileService.instance.getProfile(context);
-                      setState(() {
-                        isLoading = false;
-                      });
-                      if (result.status == Status.COMPLETED) {
-                        ShowMessage.notify(context, "${result.responseData['message']}");
-                        Navigator.pop(context);
-                      } else {
-                        ShowMessage.notify(context, "${result.message}");
-                      }
-                    },
-                    isLoading: isLoading,
-                    width: size.width * 0.4,
-                    fontSize: size.width * 0.045,
-                    text: "Done",
-                    height: size.height * 0.065,
-                    buttonColor: AppColors.primaryColor,
-                  ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
-          ],
+            child: TextFormField(
+              controller: controller,
+              readOnly: readOnly,
+              onTap: onTap,
+              decoration: InputDecoration(
+                hintText: hint,
+                hintStyle: TextStyle(
+                  color: Colors.grey[400],
+                  fontSize: 14,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(
+                    color: AppColors.primaryColor,
+                    width: 2,
+                  ),
+                ),
+                filled: true,
+                fillColor: Colors.grey[50],
+                contentPadding: const EdgeInsets.all(16),
+                suffixIcon: readOnly ? const Icon(Icons.arrow_drop_down) : null,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFormSection() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(left: 8, bottom: 16),
+            child: Text(
+              'Personal Details',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.darkBlue,
+              ),
+            ),
+          ),
+          _buildFormField(
+            label: "Full Name",
+            hint: "Enter your full name",
+            controller: name,
+            icon: Icons.person,
+            isRequired: true,
+          ),
+          _buildFormField(
+            label: "Username",
+            hint: "Choose a unique username",
+            controller: userName,
+            icon: Icons.alternate_email,
+            isRequired: true,
+          ),
+          _buildFormField(
+            label: "Gender",
+            hint: "Select your gender",
+            controller: gender,
+            icon: Icons.person_outline,
+            readOnly: true,
+            onTap: () => _showGenderDialog(),
+          ),
+          _buildFormField(
+            label: "Date of Birth",
+            hint: "Select your date of birth",
+            controller: dob,
+            icon: Icons.calendar_today,
+            readOnly: true,
+            onTap: () => _selectDate(context),
+          ),
+          _buildFormField(
+            label: "Contact Number",
+            hint: "Enter your phone number",
+            controller: contact,
+            icon: Icons.phone,
+            isRequired: true,
+          ),
+          _buildFormField(
+            label: "Email Address",
+            hint: "Enter your email address",
+            controller: email,
+            icon: Icons.email,
+            isRequired: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSaveButton() {
+    return Container(
+      margin: const EdgeInsets.all(20),
+      width: double.infinity,
+      height: 56,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [AppColors.primaryColor, AppColors.secondaryColor],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primaryColor.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: isLoading ? null : _saveProfile,
+          borderRadius: BorderRadius.circular(16),
+          child: Center(
+            child: isLoading
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.save,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Save Changes',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
         ),
       ),
     );
   }
 
-  Widget fieldWidget(
-      String fieldName, TextEditingController controller, bool readOnly,void Function()? onTap,{TextInputType? keyboardType, bool prefix = false}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          "$fieldName",
-          style: const TextStyle(
-              color: AppColors.primaryTextColor,
-              fontSize: 16,
-              fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(
-          height: 05,
-        ),
-        Container(
-          height: 45,
-          child: TextFormField(
-            controller: controller,
-            readOnly: readOnly,
-            keyboardType: keyboardType,
-            onTap: onTap,
-            decoration: InputDecoration(
-              filled: true, // Enable the fill color
-              fillColor: AppColors.secondaryColor
-                  .withOpacity(0.3), // Set the fill color
-              border: OutlineInputBorder(
-                borderRadius:
-                    BorderRadius.circular(50.0), // Set the border radius
-                borderSide: BorderSide.none, // Remove the default border
-              ),
-              contentPadding: const EdgeInsets.only(
-                  left: 15.0,right: 15), // Padding inside the text field
-              prefix: prefix ? GestureDetector(
-                onTap: () {
-                  showCountryPicker(
-                    exclude: <String>[
-                      'IL',
-                    ],
-                    context: context,
-                    countryListTheme: const CountryListThemeData(
-                      flagSize: 25,
-                      backgroundColor: Colors.white,
-                      bottomSheetHeight: 500,
-                      // Optional. Country list modal height
-                      //Optional. Sets the border radius for the bottomsheet.
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(20.0),
-                        topRight: Radius.circular(20.0),
-                      ),
-                      //Optional. Styles the search field.
-                      inputDecoration: InputDecoration(
-                        labelText: 'Search',
-                        hintText: 'Start typing to search',
-                        prefixIcon: Icon(Icons.search),
-                      ),
-                    ),
-                    onSelect: (Country scountry) {
-                      code =
-                      "${scountry.flagEmoji} + ${scountry.phoneCode}";
-                      setState(() {});
-                      print('Select country: ${scountry.flagEmoji}');
-                    },
-                  );
-                },
-                child: Container(
-                  padding: EdgeInsets.only(right: 03),
-                  margin: EdgeInsets.only(right: 03),
-                  decoration: const BoxDecoration(
-                    border: Border(right: BorderSide(color: AppColors.darkBlue,width: 1))
-                  ),
-                  child: AppText(
-                    text: code == "" ? "🇸🇦 +966" : code,
-                    textcolor: Colors.black,
-                    fontSize: Get.width * 0.035,
-                  ),
-                ),
-              ) : null,
+  void _showGenderDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'Select Gender',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: AppColors.darkBlue,
             ),
           ),
-        ),
-      ],
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildGenderOption('Male'),
+              _buildGenderOption('Female'),
+              _buildGenderOption('Other'),
+            ],
+          ),
+        );
+      },
     );
   }
 
-
-  Widget genderDropdownWidget(
-      String fieldName,
-      String selectedValue,
-      void Function(String?) onChanged) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          fieldName,
-          style: const TextStyle(
-              color: AppColors.primaryTextColor,
-              fontSize: 16,
-              fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(
-          height: 5,
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 15.0),
-          height: 45,
-          decoration: BoxDecoration(
-            color: AppColors.secondaryColor.withOpacity(0.3),
-            borderRadius: BorderRadius.circular(50.0),
-          ),
-          child: DropdownButtonFormField<String>(
-            value: selectedValue,
-            items: ["Male", "Female","Other"].map((String value) {
-              return DropdownMenuItem<String>(
-                value: value,
-                child: Text(value),
-              );
-            }).toList(),
-            onChanged: onChanged,
-            decoration: InputDecoration(
-              contentPadding: EdgeInsets.zero,
-              border: InputBorder.none, // Remove the dropdown border
-            ),
-            dropdownColor: AppColors.secondaryColor, // Optional dropdown color
-          ),
-        ),
-      ],
+  Widget _buildGenderOption(String genderOption) {
+    return ListTile(
+      leading: Radio<String>(
+        value: genderOption,
+        groupValue: gender.text,
+        onChanged: (value) {
+          setState(() {
+            gender.text = value!;
+          });
+          Navigator.of(context).pop();
+        },
+        activeColor: AppColors.primaryColor,
+      ),
+      title: Text(genderOption),
+      onTap: () {
+        setState(() {
+          gender.text = genderOption;
+        });
+        Navigator.of(context).pop();
+      },
     );
   }
 
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now().subtract(const Duration(days: 6570)), // 18 years ago
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: AppColors.primaryColor,
+              onPrimary: Colors.white,
+              onSurface: AppColors.darkBlue,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null && picked != DateTime.now()) {
+      setState(() {
+        dob.text = DateFormat('yyyy-MM-dd').format(picked);
+      });
+    }
+  }
+
+  Future<void> _saveProfile() async {
+    if (name.text.isEmpty || userName.text.isEmpty || contact.text.isEmpty || email.text.isEmpty) {
+      ShowMessage.notify(context, "Please fill in all required fields");
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+    });
+
+    Map<String, dynamic> body = {
+      'full_name': name.text,
+      'username': userName.text,
+      'gender': gender.text,
+      'dob': dob.text,
+      'contact': contact.text,
+      'email': email.text,
+    };
+
+    String id = userController.userProfile.value.data?.id ?? '';
+    final result = await ProfileService.instance.updateProfile(context, body, id);
+
+    setState(() {
+      isLoading = false;
+    });
+
+    if (result.status == Status.COMPLETED) {
+      await ProfileService.instance.getProfile(context);
+      ShowMessage.notify(context, "Profile updated successfully!");
+      Navigator.of(context).pop();
+    } else {
+      ShowMessage.notify(context, result.responseData['message'] ?? "Failed to update profile");
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.grey[50],
+      appBar: AppBar(
+        backgroundColor: AppColors.primaryColor,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: const Text('Trader Information'),
+        centerTitle: true,
+      ),
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: SlideTransition(
+          position: _slideAnimation,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              children: [
+                _buildHeader(),
+                _buildFormSection(),
+                _buildSaveButton(),
+                const SizedBox(height: 30),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

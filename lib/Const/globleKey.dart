@@ -4,7 +4,7 @@ class KeyConstants {
   static const String graphCurrency = 'graphCurrency';
   static const String onboardingCompleted = 'onboardingCompleted';
   static const String fcmToken = 'fcmToken';
-  static const String imageUrl = 'https://taptradebackend.pythonanywhere.com';
+  static const String imageUrl = 'https://taptradebackend.pythonanywhere.com/';
   static const String imagePlaceHolder = 'https://archive.org/download/placeholder-image/placeholder-image.jpg';
 }
 

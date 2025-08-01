@@ -49,21 +49,32 @@ class AuthService {
   )
   async {
     try{
+      print("AuthService: Attempting login with body: $body");
       final result = await ApiService.postRequestData(ApiEndPoint.login, body, context);
+      print("AuthService: Login successful with result: $result");
       return ApiResponse.completed(result);
     }catch (e) {
-      printLog("ApiException: ${e}");
+      printLog("AuthService: Login error: ${e}");
       if (e is ApiException) {
         // Handle ApiException
-        printLog("ApiException: ${e.message}");
+        printLog("AuthService: ApiException: ${e.message}");
 
-        Map<String, dynamic> errorMessageJson = json.decode(e.message);
-        String errorMessage =
-            errorMessageJson['error'] ?? 'An error occurred';
-        ShowMessage.inDialog(context,errorMessage.capitalizeFirst.toString(), true);
+        try {
+          Map<String, dynamic> errorMessageJson = json.decode(e.message);
+          String errorMessage =
+              errorMessageJson['error'] ?? errorMessageJson['message'] ?? 'An error occurred';
+          ShowMessage.inDialog(context,errorMessage.capitalizeFirst.toString(), true);
 
-        return ApiResponse.error(errorMessage);
+          return ApiResponse.error(errorMessage);
+        } catch (jsonError) {
+          // If JSON parsing fails, use the raw error message
+          printLog("AuthService: JSON parsing error: $jsonError");
+          ShowMessage.inDialog(context, e.message, true);
+          return ApiResponse.error(e.message);
+        }
       } else {
+        printLog("AuthService: Non-ApiException error: $e");
+        ShowMessage.inDialog(context, "Network error. Please check your connection.", true);
         return ApiResponse.error(e.toString());
       }
     }

@@ -23,7 +23,7 @@ class TradePreferences extends StatefulWidget {
   State<TradePreferences> createState() => _TradePreferencesState();
 }
 
-class _TradePreferencesState extends State<TradePreferences> {
+class _TradePreferencesState extends State<TradePreferences> with TickerProviderStateMixin {
   List<String> selectedInterest = [];
   var userController = Get.find<UserController>();
   List<String> interest = [];
@@ -34,25 +34,34 @@ class _TradePreferencesState extends State<TradePreferences> {
   TextEditingController interestController = TextEditingController();
   GoogleMapController? _googleMapController;
   LatLng? _currentPosition;
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
 
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeOut));
+    
+    _animationController.forward();
+
     radius = double.parse(
         (userController.getPreference.value.tradeRadius ?? 0.0).toString());
-    // print("-=-=-=-=-=-=-= ${selectedInterest}");
-    // print("-=-=-=-=-=-=-= ${userController.getPreference.value.interests
-    //     ?.map((e) => e.interestName) // Assuming e.name can be null
-    //     .whereType<String>() // Filter out null values
-    //     .toList() ??
-    //     []}");
     selectedInterest = userController.getPreference.value.interests
-            ?.map((e) => e.interestName) // Assuming e.name can be null
-            .whereType<String>() // Filter out null values
+            ?.map((e) => e.interestName)
+            .whereType<String>()
             .toList() ??
         [];
-    // print("-=-=-=-=-=-=-= ${selectedInterest}");
     if (selectedInterest.isNotEmpty) {
       interestController.text = selectedInterest.join(', ');
     }
@@ -62,6 +71,12 @@ class _TradePreferencesState extends State<TradePreferences> {
             .toList() ??
         [];
     _getCurrentLocation();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
   }
 
   Future<void> _getCurrentLocation() async {
@@ -92,410 +107,513 @@ class _TradePreferencesState extends State<TradePreferences> {
     });
   }
 
-  // void showInterestSelectionDialog() async {
-  //   showDialog(
-  //     context: context,
-  //     builder: (context) {
-  //       return AlertDialog(
-  //         title: const Text('Select Interest'),
-  //         content: StatefulBuilder(
-  //             builder: (BuildContext context, StateSetter setState) {
-  //           return SingleChildScrollView(
-  //             child: Column(
-  //               children: interest.map((item) {
-  //                 final isSelected = selectedInterest.contains(item);
-  //                 return CheckboxListTile(
-  //                   value: isSelected,
-  //                   title: Text(item),
-  //                   onChanged: (bool? value) {
-  //                     setState(() {
-  //                       if (value == true) {
-  //                         selectedInterest.add(item);
-  //                       } else {
-  //                         selectedInterest.remove(item);
-  //                       }
-  //                     });
-  //                   },
-  //                 );
-  //               }).toList(),
-  //             ),
-  //           );
-  //         }),
-  //         actions: [
-  //           TextButton(
-  //             onPressed: () {
-  //               Navigator.pop(context); // Cancel selection
-  //             },
-  //             child: const Text('CANCEL'),
-  //           ),
-  //           TextButton(
-  //             onPressed: () {
-  //               Navigator.pop(context); // Confirm selection
-  //             },
-  //             child: const Text('OK'),
-  //           ),
-  //         ],
-  //       );
-  //     },
-  //   );
-  // }
+  Widget _buildHeader() {
+    return Container(
+      margin: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.primaryColor.withOpacity(0.1),
+            AppColors.secondaryColor.withOpacity(0.05),
+            AppColors.darkBlue.withOpacity(0.02),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primaryColor.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.flash_on,
+            size: 60,
+            color: AppColors.primaryColor,
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Trade Preferences',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: AppColors.darkBlue,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Customize your trading preferences to find better matches.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-  void showInterestSelectionDialog() async {
-    showDialog(
-      context: context,
-      builder: (context) {
-        Size size = MediaQuery.of(context).size;
-        return Dialog(
-          insetPadding: EdgeInsets.zero,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: StatefulBuilder(
-              builder: (BuildContext context, StateSetter setState) {
-            return Container(
-              width: size.width * 0.9,
-              height: size.height * 0.8,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    AppColors.primaryColor.withOpacity(0.2), // #ecfcff
-                    AppColors.secondaryColor.withOpacity(0.2), // #fff5db
+  Widget _buildInterestSection() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(left: 8, bottom: 16),
+            child: Text(
+              'Trading Interests',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.darkBlue,
+              ),
+            ),
+          ),
+          _buildFormField(
+            label: "Interests",
+            hint: "Select your trading interests",
+            controller: interestController,
+            icon: Icons.interests,
+            readOnly: true,
+            onTap: () => _showInterestDialog(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRadiusSection() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(left: 8, bottom: 16),
+            child: Text(
+              'Trade Radius',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.darkBlue,
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.location_on,
+                      color: AppColors.primaryColor,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      "Trade Radius",
+                      style: TextStyle(
+                        color: AppColors.darkBlue,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ],
                 ),
-                borderRadius:
-                    BorderRadius.circular(12), // Match the dialog shape
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    height: size.height * 0.0525,
-                    width: size.width,
-                    child: Center(
-                      child: Text(
-                        'Select Interests',
-                        style: TextStyle(
-                          fontSize: size.width * 0.06,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors
-                              .primaryTextColor, // Contrast text with the gradient
-                        ),
-                      ),
+                const SizedBox(height: 16),
+                Text(
+                  "${radius.toStringAsFixed(1)} km",
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primaryColor,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    activeTrackColor: AppColors.primaryColor,
+                    inactiveTrackColor: AppColors.primaryColor.withOpacity(0.3),
+                    thumbColor: AppColors.primaryColor,
+                    overlayColor: AppColors.primaryColor.withOpacity(0.2),
+                    valueIndicatorTextStyle: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  SizedBox(
-                    width: size.width,
-                    height: size.height * 0.65,
-                    child: SingleChildScrollView(
-                      child: Column(
-                        children: interest.map((item) {
-                          final isSelected = selectedInterest.contains(item);
-                          return CheckboxListTile(
-                            value: isSelected,
-                            title: Text(
-                              "${item.capitalize}",
-                              style: TextStyle(
-                                  color: AppColors.primaryTextColor,
-                                  fontSize: size.width * 0.04,
-                                  fontWeight: FontWeight.w600), // White text
-                            ),
-                            activeColor: AppColors.secondaryColor,
-                            checkColor: AppColors
-                                .primaryTextColor, // Contrast for the checkbox
-                            onChanged: (bool? value) {
-                              setState(() {
-                                if (value == true) {
-                                  selectedInterest.add(item);
-                                } else {
-                                  selectedInterest.remove(item);
-                                }
-                                interestController.text =
-                                    selectedInterest.join(', ');
-                              });
-                            },
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.pop(context);
+                  child: Slider(
+                    value: radius,
+                    min: 1.0,
+                    max: 50.0,
+                    divisions: 49,
+                    label: "${radius.toStringAsFixed(1)} km",
+                    onChanged: (value) {
+                      setState(() {
+                        radius = value;
+                      });
                     },
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 10),
-                      width: size.width * 0.5,
-                      height: size.height * 0.05,
-                      decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12.0),
-                          color: AppColors.primaryTextColor),
-                      child: const Center(
-                        child: Text(
-                          'Done',
-                          style: TextStyle(color: Colors.white),
-                        ),
+                  ),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "1 km",
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 12,
                       ),
                     ),
-                  ),
-                ],
+                    Text(
+                      "50 km",
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMapSection() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(left: 8, bottom: 16),
+            child: Text(
+              'Location',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.darkBlue,
               ),
-            );
-          }),
+            ),
+          ),
+          Container(
+            height: 200,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: _currentPosition != null
+                  ? GoogleMap(
+                      initialCameraPosition: CameraPosition(
+                        target: _currentPosition!,
+                        zoom: 12,
+                      ),
+                      onMapCreated: (GoogleMapController controller) {
+                        _googleMapController = controller;
+                      },
+                      markers: {
+                        Marker(
+                          markerId: const MarkerId('current_location'),
+                          position: _currentPosition!,
+                          infoWindow: const InfoWindow(title: 'Your Location'),
+                        ),
+                      },
+                      myLocationEnabled: true,
+                      myLocationButtonEnabled: false,
+                    )
+                  : const Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primaryColor,
+                      ),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFormField({
+    required String label,
+    required String hint,
+    required TextEditingController controller,
+    required IconData icon,
+    bool readOnly = false,
+    VoidCallback? onTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                icon,
+                size: 20,
+                color: AppColors.primaryColor,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: AppColors.darkBlue,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: TextFormField(
+              controller: controller,
+              readOnly: readOnly,
+              onTap: onTap,
+              decoration: InputDecoration(
+                hintText: hint,
+                hintStyle: TextStyle(
+                  color: Colors.grey[400],
+                  fontSize: 14,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(
+                    color: AppColors.primaryColor,
+                    width: 2,
+                  ),
+                ),
+                filled: true,
+                fillColor: Colors.grey[50],
+                contentPadding: const EdgeInsets.all(16),
+                suffixIcon: readOnly ? const Icon(Icons.arrow_drop_down) : null,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSaveButton() {
+    return Container(
+      margin: const EdgeInsets.all(20),
+      width: double.infinity,
+      height: 56,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [AppColors.primaryColor, AppColors.secondaryColor],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primaryColor.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: isLoading ? null : _savePreferences,
+          borderRadius: BorderRadius.circular(16),
+          child: Center(
+            child: isLoading
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.save,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Save Preferences',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showInterestDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'Select Interests',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: AppColors.darkBlue,
+            ),
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: interest.length,
+              itemBuilder: (context, index) {
+                return CheckboxListTile(
+                  title: Text(interest[index]),
+                  value: selectedInterest.contains(interest[index]),
+                  onChanged: (bool? value) {
+                    setState(() {
+                      if (value == true) {
+                        selectedInterest.add(interest[index]);
+                      } else {
+                        selectedInterest.remove(interest[index]);
+                      }
+                      interestController.text = selectedInterest.join(', ');
+                    });
+                  },
+                  activeColor: AppColors.primaryColor,
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Done',
+                style: TextStyle(
+                  color: AppColors.primaryColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
         );
       },
     );
   }
 
+  Future<void> _savePreferences() async {
+    setState(() {
+      isLoading = true;
+    });
+
+    Map<String, dynamic> body = {
+      'trade_radius': radius,
+      'interests': selectedInterest,
+    };
+
+    String id = userController.userProfile.value.data?.id ?? '';
+    final result = await ProfileService.instance.updateTradePreference(context, body, id);
+
+    setState(() {
+      isLoading = false;
+    });
+
+    if (result.status == Status.COMPLETED) {
+      ShowMessage.notify(context, "Preferences updated successfully!");
+      Navigator.of(context).pop();
+    } else {
+      ShowMessage.notify(context, result.responseData['message'] ?? "Failed to update preferences");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    Size size = MediaQuery.of(context).size;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        automaticallyImplyLeading: false,
-        centerTitle: false,
-        title: Image.asset(
-          "assets/images/t.png",
-          height: 30,
-          width: 30,
+        backgroundColor: AppColors.primaryColor,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
         ),
+        title: const Text('Trade Preferences'),
+        centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Center(
-              child: AppText(
-                text: "Trade Preferences",
-                fontSize: size.width * 0.078,
-                textcolor: AppColors.darkBlue,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(
-              height: 10,
-            ),
-            Stack(
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: SlideTransition(
+          position: _slideAnimation,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
               children: [
-                Container(
-                  width: size.width,
-                  height: size.height * 0.77,
-                  color: Colors.transparent,
-                ),
-                Center(
-                  child: Material(
-                    elevation: 4.5,
-                    borderRadius: BorderRadius.circular(60),
-                    color: Colors.white,
-                    child: Container(
-                      width: size.width * 0.9,
-                      height: size.height * 0.75,
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 20, vertical: 40),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(60),
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            AppColors.primaryColor.withOpacity(0.2), // #ecfcff
-                            AppColors.secondaryColor
-                                .withOpacity(0.2), // #fff5db
-                          ],
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: [
-                          const Text(
-                            "Select Interests:",
-                            style: TextStyle(
-                                color: AppColors.primaryTextColor,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(
-                            height: 20,
-                          ),
-                          SizedBox(
-                            width: size.width,
-                            height: size.height * 0.07,
-                            child: TextFormField(
-                              onTap: () {
-                                showInterestSelectionDialog();
-                              },
-                              readOnly: true,
-                              controller: interestController,
-                              decoration: InputDecoration(
-                                  labelText: 'Select Category',
-                                  labelStyle:
-                                      const TextStyle(color: Colors.grey),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderSide: const BorderSide(
-                                        color: Colors.grey, width: 1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderSide: const BorderSide(
-                                        color: Colors.grey, width: 1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  suffixIcon: const Icon(
-                                      Icons.arrow_drop_down_outlined)),
-                            ),
-                          ),
-                          const SizedBox(
-                            height: 40,
-                          ),
-                          Text(
-                            "Select Trade Radius: ${radius.toInt()} KM",
-                            style: const TextStyle(
-                                color: AppColors.primaryTextColor,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold),
-                          ),
-                          Slider(
-                            thumbColor: AppColors.secondaryColor,
-                            value: radius,
-                            activeColor: AppColors.primaryTextColor,
-                            inactiveColor: AppColors.primaryColor,
-                            min: 0,
-                            max: 500,
-                            divisions: 100,
-                            onChanged: (newValue) {
-                              setState(() {
-                                radius = newValue;
-                              });
-                            },
-                            label:
-                                '${radius.toInt()}', // Optional: Show current value
-                          ),
-                          const SizedBox(
-                            height: 10,
-                          ),
-                          Center(
-                            child: _currentPosition == null
-                                ? const Text('Loading....')
-                                : SizedBox(
-                                    height: size.height / 3,
-                                    width: size.height / 3,
-                                    child: GoogleMap(
-                                      scrollGesturesEnabled:
-                                          true, // Enable map dragging with one finger
-                                      zoomGesturesEnabled:
-                                          true, // Enable pinch-to-zoom with two fingers
-                                      rotateGesturesEnabled:
-                                          true, // Enable rotation (optional)
-                                      tiltGesturesEnabled:
-                                          true, // Enable tilting gestures (optional)
-                                      initialCameraPosition: CameraPosition(
-                                        target: _currentPosition!,
-                                        zoom: 8.0, // Set the initial zoom level
-                                      ),
-                                      minMaxZoomPreference: MinMaxZoomPreference(
-                                          2.0,
-                                          18.0), // Custom zoom limits (min: 2, max: 18)
-                                      markers: _currentPosition != null
-                                          ? {
-                                              Marker(
-                                                markerId:
-                                                    MarkerId('currentLocation'),
-                                                position: _currentPosition!,
-                                              ),
-                                            }
-                                          : {},
-                                      circles: _currentPosition != null
-                                          ? {
-                                              Circle(
-                                                circleId: const CircleId(
-                                                    'radiusCircle'),
-                                                center: _currentPosition!,
-                                                radius: radius *
-                                                    1000.0, // Radius in meters
-                                                strokeColor: AppColors
-                                                    .secondaryColor, // Circle border color
-                                                strokeWidth:
-                                                    2, // Circle border width
-                                                fillColor: AppColors
-                                                    .secondaryColor
-                                                    .withOpacity(
-                                                        0.3), // Circle fill color
-                                              ),
-                                            }
-                                          : {},
-                                      onMapCreated: (controller) {
-                                        _googleMapController = controller;
-                                      },
-                                    ),
-                                  ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  bottom: 0,
-                  left: size.width / 4.5,
-                  right: size.width / 4.5,
-                  child: AppButton(
-                    onPressed: () async {
-                      String? message;
-                      if (radius == 0.0) {
-                        message = "Please select trade radius";
-                      }
-                      if (selectedInterest.length < 5) {
-                        message = "Please select at least 5 interest";
-                      }
-                      if (selectedInterest.isEmpty) {
-                        message = "Please select interest";
-                      }
-
-                      if (message != null) {
-                        ShowMessage.notify(context, message);
-                        return;
-                      }
-                      Map<String, dynamic> body = {
-                        "interest_names": selectedInterest,
-                        "trade_radius": radius.toInt()
-                      };
-                      String id = widget.profileData.data?.id ?? '';
-                      setState(() {
-                        isLoading = true;
-                      });
-                      final result = await ProfileService.instance
-                          .updateTradePreference(context, body, id);
-                      await ProfileService.instance
-                          .getTradePreference(context, id);
-                      setState(() {
-                        isLoading = false;
-                      });
-                      if (result.status == Status.COMPLETED) {
-                        ShowMessage.notify(
-                            context, "${result.responseData['message']}");
-                        Navigator.pop(context);
-                      } else {
-                        ShowMessage.notify(context, "${result.message}");
-                      }
-                    },
-                    isLoading: isLoading,
-                    width: size.width * 0.4,
-                    text: "Done",
-                    fontSize: size.width * 0.045,
-                    height: size.height * 0.065,
-                    buttonColor: AppColors.primaryColor,
-                  ),
-                ),
+                _buildHeader(),
+                _buildInterestSection(),
+                _buildRadiusSection(),
+                _buildMapSection(),
+                _buildSaveButton(),
+                const SizedBox(height: 30),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );
