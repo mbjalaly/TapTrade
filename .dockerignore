@@ -1,0 +1,69 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# CI/CD
+.github/
+.circleci/
+.travis.yml
+
+# Documentation
+*.md
+!README.md
+docs/
+TapTrade Graphics/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.iws
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+
+# Flutter/Dart
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Android
+android/
+*.apk
+*.aab
+*.ap_
+*.dex
+local.properties
+
+# iOS
+ios/
+*.ipa
+*.dSYM.zip
+*.dSYM
+Pods/
+
+# Tests
+test/
+**/test/
+**/*_test.dart
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Misc
+*.log
+.DS_Store
+*.swp
+*.swo
+*~
+
