@@ -63,7 +63,12 @@ class ProfileService {
       )
   async {
     try{
-      final result = await ApiService.postRequestWithFile(ApiEndPoint.updateProfile+'$id/', body, context);
+      final result = await ApiService.postRequestWithFile(
+        ApiEndPoint.updateProfile+'$id/', 
+        body, 
+        context,
+        sendToken: true,  // Send auth token with request
+      );
       return ApiResponse.completed(result);
     }catch (e) {
       printLog("ApiException: ${e}");

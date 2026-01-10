@@ -64,5 +64,18 @@
 	<array>
 		<string>Default</string>
 	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>google-signin</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.502704204773-39ov5e2o9v40jc5ph3aehb5gb3soeb59</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

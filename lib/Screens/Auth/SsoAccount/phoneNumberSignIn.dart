@@ -1,10 +1,10 @@
 import 'package:country_picker/country_picker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:taptrade/Models/SignUpRequestModel/signUpRequestModel.dart';
 import 'package:taptrade/Screens/Auth/SsoAccount/verifyOtp.dart';
-import 'package:taptrade/Services/ApiResponse/apiResponse.dart';
-import 'package:taptrade/Services/IntegrationServices/authService.dart';
+import 'package:taptrade/Services/IntegrationServices/firebasePhoneAuthService.dart';
 import 'package:taptrade/Utills/appColors.dart';
 import 'package:taptrade/Utills/showMessages.dart';
 import 'package:taptrade/Widgets/customButtom.dart';
@@ -20,13 +20,15 @@ class PhoneSignInScreen extends StatefulWidget {
 
 class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
   TextEditingController fullNameCon = TextEditingController();
-  var code = "";
-  // var code2 = "";
-  var country_valid = "";
+  String countryCode = "+966"; // Default Saudi Arabia
+  String countryFlag = "🇸🇦";
   bool isLoading = false;
   final FocusNode fcountry = FocusNode();
-  // TextEditingController countryCon = TextEditingController();
   TextEditingController phoneCon = TextEditingController();
+  
+  /// Get full phone number with country code
+  String get fullPhoneNumber => '$countryCode${phoneCon.text.trim()}';
+  
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -96,18 +98,17 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
                             ),
                           ),
                           onSelect: (Country scountry) {
-                            // countryCon.text = scountry.name;
-                            code =
-                                scountry.flagEmoji + " + ${scountry.phoneCode}";
-                            // code2 = scountry.phoneCode;
-                            setState(() {});
-                            print('Select country: ${scountry.flagEmoji}');
+                            setState(() {
+                              countryCode = '+${scountry.phoneCode}';
+                              countryFlag = scountry.flagEmoji;
+                            });
+                            print('Select country: ${scountry.flagEmoji} ${scountry.phoneCode}');
                           },
                         );
                       },
                       child: Center(
                           child: AppText(
-                        text: code == "" ? "🇸🇦 +966" : code,
+                        text: "$countryFlag $countryCode",
                         textcolor: Colors.black,
                         fontSize: Get.width * 0.035,
                       )),
@@ -156,27 +157,59 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
               ),
               Center(
                 child: AppButton(
-                  onPressed: () async{
-                    if(phoneCon.text.trim().isNotEmpty){
-                      setState(() {
-                        widget.requestModel.contact = phoneCon.text.trim();
-                      });
-                      print("${widget.requestModel.toJson()}");
-                      setState(() {
-                        isLoading = true;
-                      });
-                      final result = await AuthService.instance.signUp(context, widget.requestModel.toJson());
-                      setState(() {
-                        isLoading = false;
-                      });
-                      print("-=-=-=-=-= ${result.responseData}");
-                      if(result.status == Status.COMPLETED){
-                        ShowMessage.notify(context, result.responseData['message']);
-                        Get.to(VerifyOtpScreen(requestModel: widget.requestModel,));
-                      }
-                    }else{
+                  onPressed: () async {
+                    if (phoneCon.text.trim().isEmpty) {
                       ShowMessage.notify(context, "Please Add Your Phone Number");
+                      return;
                     }
+                    
+                    // Update request model with phone number
+                    widget.requestModel.contact = phoneCon.text.trim();
+                    
+                    setState(() {
+                      isLoading = true;
+                    });
+                    
+                    print("[Firebase Phone Auth] Sending OTP to: $fullPhoneNumber");
+                    
+                    // Send OTP via Firebase
+                    await FirebasePhoneAuthService.instance.sendOtp(
+                      phoneNumber: fullPhoneNumber,
+                      context: context,
+                      onCodeSent: (String verificationId) {
+                        setState(() {
+                          isLoading = false;
+                        });
+                        ShowMessage.notify(context, "OTP sent to $fullPhoneNumber");
+                        
+                        // Navigate to OTP verification screen
+                        Get.to(VerifyOtpScreen(
+                          requestModel: widget.requestModel,
+                          verificationId: verificationId,
+                          phoneNumber: fullPhoneNumber,
+                        ));
+                      },
+                      onAutoVerify: (PhoneAuthCredential credential) async {
+                        // Auto-verification on Android
+                        setState(() {
+                          isLoading = false;
+                        });
+                        ShowMessage.notify(context, "Phone verified automatically!");
+                        
+                        // Navigate to OTP screen (it will handle the auto-verified credential)
+                        Get.to(VerifyOtpScreen(
+                          requestModel: widget.requestModel,
+                          autoVerifiedCredential: credential,
+                          phoneNumber: fullPhoneNumber,
+                        ));
+                      },
+                      onError: (String error) {
+                        setState(() {
+                          isLoading = false;
+                        });
+                        ShowMessage.inDialog(context, error, true);
+                      },
+                    );
                   },
                   isLoading: isLoading,
                   text: "CONTINUE",

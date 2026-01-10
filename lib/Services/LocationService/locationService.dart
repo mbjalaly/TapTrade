@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:taptrade/Const/globleKey.dart';
 import 'package:taptrade/Utills/showMessages.dart';
 import 'package:taptrade/Services/IntegrationServices/profileService.dart';
+import 'package:taptrade/Services/SharedPreferenceService/sharePreferenceService.dart';
 import 'package:taptrade/Controller/userController.dart';
 import 'package:get/get.dart';
 
@@ -67,6 +68,13 @@ class LocationService {
   
   Future<void> _updateLocationInDatabase(double latitude, double longitude) async {
     try {
+      // Check if user is authenticated (has valid token)
+      final String? token = await SharedPreferencesService().getString(KeyConstants.accessToken);
+      if (token == null || token.isEmpty) {
+        // User not authenticated, skip location update
+        return;
+      }
+      
       // Only update if we have a valid user ID
       if (Get.isRegistered<UserController>()) {
         final userController = Get.find<UserController>();
