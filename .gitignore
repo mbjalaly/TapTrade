@@ -64,3 +64,6 @@ yarn.lock
 .env.production
 .env.staging
 .env.*.local
+# Temporarily excluded
+web/
+admin_panel/
