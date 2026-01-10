@@ -1,0 +1,12 @@
+# Ignore admin panel - it's a separate project
+admin_panel/
+
+# Ignore unnecessary files
+.git/
+.gitignore
+*.md
+test/
+.dart_tool/
+.idea/
+*.iml
+

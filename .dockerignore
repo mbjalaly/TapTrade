@@ -1,69 +1,28 @@
+# Ignore admin panel during main app build
+admin_panel/
+
 # Git
-.git
+.git/
 .gitignore
-.gitattributes
-
-# CI/CD
-.github/
-.circleci/
-.travis.yml
-
-# Documentation
-*.md
-!README.md
-docs/
-TapTrade Graphics/
 
 # IDE
 .idea/
-.vscode/
 *.iml
-*.iws
+.vscode/
 
-# Node
-node_modules/
-npm-debug.log
-yarn-error.log
-package-lock.json
-
-# Flutter/Dart
-.dart_tool/
-.packages
-.pub-cache/
-.pub/
+# Build outputs
 build/
-.flutter-plugins
-.flutter-plugins-dependencies
+.dart_tool/
 
-# Android
-android/
-*.apk
-*.aab
-*.ap_
-*.dex
-local.properties
+# Documentation
+*.md
+TapTrade Graphics/
 
-# iOS
-ios/
-*.ipa
-*.dSYM.zip
-*.dSYM
-Pods/
+# iOS/Android build caches
+ios/Pods/
+ios/.symlinks/
+android/.gradle/
+android/build/
 
-# Tests
+# Test
 test/
-**/test/
-**/*_test.dart
-
-# Environment
-.env
-.env.local
-.env.*.local
-
-# Misc
-*.log
-.DS_Store
-*.swp
-*.swo
-*~
-
