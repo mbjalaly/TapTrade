@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:taptrade/Models/SignUpRequestModel/signUpRequestModel.dart';
 import 'package:taptrade/Screens/Auth/SsoAccount/phoneNumberSignIn.dart';
-import 'package:taptrade/Screens/Auth/createAccount/createFullName.dart';
+import 'package:taptrade/Screens/Auth/CreateAccount/createFullName.dart';
 import 'package:taptrade/Screens/UserDetail/AddProfile/addProfile.dart';
 import 'package:taptrade/Services/IntegrationServices/authService.dart';
 import 'package:taptrade/Utills/appColors.dart';

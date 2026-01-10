@@ -6,7 +6,7 @@ import 'dart:io';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:taptrade/Screens/Auth/ForgetPassword/forgetPassword.dart';
 import 'package:taptrade/Screens/Auth/LoginScreen/loginScreen.dart';
-import 'package:taptrade/Screens/Auth/createAccount/userNameScreen.dart';
+import 'package:taptrade/Screens/Auth/CreateAccount/userNameScreen.dart';
 import 'package:taptrade/Services/IntegrationServices/appleAuthService.dart';
 import 'package:taptrade/Services/IntegrationServices/googleSignIn.dart';
 import 'package:taptrade/Utills/appColors.dart';
