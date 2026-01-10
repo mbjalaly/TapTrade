@@ -14,7 +14,7 @@ RUN flutter pub get
 COPY . .
 
 # Build Flutter web app
-RUN flutter build web --release --web-renderer html
+RUN flutter build web --release
 
 # Stage 2: Serve with Node.js
 FROM node:18-alpine
