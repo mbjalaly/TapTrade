@@ -1,5 +1,33 @@
 import supabase from '../services/supabaseClient';
 
+// Check if logs table exists (for debugging)
+let tableCheckDone = false;
+async function checkLogsTable() {
+  if (tableCheckDone) return;
+  try {
+    const { error } = await supabase.from('logs').select('id').limit(1);
+    if (error) {
+      console.error('[Logger] Logs table check failed:', {
+        message: error.message,
+        code: error.code,
+        hint: error.hint,
+        details: error.details,
+      });
+      console.error('[Logger] Make sure you have run CREATE_LOGS_TABLE.sql in Supabase');
+    } else {
+      console.log('[Logger] Logs table is accessible');
+      tableCheckDone = true;
+    }
+  } catch (e) {
+    console.error('[Logger] Exception checking logs table:', e);
+  }
+}
+
+// Check on first import
+if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'test') {
+  checkLogsTable().catch(() => {});
+}
+
 export type LogLevel = 'info' | 'warning' | 'error' | 'debug' | 'success';
 
 interface LogEntry {
@@ -30,16 +58,34 @@ export async function logToDatabase(
       ...(metadata && { metadata }),
     };
 
-    const { error } = await supabase.from('logs').insert([logEntry]);
+    const { data, error } = await supabase.from('logs').insert([logEntry]).select();
 
     if (error) {
-      // Fallback to console if database insert fails
-      console.error(`[Logger] Failed to write to database:`, error);
+      // Log the error with full details
+      console.error(`[Logger] Failed to write to database:`, {
+        error: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        level,
+        message,
+      });
+      // Still log to console as fallback
       console.log(`[${level.toUpperCase()}] ${message}`, metadata || '');
+    } else {
+      // Successfully logged
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[Logger] Successfully logged ${level}: ${message}`, data?.[0]?.id || '');
+      }
     }
-  } catch (error) {
+  } catch (error: any) {
     // Fallback to console if database insert fails
-    console.error(`[Logger] Error writing log:`, error);
+    console.error(`[Logger] Exception writing log:`, {
+      error: error?.message || String(error),
+      stack: error?.stack,
+      level,
+      message,
+    });
     console.log(`[${level.toUpperCase()}] ${message}`, metadata || '');
   }
 }

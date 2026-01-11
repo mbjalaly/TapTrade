@@ -11,8 +11,20 @@ if (!supabaseUrl || !supabaseServiceRoleKey) {
 }
 
 export const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
-  db: { schema: process.env.SUPABASE_SCHEMA || 'public' },
+  db: { 
+    schema: process.env.SUPABASE_SCHEMA || 'public',
+    // Increase timeout for large data operations
+  },
   auth: { autoRefreshToken: false, persistSession: false },
+  global: {
+    // Set fetch timeout to 60 seconds for large operations
+    fetch: (url, options = {}) => {
+      return fetch(url, {
+        ...options,
+        signal: AbortSignal.timeout(60000), // 60 second timeout
+      });
+    },
+  },
 });
 
 export default supabase;

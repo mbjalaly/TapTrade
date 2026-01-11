@@ -619,19 +619,96 @@ router.post('/update_products/', requireAuth, upload.any(), async (req: Request,
       status: body.status !== undefined ? body.status : existingProduct.status,
     };
     
-    // Update images only if new files were provided or existing_images were explicitly set
-    if (primaryImageUrl || existingImagesArray.length > 0 || files.length > 0) {
-      updateData.image = primaryImageUrl || existingProduct.image || '';
-      updateData.images = imageUrls.length > 0 ? imageUrls : (existingProduct.images || []);
+    // Optimize image updates: Only update if images have actually changed
+    // This prevents timeouts when re-writing large base64 arrays
+    const hasNewFiles = files.length > 0;
+    const existingDbImages = existingProduct.images && Array.isArray(existingProduct.images) 
+      ? existingProduct.images 
+      : (existingProduct.image ? [existingProduct.image] : []);
+    
+    // Only update images if:
+    // 1. We have new files (need to add them)
+    // 2. User explicitly provided existing_images AND they're different from DB
+    // 3. Primary image changed
+    if (hasNewFiles) {
+      // New files provided - update images array
+      if (primaryImageUrl) {
+        updateData.image = primaryImageUrl;
+      }
+      if (imageUrls.length > 0) {
+        updateData.images = imageUrls;
+      }
+    } else if (existingImagesArray.length > 0) {
+      // User explicitly provided existing_images - check if different from DB
+      const existingSet = new Set(existingDbImages.map((img: string) => img.substring(0, 100))); // Compare first 100 chars
+      const newSet = new Set(existingImagesArray.map((img: string) => img.substring(0, 100)));
+      const isDifferent = existingSet.size !== newSet.size || 
+        !existingImagesArray.every((img: string) => {
+          const prefix = img.substring(0, 100);
+          return Array.from(existingSet).some(existing => existing === prefix);
+        });
+      
+      if (isDifferent) {
+        updateData.images = existingImagesArray;
+        if (existingImagesArray.length > 0 && !primaryImageUrl) {
+          updateData.image = existingImagesArray[0];
+        }
+      }
+    } else if (primaryImageUrl && primaryImageUrl !== existingProduct.image) {
+      // Only primary image changed
+      updateData.image = primaryImageUrl;
+      // Keep existing images array
+      if (existingDbImages.length > 0) {
+        updateData.images = existingDbImages;
+      }
     }
     
-    const { data, error } = await supabase
-      .from('products')
-      .update(updateData)
-      .eq('id', productId)
-      .eq('user_id', userId)
-      .select('*')
-      .maybeSingle();
+    // Optimize: Only update fields that have actually changed
+    // Remove undefined/null values to avoid unnecessary updates
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] === undefined || updateData[key] === null) {
+        delete updateData[key];
+      }
+    });
+    
+    // If no actual changes, return existing product
+    if (Object.keys(updateData).length === 0) {
+      await logger.info('No changes detected in product update', userId || undefined, { product_id: productId });
+      return res.json({ success: true, message: 'No changes', data: existingProduct });
+    }
+    
+    // Perform the update with timeout handling
+    let data: any = null;
+    let error: any = null;
+    
+    try {
+      const result = await supabase
+        .from('products')
+        .update(updateData)
+        .eq('id', productId)
+        .eq('user_id', userId)
+        .select('*')
+        .maybeSingle();
+      
+      data = result.data;
+      error = result.error;
+    } catch (updateError: any) {
+      // Handle timeout or other errors
+      const errorMessage = updateError?.message || String(updateError);
+      if (errorMessage.includes('timeout') || errorMessage.includes('canceling statement')) {
+        await logger.error('Product update timed out - likely due to large image data', userId || undefined, {
+          product_id: productId,
+          images_count: imageUrls.length,
+          error: errorMessage,
+        });
+        return res.status(500).json({ 
+          success: false, 
+          message: 'Update timed out. The images may be too large. Try reducing the number of images or image sizes.',
+          error: 'Database operation timeout'
+        });
+      }
+      error = updateError;
+    }
     
     if (error) {
       await logger.error('Failed to update product in database', userId || undefined, { 
@@ -748,6 +825,47 @@ router.post('/api/trade/trade_payment_status/', requireAuth, async (_req: Reques
 // Trader public profile placeholder
 router.get('/api/user/profile/', async (_req: Request, res: Response) => {
   return res.json({ success: true, message: 'OK', data: null });
+});
+
+// Test endpoint for logging (for debugging)
+router.get('/test-logging/', async (req: Request, res: Response) => {
+  try {
+    await logger.info('Test log entry', undefined, { test: true, timestamp: new Date().toISOString() });
+    await logger.warning('Test warning log', undefined, { test: true });
+    await logger.error('Test error log', undefined, { test: true });
+    await logger.success('Test success log', undefined, { test: true });
+    
+    // Try to read logs to verify they were written
+    const { data: logs, error: readError } = await supabase
+      .from('logs')
+      .select('*')
+      .order('created_at', ascending: false)
+      .limit(5);
+    
+    if (readError) {
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Logs written but failed to read back',
+        writeError: null,
+        readError: readError.message,
+        hint: 'Check if logs table exists and RLS policies are correct'
+      });
+    }
+    
+    return res.json({ 
+      success: true, 
+      message: 'Test logs created',
+      logsWritten: 4,
+      recentLogs: logs || [],
+      tableExists: logs !== null
+    });
+  } catch (error: any) {
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Error testing logs',
+      error: error?.message || String(error)
+    });
+  }
 });
 
 export default router;
