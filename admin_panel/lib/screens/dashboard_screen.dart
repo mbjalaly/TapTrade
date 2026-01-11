@@ -11,7 +11,9 @@ import 'trades_screen.dart';
 import 'logs_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  final VoidCallback toggleTheme;
+  
+  const DashboardScreen({super.key, required this.toggleTheme});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -20,6 +22,7 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0;
   final _supabase = Supabase.instance.client;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   
   // Stats
   int _totalUsers = 0;
@@ -283,52 +286,97 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildQuickAction(String label, IconData icon, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        decoration: BoxDecoration(
-          color: AdminTheme.darkCard,
+    return Builder(
+      builder: (context) {
+        final theme = Theme.of(context);
+        return InkWell(
+          onTap: onTap,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AdminTheme.darkBorder),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 20, color: AdminTheme.primaryColor),
-            const SizedBox(width: 8),
-            Text(label, style: const TextStyle(color: AdminTheme.textPrimary)),
-          ],
-        ),
-      ),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: theme.brightness == Brightness.dark 
+                    ? AdminTheme.darkBorder 
+                    : AdminTheme.lightBorder,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 20, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(label, style: TextStyle(color: theme.colorScheme.onSurface)),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Row(
-        children: [
-          // Sidebar
-          Sidebar(
-            selectedIndex: _selectedIndex,
-            onItemSelected: (index) {
-              setState(() => _selectedIndex = index);
-              // Refresh stats when returning to dashboard
-              if (index == 0) {
-                _loadStats();
-              }
-            },
+    final isMobile = MediaQuery.of(context).size.width < 768;
+    
+    if (isMobile) {
+      // Mobile layout with drawer
+      return Scaffold(
+        key: _scaffoldKey,
+        drawer: Sidebar(
+          selectedIndex: _selectedIndex,
+          onItemSelected: (index) {
+            setState(() => _selectedIndex = index);
+            Navigator.pop(context); // Close drawer
+            if (index == 0) {
+              _loadStats();
+            }
+          },
+          toggleTheme: widget.toggleTheme,
+        ),
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
           ),
-          
-          // Main Content
-          Expanded(
-            child: _getScreen(),
-          ),
-        ],
-      ),
-    );
+          actions: [
+            IconButton(
+              icon: Icon(Theme.of(context).brightness == Brightness.dark 
+                  ? Icons.light_mode 
+                  : Icons.dark_mode),
+              onPressed: widget.toggleTheme,
+            ),
+          ],
+        ),
+        body: _getScreen(),
+      );
+    } else {
+      // Desktop layout with sidebar
+      return Scaffold(
+        body: Row(
+          children: [
+            // Sidebar
+            Sidebar(
+              selectedIndex: _selectedIndex,
+              onItemSelected: (index) {
+                setState(() => _selectedIndex = index);
+                if (index == 0) {
+                  _loadStats();
+                }
+              },
+              toggleTheme: widget.toggleTheme,
+            ),
+            
+            // Main Content
+            Expanded(
+              child: _getScreen(),
+            ),
+          ],
+        ),
+      );
+    }
   }
 }
 

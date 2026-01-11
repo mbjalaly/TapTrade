@@ -5,21 +5,26 @@ import '../theme/admin_theme.dart';
 class Sidebar extends StatelessWidget {
   final int selectedIndex;
   final Function(int) onItemSelected;
+  final VoidCallback? toggleTheme;
 
   const Sidebar({
     super.key,
     required this.selectedIndex,
     required this.onItemSelected,
+    this.toggleTheme,
   });
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
     return Container(
       width: 260,
-      decoration: const BoxDecoration(
-        color: AdminTheme.darkSurface,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
         border: Border(
-          right: BorderSide(color: AdminTheme.darkBorder),
+          right: BorderSide(color: isDark ? AdminTheme.darkBorder : AdminTheme.lightBorder),
         ),
       ),
       child: Column(
@@ -43,13 +48,13 @@ class Sidebar extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Column(
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'TapTrade',
                       style: TextStyle(
-                        color: AdminTheme.textPrimary,
+                        color: theme.colorScheme.onSurface,
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
@@ -57,7 +62,7 @@ class Sidebar extends StatelessWidget {
                     Text(
                       'Admin Panel',
                       style: TextStyle(
-                        color: AdminTheme.textMuted,
+                        color: theme.colorScheme.onSurface.withOpacity(0.6),
                         fontSize: 12,
                       ),
                     ),
@@ -67,7 +72,10 @@ class Sidebar extends StatelessWidget {
             ),
           ),
           
-          const Divider(color: AdminTheme.darkBorder, height: 1),
+          Divider(
+            color: isDark ? AdminTheme.darkBorder : AdminTheme.lightBorder,
+            height: 1,
+          ),
           
           // Navigation Items
           Expanded(
@@ -92,9 +100,11 @@ class Sidebar extends StatelessWidget {
           // User Info & Logout
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               border: Border(
-                top: BorderSide(color: AdminTheme.darkBorder),
+                top: BorderSide(
+                  color: isDark ? AdminTheme.darkBorder : AdminTheme.lightBorder,
+                ),
               ),
             ),
             child: Column(
@@ -119,17 +129,17 @@ class Sidebar extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Admin',
                             style: TextStyle(
-                              color: AdminTheme.textPrimary,
+                              color: theme.colorScheme.onSurface,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
                           Text(
                             Supabase.instance.client.auth.currentUser?.email ?? '',
-                            style: const TextStyle(
-                              color: AdminTheme.textMuted,
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface.withOpacity(0.6),
                               fontSize: 12,
                             ),
                             overflow: TextOverflow.ellipsis,
@@ -140,6 +150,25 @@ class Sidebar extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 16),
+                
+                // Theme Toggle Button
+                if (toggleTheme != null)
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: toggleTheme,
+                      icon: Icon(
+                        isDark ? Icons.light_mode : Icons.dark_mode,
+                        size: 18,
+                      ),
+                      label: Text(isDark ? 'Light Mode' : 'Dark Mode'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: theme.colorScheme.primary,
+                        side: BorderSide(color: theme.colorScheme.primary),
+                      ),
+                    ),
+                  ),
+                if (toggleTheme != null) const SizedBox(height: 12),
                 
                 // Logout Button
                 SizedBox(
@@ -165,45 +194,54 @@ class Sidebar extends StatelessWidget {
   }
 
   Widget _buildNavItem(int index, IconData icon, String label) {
-    final isSelected = selectedIndex == index;
-    
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
-        child: InkWell(
-          onTap: () => onItemSelected(index),
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: isSelected ? AdminTheme.primaryColor.withOpacity(0.1) : null,
+    return Builder(
+      builder: (context) {
+        final theme = Theme.of(context);
+        final isSelected = selectedIndex == index;
+        
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            child: InkWell(
+              onTap: () => onItemSelected(index),
               borderRadius: BorderRadius.circular(10),
-              border: isSelected
-                  ? Border.all(color: AdminTheme.primaryColor.withOpacity(0.3))
-                  : null,
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  icon,
-                  size: 20,
-                  color: isSelected ? AdminTheme.primaryColor : AdminTheme.textSecondary,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: isSelected ? theme.colorScheme.primary.withOpacity(0.1) : null,
+                  borderRadius: BorderRadius.circular(10),
+                  border: isSelected
+                      ? Border.all(color: theme.colorScheme.primary.withOpacity(0.3))
+                      : null,
                 ),
-                const SizedBox(width: 12),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: isSelected ? AdminTheme.primaryColor : AdminTheme.textSecondary,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                  ),
+                child: Row(
+                  children: [
+                    Icon(
+                      icon,
+                      size: 20,
+                      color: isSelected 
+                          ? theme.colorScheme.primary 
+                          : theme.colorScheme.onSurface.withOpacity(0.6),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        color: isSelected 
+                            ? theme.colorScheme.primary 
+                            : theme.colorScheme.onSurface.withOpacity(0.6),
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
