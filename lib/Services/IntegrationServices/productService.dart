@@ -128,8 +128,9 @@ class ProductService {
   async {
     try{
       print("=== API CALL DEBUG ===");
-      print("Calling API: ${ApiEndPoint.matchingProduct}$id/");
-      final result = await ApiService.getRequestData(ApiEndPoint.matchingProduct+'$id/', context);
+      // Backend uses JWT token to identify user, no need to pass user ID in URL
+      print("Calling API: ${ApiEndPoint.matchingProduct}");
+      final result = await ApiService.getRequestData(ApiEndPoint.matchingProduct, context, useToken: true);
       print("Raw API Response: $result");
       MatchProductResponseModel responseModel = MatchProductResponseModel.fromJson(result);
       print("Parsed Response - Success: ${responseModel.success}");
@@ -168,8 +169,9 @@ class ProductService {
   async {
     try{
       print("=== LIKE PRODUCT API DEBUG ===");
-      print("Calling API: ${ApiEndPoint.likeProduct}$id/");
-      final result = await ApiService.getRequestData(ApiEndPoint.likeProduct+'$id/', context);
+      // Backend uses JWT token to identify user, no need to pass user ID in URL
+      print("Calling API: ${ApiEndPoint.likeProduct}");
+      final result = await ApiService.getRequestData(ApiEndPoint.likeProduct, context, useToken: true);
       print("Raw Like API Response: $result");
       LikeProductResponseModel responseModel = LikeProductResponseModel.fromJson(result);
       print("Parsed Like Response - Success: ${responseModel.success}");

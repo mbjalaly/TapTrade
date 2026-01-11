@@ -285,8 +285,8 @@ router.post('/add_products/', requireAuth, upload.any(), async (req: Request, re
     user: userId,
     category: body.category ?? body.category_id ?? null,
     title: body.title ?? '',
-    min_price: body.min_price ?? body.minPrice ?? '0',
-    max_price: body.max_price ?? body.maxPrice ?? '0',
+    min_price: typeof body.min_price === 'string' ? parseFloat(body.min_price) || parseFloat(body.minPrice || '0') : (body.min_price ?? body.minPrice ?? 0),
+    max_price: typeof body.max_price === 'string' ? parseFloat(body.max_price) || parseFloat(body.maxPrice || '0') : (body.max_price ?? body.maxPrice ?? 0),
     product_condition: body.product_condition ?? body.productCondition ?? '',
     status: body.status ?? 'active',
     image: primaryImageUrl || body.image || '',
@@ -294,9 +294,13 @@ router.post('/add_products/', requireAuth, upload.any(), async (req: Request, re
   };
 
   const { data, error } = await supabase.from('products').insert(insertData).select('*').maybeSingle();
-  if (error || !data) {
-    // If the DB isn't ready, still return a compatible response so Flutter won't crash
-    return res.status(201).json({ success: true, message: 'Created', data: { id: 1, ...insertData } });
+  if (error) {
+    console.error('Error inserting product:', error);
+    return res.status(500).json({ success: false, message: 'Failed to create product', error: error.message });
+  }
+  if (!data) {
+    console.error('Product insert returned no data');
+    return res.status(500).json({ success: false, message: 'Failed to create product' });
   }
   return res.status(201).json({ success: true, message: 'Created', data });
 });
@@ -328,8 +332,8 @@ router.post('/add_user_products/', requireAuth, upload.any(), async (req: Reques
     user: userId,
     category: body.category ?? body.category_id ?? null,
     title: body.title ?? '',
-    min_price: body.min_price ?? body.minPrice ?? '0',
-    max_price: body.max_price ?? body.maxPrice ?? '0',
+    min_price: typeof body.min_price === 'string' ? parseFloat(body.min_price) || parseFloat(body.minPrice || '0') : (body.min_price ?? body.minPrice ?? 0),
+    max_price: typeof body.max_price === 'string' ? parseFloat(body.max_price) || parseFloat(body.maxPrice || '0') : (body.max_price ?? body.maxPrice ?? 0),
     product_condition: body.product_condition ?? body.productCondition ?? '',
     status: body.status ?? 'active',
     image: primaryImageUrl || body.image || '',
@@ -337,8 +341,13 @@ router.post('/add_user_products/', requireAuth, upload.any(), async (req: Reques
   };
 
   const { data, error } = await supabase.from('products').insert(insertData).select('*').maybeSingle();
-  if (error || !data) {
-    return res.status(201).json({ success: true, message: 'Created', data: { id: 1, ...insertData } });
+  if (error) {
+    console.error('Error inserting product:', error);
+    return res.status(500).json({ success: false, message: 'Failed to create product', error: error.message });
+  }
+  if (!data) {
+    console.error('Product insert returned no data');
+    return res.status(500).json({ success: false, message: 'Failed to create product' });
   }
   return res.status(201).json({ success: true, message: 'Created', data });
 });
