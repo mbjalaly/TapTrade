@@ -101,11 +101,15 @@ class _InterestsScreenState extends State<InterestsScreen> {
 
     if (result == true && nameController.text.isNotEmpty) {
       try {
-        await _supabase.from('interests').insert({
+        final insertData = {
           'name': nameController.text.trim(),
-          'category_id': selectedCategoryId != null ? int.parse(selectedCategoryId!) : null,
           'created_at': DateTime.now().toIso8601String(),
-        });
+        };
+        // Add category_id if selected (handle both int and UUID types)
+        if (selectedCategoryId != null && selectedCategoryId!.isNotEmpty) {
+          insertData['category_id'] = selectedCategoryId;
+        }
+        await _supabase.from('interests').insert(insertData);
         _loadData();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

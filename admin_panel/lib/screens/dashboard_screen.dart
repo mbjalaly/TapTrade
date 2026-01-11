@@ -240,6 +240,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             selectedIndex: _selectedIndex,
             onItemSelected: (index) {
               setState(() => _selectedIndex = index);
+              // Refresh stats when returning to dashboard
+              if (index == 0) {
+                _loadStats();
+              }
             },
           ),
           
