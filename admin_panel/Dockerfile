@@ -1,6 +1,6 @@
 # TapTrade Admin Panel - Dockerfile
 # This builds a Flutter Web app and serves it with Node.js
-# Updated: 2026-01-11
+# Updated: 2026-01-11 v2
 
 # Stage 1: Build Flutter web
 FROM ghcr.io/cirruslabs/flutter:stable AS flutter-build
