@@ -16,6 +16,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   List<Map<String, dynamic>> _products = [];
   bool _isLoading = true;
   String _searchQuery = '';
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -246,8 +247,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
     }
   }
 
-  String? _errorMessage;
-  
   @override
   Widget build(BuildContext context) {
     // Catch any build errors
