@@ -121,9 +121,11 @@ class _AddProductScreenState extends State<AddProductScreen> {
       _images.addAll(resized);
       // Use the first as cover if none set yet
       _imageFile ??= _images.first;
-      // Cap to 6 images to keep payload reasonable
-      if (_images.length > 6) {
-        _images.removeRange(6, _images.length);
+      // Cap to 4 images to keep payload reasonable
+      const MAX_IMAGES = 4;
+      if (_images.length > MAX_IMAGES) {
+        _images.removeRange(MAX_IMAGES, _images.length);
+        ShowMessage.notify(context, 'Maximum $MAX_IMAGES images allowed');
       }
     });
   }
@@ -186,11 +188,24 @@ class _AddProductScreenState extends State<AddProductScreen> {
                   if (_images.length > 1) {
                     imageToSend = await mergeImagesToSinglePng(_images, columns: 2, tileSize: 300, padding: 8, quality: 85);
                   }
+                  
+                  // Validate prices
+                  final minPriceValue = double.tryParse(minPrice.text) ?? 0;
+                  final maxPriceValue = double.tryParse(maxPrice.text) ?? 0;
+                  
+                  if (minPriceValue >= maxPriceValue) {
+                    ShowMessage.notify(context, 'Minimum price must be less than maximum price');
+                    setState(() {
+                      isLoading = false;
+                    });
+                    return;
+                  }
+                  
                   Map<String, dynamic> body = {
                     "category": selectedCategory,
                     "title": productTitle.text,
-                    "min_price": double.parse(minPrice.text),
-                    "max_price": double.parse(maxPrice.text),
+                    "min_price": minPriceValue,
+                    "max_price": maxPriceValue,
                     // Send the prepared PNG image
                     "image": imageToSend,
                     "product_condition": "New",

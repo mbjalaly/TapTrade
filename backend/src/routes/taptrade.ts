@@ -348,17 +348,51 @@ router.post('/add_products/', requireAuth, upload.any(), async (req: Request, re
       categoryId = body.category;
     }
   }
+  
+  // Limit total images to 4 (including primary)
+  const MAX_IMAGES = 4;
+  if (imageUrls.length > MAX_IMAGES) {
+    imageUrls.splice(MAX_IMAGES);
+    await logger.warning('Images limited to maximum of 4', userId, { 
+      attempted_count: imageUrls.length,
+      limited_to: MAX_IMAGES 
+    });
+  }
+  
+  // Also check images from body if provided
+  let finalImages = imageUrls.length > 0 ? imageUrls : (body.images || []);
+  if (finalImages.length > MAX_IMAGES) {
+    finalImages = finalImages.slice(0, MAX_IMAGES);
+    await logger.warning('Images from body limited to maximum of 4', userId, { 
+      limited_to: MAX_IMAGES 
+    });
+  }
+
+  // Validate min_price < max_price
+  const minPrice = typeof body.min_price === 'string' ? parseFloat(body.min_price) || parseFloat(body.minPrice || '0') : (body.min_price ?? body.minPrice ?? 0);
+  const maxPrice = typeof body.max_price === 'string' ? parseFloat(body.max_price) || parseFloat(body.maxPrice || '0') : (body.max_price ?? body.maxPrice ?? 0);
+  
+  if (minPrice >= maxPrice) {
+    await logger.warning('Invalid price range - min_price must be less than max_price', userId, {
+      min_price: minPrice,
+      max_price: maxPrice,
+    });
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Minimum price must be less than maximum price' 
+    });
+  }
 
   const insertData: any = {
     user_id: userId,
     category_id: categoryId,
     title: body.title ?? '',
-    min_price: typeof body.min_price === 'string' ? parseFloat(body.min_price) || parseFloat(body.minPrice || '0') : (body.min_price ?? body.minPrice ?? 0),
-    max_price: typeof body.max_price === 'string' ? parseFloat(body.max_price) || parseFloat(body.maxPrice || '0') : (body.max_price ?? body.maxPrice ?? 0),
+    min_price: minPrice,
+    max_price: maxPrice,
     product_condition: body.product_condition ?? body.productCondition ?? '',
     status: body.status ?? 'active',
     image: primaryImageUrl || body.image || '',
-    images: imageUrls.length > 0 ? imageUrls : (body.images || []),
+    images: finalImages,
   };
 
   const { data, error } = await supabase.from('products').insert(insertData).select('*').maybeSingle();
@@ -419,17 +453,51 @@ router.post('/add_user_products/', requireAuth, upload.any(), async (req: Reques
       categoryId = body.category;
     }
   }
+  
+  // Limit total images to 4 (including primary)
+  const MAX_IMAGES = 4;
+  if (imageUrls.length > MAX_IMAGES) {
+    imageUrls.splice(MAX_IMAGES);
+    await logger.warning('Images limited to maximum of 4', userId, { 
+      attempted_count: imageUrls.length,
+      limited_to: MAX_IMAGES 
+    });
+  }
+  
+  // Also check images from body if provided
+  let finalImages = imageUrls.length > 0 ? imageUrls : (body.images || []);
+  if (finalImages.length > MAX_IMAGES) {
+    finalImages = finalImages.slice(0, MAX_IMAGES);
+    await logger.warning('Images from body limited to maximum of 4', userId, { 
+      limited_to: MAX_IMAGES 
+    });
+  }
+
+  // Validate min_price < max_price
+  const minPrice = typeof body.min_price === 'string' ? parseFloat(body.min_price) || parseFloat(body.minPrice || '0') : (body.min_price ?? body.minPrice ?? 0);
+  const maxPrice = typeof body.max_price === 'string' ? parseFloat(body.max_price) || parseFloat(body.maxPrice || '0') : (body.max_price ?? body.maxPrice ?? 0);
+  
+  if (minPrice >= maxPrice) {
+    await logger.warning('Invalid price range - min_price must be less than max_price', userId, {
+      min_price: minPrice,
+      max_price: maxPrice,
+    });
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Minimum price must be less than maximum price' 
+    });
+  }
 
   const insertData: any = {
     user_id: userId,
     category_id: categoryId,
     title: body.title ?? '',
-    min_price: typeof body.min_price === 'string' ? parseFloat(body.min_price) || parseFloat(body.minPrice || '0') : (body.min_price ?? body.minPrice ?? 0),
-    max_price: typeof body.max_price === 'string' ? parseFloat(body.max_price) || parseFloat(body.maxPrice || '0') : (body.max_price ?? body.maxPrice ?? 0),
+    min_price: minPrice,
+    max_price: maxPrice,
     product_condition: body.product_condition ?? body.productCondition ?? '',
     status: body.status ?? 'active',
     image: primaryImageUrl || body.image || '',
-    images: imageUrls.length > 0 ? imageUrls : (body.images || []),
+    images: finalImages,
   };
 
   const { data, error } = await supabase.from('products').insert(insertData).select('*').maybeSingle();
@@ -545,6 +613,16 @@ router.post('/update_products/', requireAuth, upload.any(), async (req: Request,
       }
     }
     
+    // Limit total images to 4 (including primary)
+    const MAX_IMAGES = 4;
+    if (imageUrls.length > MAX_IMAGES) {
+      imageUrls.splice(MAX_IMAGES);
+      await logger.warning('Images limited to maximum of 4', userId || undefined, { 
+        attempted_count: imageUrls.length,
+        limited_to: MAX_IMAGES 
+      });
+    }
+    
     // Handle existing images from body (if provided as URLs/base64 strings)
     // Multer parses arrays as strings, so we need to parse it
     let existingImagesArray: string[] = [];
@@ -612,15 +690,31 @@ router.post('/update_products/', requireAuth, upload.any(), async (req: Request,
       }
     }
     
+    // Validate min_price < max_price
+    const minPrice = body.min_price !== undefined 
+      ? (typeof body.min_price === 'string' ? parseFloat(body.min_price) || parseFloat(body.minPrice || '0') : (body.min_price ?? body.minPrice ?? existingProduct.min_price))
+      : existingProduct.min_price;
+    const maxPrice = body.max_price !== undefined
+      ? (typeof body.max_price === 'string' ? parseFloat(body.max_price) || parseFloat(body.maxPrice || '0') : (body.max_price ?? body.maxPrice ?? existingProduct.max_price))
+      : existingProduct.max_price;
+    
+    if (minPrice >= maxPrice) {
+      await logger.warning('Invalid price range - min_price must be less than max_price', userId || undefined, {
+        min_price: minPrice,
+        max_price: maxPrice,
+        product_id: productId,
+      });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Minimum price must be less than maximum price' 
+      });
+    }
+    
     const updateData: any = {
       category_id: categoryId,
       title: body.title !== undefined ? body.title : existingProduct.title,
-      min_price: body.min_price !== undefined 
-        ? (typeof body.min_price === 'string' ? parseFloat(body.min_price) || parseFloat(body.minPrice || '0') : (body.min_price ?? body.minPrice ?? existingProduct.min_price))
-        : existingProduct.min_price,
-      max_price: body.max_price !== undefined
-        ? (typeof body.max_price === 'string' ? parseFloat(body.max_price) || parseFloat(body.maxPrice || '0') : (body.max_price ?? body.maxPrice ?? existingProduct.max_price))
-        : existingProduct.max_price,
+      min_price: minPrice,
+      max_price: maxPrice,
       product_condition: body.product_condition !== undefined ? body.product_condition : existingProduct.product_condition,
       status: body.status !== undefined ? body.status : existingProduct.status,
     };

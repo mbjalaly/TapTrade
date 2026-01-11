@@ -83,9 +83,11 @@ class _AddProductWizardScreenState extends State<AddProductWizardScreen> {
       final List<XFile> picked = await _picker.pickMultiImage(imageQuality: 85);
       if (picked.isNotEmpty) {
         setState(() {
+          const MAX_IMAGES = 4; // Maximum 4 images allowed
           _images.addAll(picked.map((x) => File(x.path)));
-          if (_images.length > 6) {
-            _images.removeRange(6, _images.length);
+          if (_images.length > MAX_IMAGES) {
+            _images.removeRange(MAX_IMAGES, _images.length);
+            ShowMessage.notify(context, 'Maximum ${MAX_IMAGES} images allowed');
           }
         });
       }
@@ -95,8 +97,9 @@ class _AddProductWizardScreenState extends State<AddProductWizardScreen> {
   }
 
   void _next() {
-    if (_currentStep == 0 && (_images.isEmpty || _images.length > 6)) {
-      ShowMessage.notify(context, 'Please add at least 1 photo');
+    const MAX_IMAGES = 4; // Maximum 4 images allowed
+    if (_currentStep == 0 && (_images.isEmpty || _images.length > MAX_IMAGES)) {
+      ShowMessage.notify(context, 'Please add at least 1 photo (maximum $MAX_IMAGES)');
       return;
     }
     if (_currentStep == 1) {
@@ -109,7 +112,7 @@ class _AddProductWizardScreenState extends State<AddProductWizardScreen> {
       final double minV = double.tryParse(_minPrice.text.trim()) ?? 0;
       final double maxV = double.tryParse(_maxPrice.text.trim()) ?? 0;
       if (minV < 0 || maxV <= minV) {
-        ShowMessage.notify(context, 'Please provide a valid price range');
+        ShowMessage.notify(context, 'Minimum price must be less than maximum price');
         return;
       }
     }
@@ -140,15 +143,29 @@ class _AddProductWizardScreenState extends State<AddProductWizardScreen> {
     }
     setState(() => _isSubmitting = true);
     try {
+      // Ensure cover index is valid
+      if (_coverIndex < 0 || _coverIndex >= _images.length) {
+        _coverIndex = 0; // Fallback to first image
+      }
+      
       // Upload all images - cover image as 'image' and all images as 'images' array
       final File cover = _images[_coverIndex];
+      
+      // Reorder images to put cover first
+      final List<File> orderedImages = [cover]; // Cover first
+      for (int i = 0; i < _images.length; i++) {
+        if (i != _coverIndex) {
+          orderedImages.add(_images[i]);
+        }
+      }
+      
       final Map<String, dynamic> body = {
         'category': _category,
         'title': _title.text.trim(),
         'min_price': double.tryParse(_minPrice.text.trim()) ?? 0,
         'max_price': double.tryParse(_maxPrice.text.trim()) ?? 0,
-        'image': cover, // Primary/cover image
-        'images': _images, // All images as array
+        'image': cover, // Primary/cover image (must be first)
+        'images': orderedImages, // All images as array with cover first
         'product_condition': _condition,
       };
       final ApiResponse resp = await ProductService.instance.addSingleProduct(context, body, id);
@@ -404,13 +421,13 @@ class _AddProductWizardScreenState extends State<AddProductWizardScreen> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      for (final f in _images.take(6))
+                      for (final f in _images.take(4))
                         ClipRRect(
                           borderRadius: BorderRadius.circular(12),
                           child: Image.file(f, height: 64, width: 64, fit: BoxFit.cover),
                         ),
-                      if (_images.length > 6)
-                        Chip(label: Text('+${_images.length - 6} more')),
+                      if (_images.length > 4)
+                        Chip(label: Text('+${_images.length - 4} more')),
                     ],
                   )
                 else

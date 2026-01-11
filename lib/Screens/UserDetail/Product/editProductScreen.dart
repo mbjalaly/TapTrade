@@ -169,13 +169,15 @@ class _EditProductScreenState extends State<EditProductScreen> {
     if (picked.isNotEmpty) {
       setState(() {
         final newFiles = picked.map((x) => File(x.path)).toList();
+        const MAX_IMAGES = 4; // Maximum 4 images allowed
         for (final file in newFiles) {
-          if (_allImages.length < 6) {
+          if (_allImages.length < MAX_IMAGES) {
             _allImages.add(_ImageItem(file: file, isCover: false));
           }
         }
-        if (_allImages.length > 6) {
-          _allImages.removeRange(6, _allImages.length);
+        if (_allImages.length > MAX_IMAGES) {
+          _allImages.removeRange(MAX_IMAGES, _allImages.length);
+          ShowMessage.notify(context, 'Maximum ${MAX_IMAGES} images allowed');
         }
       });
     }
@@ -240,44 +242,88 @@ class _EditProductScreenState extends State<EditProductScreen> {
         }
       }
       
+      // Validate prices
+      final minPrice = double.tryParse(_minPrice.text.trim()) ?? 0;
+      final maxPrice = double.tryParse(_maxPrice.text.trim()) ?? 0;
+      
+      if (minPrice >= maxPrice) {
+        ShowMessage.notify(context, 'Minimum price must be less than maximum price');
+        setState(() => _isSaving = false);
+        return;
+      }
+      
       final body = <String, dynamic>{
         'category': _category ?? widget.product.category ?? '',
         'title': _title.text.trim(),
-        'min_price': double.tryParse(_minPrice.text.trim()) ?? 0,
-        'max_price': double.tryParse(_maxPrice.text.trim()) ?? 0,
+        'min_price': minPrice,
+        'max_price': maxPrice,
         'product_condition': _condition,
       };
       
-      // Handle images: combine existing URLs with new Files
+      // Handle images: combine existing URLs with new Files (max 4 total)
+      const MAX_IMAGES = 4;
       if (newImageFiles.isNotEmpty || existingImageUrls.isNotEmpty) {
+        // Ensure cover index is valid
+        if (_coverIndex < 0 || _coverIndex >= _allImages.length) {
+          _coverIndex = 0;
+        }
+        
         // Get cover image
+        final coverImg = _allImages[_coverIndex];
         File? coverFile;
-        if (_coverIndex < _allImages.length) {
-          final coverImg = _allImages[_coverIndex];
-          if (coverImg.file != null) {
-            coverFile = coverImg.file;
+        String? coverUrl;
+        
+        if (coverImg.file != null) {
+          coverFile = coverImg.file;
+        } else if (coverImg.url != null && coverImg.url!.isNotEmpty) {
+          coverUrl = coverImg.url;
+        }
+        
+        // Build ordered lists with cover first
+        final List<File> orderedNewFiles = [];
+        final List<String> orderedExistingUrls = [];
+        
+        // Add cover first if it's a new file
+        if (coverFile != null) {
+          orderedNewFiles.add(coverFile);
+        } else if (coverUrl != null) {
+          orderedExistingUrls.add(coverUrl);
+        }
+        
+        // Add remaining images (excluding cover)
+        for (int i = 0; i < _allImages.length; i++) {
+          if (i == _coverIndex) continue; // Skip cover (already added)
+          
+          final img = _allImages[i];
+          if ((orderedNewFiles.length + orderedExistingUrls.length) >= MAX_IMAGES) break;
+          
+          if (img.file != null) {
+            orderedNewFiles.add(img.file!);
+          } else if (img.url != null && img.url!.isNotEmpty) {
+            orderedExistingUrls.add(img.url!);
           }
         }
         
-        // If we have new files, use them
-        if (newImageFiles.isNotEmpty) {
-          // Use the cover file if it's a new file, otherwise use first new file
-          if (coverFile == null && newImageFiles.isNotEmpty) {
-            coverFile = newImageFiles[0];
-          }
-          body['image'] = coverFile;
-          body['images'] = newImageFiles;
-          
-          // Also send existing image URLs that should be kept
-          if (existingImageUrls.isNotEmpty) {
-            body['existing_images'] = existingImageUrls;
-          }
-        } else {
-          // Only existing images - send them as existing_images
-          // Backend will use these to update the product
-          if (existingImageUrls.isNotEmpty) {
-            body['existing_images'] = existingImageUrls;
-          }
+        // Set the cover/primary image
+        // Backend expects 'image' field to be a File (not a string URL)
+        // For existing images, backend uses the first item in 'existing_images' as primary
+        if (coverFile != null) {
+          // Cover is a new file - send it as the primary image
+          body['image'] = coverFile; // Will be sent as multipart file with fieldname 'image'
+        }
+        // If cover is an existing URL (coverUrl != null but coverFile == null),
+        // we don't send it in 'image' field. Instead, it's already first in orderedExistingUrls
+        // and the backend will use it as primary when processing existing_images
+        
+        // Send new files (cover is already first in the list if it's a new file)
+        if (orderedNewFiles.isNotEmpty) {
+          body['images'] = orderedNewFiles;
+        }
+        
+        // Send existing image URLs (cover is already first in the list)
+        // Backend uses first image in existing_images as primary when no new 'image' file is provided
+        if (orderedExistingUrls.isNotEmpty) {
+          body['existing_images'] = orderedExistingUrls;
         }
       }
       
@@ -309,9 +355,9 @@ class _EditProductScreenState extends State<EditProductScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Images (1-6)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                  const Text('Images (1-4)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                   TextButton.icon(
-                    onPressed: _allImages.length < 6 ? _pickImages : null,
+                    onPressed: _allImages.length < 4 ? _pickImages : null,
                     icon: const Icon(Icons.add_a_photo_outlined),
                     label: const Text('Add'),
                   ),
