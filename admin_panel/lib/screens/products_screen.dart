@@ -314,14 +314,19 @@ class _ProductsScreenState extends State<ProductsScreen> {
     try {
       final rows = _filteredProducts.map((p) {
         // Safely extract id
-        String idStr = '';
+        String idStr = '-';
         try {
           final id = p['id'];
           if (id != null) {
             final idString = id.toString();
-            idStr = idString.length > 8 ? idString.substring(0, 8) : idString;
+            if (idString.length > 8) {
+              idStr = '${idString.substring(0, 8)}...';
+            } else {
+              idStr = idString;
+            }
           }
         } catch (e) {
+          print('Error extracting ID: $e');
           idStr = '-';
         }
         
