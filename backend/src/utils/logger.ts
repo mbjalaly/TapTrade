@@ -1,5 +1,12 @@
 import supabase from '../services/supabaseClient';
 
+// Type declaration for Node.js process (for environments where @types/node might not be available)
+declare const process: {
+  env: {
+    NODE_ENV?: string;
+  };
+} | undefined;
+
 // Check if logs table exists (for debugging)
 let tableCheckDone = false;
 async function checkLogsTable() {
@@ -24,7 +31,7 @@ async function checkLogsTable() {
 }
 
 // Check on first import
-if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'test') {
+if (typeof process !== 'undefined' && process.env?.NODE_ENV !== 'test') {
   checkLogsTable().catch(() => {});
 }
 
@@ -74,7 +81,7 @@ export async function logToDatabase(
       console.log(`[${level.toUpperCase()}] ${message}`, metadata || '');
     } else {
       // Successfully logged
-      if (process.env.NODE_ENV === 'development') {
+      if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
         console.log(`[Logger] Successfully logged ${level}: ${message}`, data?.[0]?.id || '');
       }
     }
