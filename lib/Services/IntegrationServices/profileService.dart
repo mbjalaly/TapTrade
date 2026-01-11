@@ -32,8 +32,8 @@ class ProfileService {
       )
   async {
     try{
-      String? id = await SharedPreferencesService().getString(KeyConstants.userId);
-      final result = await ApiService.getRequestData(ApiEndPoint.getUserProfile+'$id/', context,useToken: true);
+      // Backend uses JWT token to identify user, no need to pass user ID
+      final result = await ApiService.getRequestData(ApiEndPoint.getUserProfile, context, useToken: true);
       UserProfileResponseModel responseModel = UserProfileResponseModel.fromJson(result);
       userController.setUserProfile = responseModel;
       printLog("Saved Response ${userController.userProfile.value.toJson()}");
