@@ -62,10 +62,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
       
       try {
-        final tradesCount = await _supabase.from('trades').select('id').count();
+        final tradesCount = await _supabase.from('trade_preferences').select('user_id').count();
         trades = tradesCount.count;
       } catch (e) {
-        print('Trades table error: $e');
+        print('Trade preferences table error: $e');
       }
       
       try {
@@ -159,6 +159,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 32),
+          
+          // Error display
+          if (_error != null)
+            Container(
+              padding: const EdgeInsets.all(16),
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: AdminTheme.error.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AdminTheme.error),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.error, color: AdminTheme.error),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(_error!, style: const TextStyle(color: AdminTheme.error))),
+                ],
+              ),
+            ),
           
           // Stats Grid
           if (_isLoading)
