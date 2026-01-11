@@ -44,32 +44,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
     
     try {
-      // Load counts from Supabase - using select and length
+      // Load counts from Supabase - using same query style as other screens
       int users = 0, products = 0, trades = 0, categories = 0, interests = 0;
       
       try {
-        final usersData = await _supabase.from('users').select('id');
+        final usersData = await _supabase.from('users').select();
         users = (usersData as List).length;
+        print('Users count: $users');
       } catch (e) {
         print('Users table error: $e');
       }
       
       try {
-        final productsData = await _supabase.from('products').select('id');
+        final productsData = await _supabase.from('products').select();
         products = (productsData as List).length;
+        print('Products count: $products');
       } catch (e) {
         print('Products table error: $e');
       }
       
       try {
-        final tradesData = await _supabase.from('trade_preferences').select('user_id');
+        final tradesData = await _supabase.from('trade_preferences').select();
         trades = (tradesData as List).length;
+        print('Trades count: $trades');
       } catch (e) {
         print('Trade preferences table error: $e');
       }
       
       try {
-        final categoriesData = await _supabase.from('categories').select('id');
+        final categoriesData = await _supabase.from('categories').select();
         categories = (categoriesData as List).length;
         print('Categories count: $categories');
       } catch (e) {
@@ -78,7 +81,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
       
       try {
-        final interestsData = await _supabase.from('interests').select('id');
+        final interestsData = await _supabase.from('interests').select();
         interests = (interestsData as List).length;
         print('Interests count: $interests');
       } catch (e) {
