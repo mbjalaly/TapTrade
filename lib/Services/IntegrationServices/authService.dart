@@ -17,6 +17,47 @@ class AuthService {
 
   AuthService._internal();
 
+  // Helper function to handle API errors
+  ApiResponse<dynamic> _handleApiError(dynamic e, BuildContext context) {
+    printLog("ApiException: $e");
+    if (e is ApiException) {
+      printLog("ApiException: ${e.message}");
+
+      try {
+        Map<String, dynamic> errorMessageJson = json.decode(e.message);
+        
+        // Extract error message - check message field first, then error
+        String errorMessage = errorMessageJson['message'] ?? 
+                              errorMessageJson['error'] ?? 
+                              'An error occurred';
+        
+        // If there are field errors, append them to the message
+        if (errorMessageJson['errors'] != null) {
+          final errors = errorMessageJson['errors'];
+          if (errors['fieldErrors'] != null) {
+            final fieldErrors = errors['fieldErrors'] as Map<String, dynamic>;
+            final fieldErrorMessages = fieldErrors.values
+                .expand((v) => v is List ? v : [v])
+                .map((v) => v.toString())
+                .join(', ');
+            if (fieldErrorMessages.isNotEmpty) {
+              errorMessage = '$errorMessage: $fieldErrorMessages';
+            }
+          }
+        }
+        
+        ShowMessage.inDialog(context, errorMessage.capitalizeFirst.toString(), true);
+        return ApiResponse.error(errorMessage);
+      } catch (parseError) {
+        // If JSON parsing fails, show the raw message
+        ShowMessage.inDialog(context, 'An error occurred. Please try again.', true);
+        return ApiResponse.error('An error occurred');
+      }
+    } else {
+      return ApiResponse.error(e.toString());
+    }
+  }
+
   Future<ApiResponse<dynamic>> signUp(
     BuildContext context,
       Map<String, dynamic> body
@@ -25,21 +66,8 @@ class AuthService {
     try{
       final result = await ApiService.postRequestData(ApiEndPoint.register, body, context);
       return ApiResponse.completed(result);
-    }catch (e) {
-      printLog("ApiException: ${e}");
-      if (e is ApiException) {
-        // Handle ApiException
-        printLog("ApiException: ${e.message}");
-
-        Map<String, dynamic> errorMessageJson = json.decode(e.message);
-        String errorMessage =
-            errorMessageJson['error'] ?? 'An error occurred';
-        ShowMessage.inDialog(context,errorMessage.capitalizeFirst.toString(), true);
-
-        return ApiResponse.error(errorMessage);
-      } else {
-        return ApiResponse.error(e.toString());
-      }
+    } catch (e) {
+      return _handleApiError(e, context);
     }
   }
 
@@ -51,21 +79,8 @@ class AuthService {
     try{
       final result = await ApiService.postRequestData(ApiEndPoint.login, body, context);
       return ApiResponse.completed(result);
-    }catch (e) {
-      printLog("ApiException: ${e}");
-      if (e is ApiException) {
-        // Handle ApiException
-        printLog("ApiException: ${e.message}");
-
-        Map<String, dynamic> errorMessageJson = json.decode(e.message);
-        String errorMessage =
-            errorMessageJson['error'] ?? 'An error occurred';
-        ShowMessage.inDialog(context,errorMessage.capitalizeFirst.toString(), true);
-
-        return ApiResponse.error(errorMessage);
-      } else {
-        return ApiResponse.error(e.toString());
-      }
+    } catch (e) {
+      return _handleApiError(e, context);
     }
   }
 
