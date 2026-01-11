@@ -7,7 +7,6 @@ import 'package:taptrade/Controller/userController.dart';
 import 'package:taptrade/Models/LikedProduct/likedProduct.dart';
 import 'package:taptrade/Models/MatchProduct/matchProduct.dart';
 import 'package:taptrade/Screens/Dashboard/Match/matchDeal.dart';
-import 'package:taptrade/Screens/UserDetail/AddLocation/addLocation.dart';
 import 'package:taptrade/Screens/UserDetail/Product/addProductWizard.dart';
 import 'package:taptrade/Services/ApiResponse/apiResponse.dart';
 import 'package:taptrade/Screens/UserDetail/Product/editProductScreen.dart';
