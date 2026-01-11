@@ -196,11 +196,17 @@ class FirebasePhoneAuthService {
       case 'operation-not-allowed':
         return 'Phone authentication is not enabled. Please contact support.';
       case 'internal-error':
-        return 'Firebase configuration error. This may be due to:\n'
-            '• Missing APNs certificate (upload in Firebase Console)\n'
-            '• Invalid Firebase configuration\n'
-            '• Phone Auth not enabled in Firebase Console\n\n'
-            'Please contact support or try again later.';
+        return 'Firebase Phone Authentication Setup Required\n\n'
+            '⚠️ To use phone authentication on iOS, you need to:\n\n'
+            '1. Upload APNs Authentication Key in Firebase Console:\n'
+            '   • Go to Firebase Console → Project Settings → Cloud Messaging\n'
+            '   • Scroll to "APNs Authentication Key" section\n'
+            '   • Upload your .p8 file (from Apple Developer)\n\n'
+            '2. Enable Phone Authentication:\n'
+            '   • Go to Firebase Console → Authentication → Sign-in method\n'
+            '   • Enable "Phone" provider\n\n'
+            '3. Restart the app after configuration\n\n'
+            'If you need help getting the APNs key, contact support.';
       case 'app-not-authorized':
         return 'App is not authorized. Please check Firebase configuration.';
       case 'missing-client-identifier':

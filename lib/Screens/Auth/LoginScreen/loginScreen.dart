@@ -5,9 +5,12 @@ import 'package:taptrade/Screens/Auth/ForgetPassword/forgetPassword.dart';
 import 'package:taptrade/Screens/Dashboard/Bottombar/bottombarscreen.dart';
 import 'package:taptrade/Screens/UserDetail/AddProfile/addProfile.dart';
 import 'package:taptrade/Services/ApiResponse/apiResponse.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:taptrade/Controller/userController.dart';
 import 'package:taptrade/Services/IntegrationServices/authService.dart';
 import 'package:taptrade/Services/IntegrationServices/productService.dart';
 import 'package:taptrade/Services/IntegrationServices/profileService.dart';
+import 'package:taptrade/Services/LocationService/locationService.dart';
 import 'package:taptrade/Services/SharedPreferenceService/sharePreferenceService.dart';
 import 'package:taptrade/Utills/appColors.dart';
 import 'package:taptrade/Utills/deviceResolutionType.dart';
@@ -244,9 +247,12 @@ class _LoginScreenState extends State<LoginScreen> {
                             KeyConstants.accessToken,
                             result.responseData['token'],
                           );
+                          // Get user ID from data object (login response structure: {success, message, token, data: {id, ...}})
+                          final userId = result.responseData['data']?['id']?.toString() ?? 
+                                        result.responseData['id']?.toString() ?? '';
                           await SharedPreferencesService().setString(
                             KeyConstants.userId,
-                            result.responseData['id'],
+                            userId,
                           );
 
                           // Notify user of success
@@ -258,14 +264,42 @@ class _LoginScreenState extends State<LoginScreen> {
                           // Fetch profile data
                           final response = await ProfileService.instance.getProfile(context);
 
+                          // Update location immediately after login (non-blocking)
+                          // This ensures the user's current location (Saudi Arabia) is synced to the database
+                          try {
+                            // Check permissions first without throwing
+                            LocationPermission permission = await Geolocator.checkPermission();
+                            if (permission == LocationPermission.whileInUse || 
+                                permission == LocationPermission.always) {
+                              // Only try to get location if permissions are granted
+                              final location = await LocationService.instance.getCurrentLocation();
+                              await LocationService.instance.updateLocationInDatabase(
+                                location.latitude, 
+                                location.longitude
+                              );
+                              print("Location updated after login: ${location.latitude}, ${location.longitude}");
+                            } else {
+                              print("Location permission not granted, skipping location update after login");
+                            }
+                          } catch (e) {
+                            print("Failed to update location after login (non-critical): $e");
+                            // Continue anyway - location will update automatically when location changes
+                          }
+
                           // Check if the profile is complete
                           bool isProfileComplete =
                               response.responseData['data']?['is_profile_completed'] ?? false;
 
+                          // Get user ID from the fetched profile (most reliable source)
+                          final userController = Get.find<UserController>();
+                          final profileUserId = userController.userProfile.value.data?.id ?? userId;
+                          
                           if (isProfileComplete) {
                             // Load match products and navigate to main screen
-                            await ProductService.instance.getMatchProduct(
-                                context, result.responseData['id']);
+                            if (profileUserId.isNotEmpty) {
+                              await ProductService.instance.getMatchProduct(
+                                  context, profileUserId);
+                            }
                             setState(() {
                               isLoading = false;
                             });

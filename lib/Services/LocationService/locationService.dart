@@ -66,6 +66,11 @@ class LocationService {
     }
   }
   
+  /// Public method to update location in database immediately
+  Future<void> updateLocationInDatabase(double latitude, double longitude) async {
+    await _updateLocationInDatabase(latitude, longitude);
+  }
+  
   Future<void> _updateLocationInDatabase(double latitude, double longitude) async {
     try {
       // Check if user is authenticated (has valid token)

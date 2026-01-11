@@ -342,7 +342,6 @@ class _EditProductScreenState extends State<EditProductScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final categories = GeneralService.instance.allCategory.value.data?.map((e) => e.name).whereType<String>().toList() ?? [];
     return Scaffold(
       appBar: AppBar(title: const Text('Edit product')),
       body: ListView(
@@ -485,12 +484,30 @@ class _EditProductScreenState extends State<EditProductScreen> {
           const SizedBox(height: 24),
           TextFormField(controller: _title, decoration: const InputDecoration(labelText: 'Title')),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            value: _category,
-            items: categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-            onChanged: (v) => setState(() => _category = v),
-            decoration: const InputDecoration(labelText: 'Category'),
-          ),
+          Obx(() {
+            final List<String> categoriesList = GeneralService.instance.allCategory.value.data
+                    ?.map((e) => e.name)
+                    .whereType<String>()
+                    .where((name) => name.isNotEmpty)
+                    .toList() ??
+                [];
+            final items = categoriesList
+                .map((c) => DropdownMenuItem<String>(value: c, child: Text(c)))
+                .toList();
+            
+            // Ensure current category is in the list, otherwise allow null
+            final currentCategory = categoriesList.contains(_category) ? _category : null;
+            
+            return DropdownButtonFormField<String>(
+              value: currentCategory,
+              items: items,
+              onChanged: items.isEmpty ? null : (v) => setState(() => _category = v),
+              decoration: InputDecoration(
+                labelText: 'Category',
+                hintText: items.isEmpty ? 'Loading categories...' : 'Select a category',
+              ),
+            );
+          }),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             value: _condition,

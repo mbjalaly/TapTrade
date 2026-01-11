@@ -166,16 +166,28 @@ class _MyProductScreenState extends State<MyProductScreen> {
     return v[0].toUpperCase() + v.substring(1);
   }
 
-  getData() async {
+  Future<void> getData({bool showLoader = true}) async {
     try {
-      setState(() {
-        isLoading = true;
-      });
+      if (showLoader) {
+        setState(() {
+          isLoading = true;
+        });
+      }
 
       print("=== FETCHING PRODUCTS ===");
-      // Backend uses JWT token, no need to check for user ID
+      // Backend uses JWT token, but we still need user ID for likes/matches
       String id = userController.userProfile.value.data?.id ?? '';
       print("User ID: $id");
+      
+      if (id.isEmpty) {
+        print("WARNING: User ID is empty! Cannot fetch products.");
+        if (mounted && showLoader) {
+          setState(() {
+            isLoading = false;
+          });
+        }
+        return;
+      }
       
       final result = await ProductService.instance.getMyProduct(context, id);
       print("getMyProduct result status: ${result.status}");
@@ -198,7 +210,7 @@ class _MyProductScreenState extends State<MyProductScreen> {
         );
       }
     } finally {
-      if (mounted) {
+      if (mounted && showLoader) {
         setState(() {
           isLoading = false;
         });
@@ -256,7 +268,8 @@ class _MyProductScreenState extends State<MyProductScreen> {
     }
     return Obx(() {
       final myProductList = productController.myProduct.value.data ?? [];
-      print("Obx rebuild - Products count: ${myProductList.length}");
+      final activeProducts = myProductList.where((p) => (p.status ?? '') == 'active').toList();
+      print("Obx rebuild - Total products: ${myProductList.length}, Active products: ${activeProducts.length}");
       if (myProductList.isEmpty) {
         return Center(
           child: Column(
@@ -281,21 +294,60 @@ class _MyProductScreenState extends State<MyProductScreen> {
       }
       return Stack(
       children: [
-        ListView.separated(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 140),
-          itemCount: myProductList.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 10),
-          itemBuilder: (context, index) {
-              final p = myProductList[index];
-              final image = p.image ?? '';
-              final category = p.category ?? '';
-              final title = p.title ?? '';
-              final minPrice = p.minPrice ?? '';
-              final maxPrice = p.maxPrice ?? '';
-              final status = p.status ?? '';
-              final id = p.id ?? -1;
-              final isActive = status == 'active';
-              if (!isActive) return const SizedBox.shrink();
+        RefreshIndicator(
+          onRefresh: () async {
+            await getData(showLoader: false);
+          },
+          child: activeProducts.isEmpty
+              ? ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.inventory_2_outlined, size: 48, color: AppColors.greyTextColor),
+                          const SizedBox(height: 12),
+                          Text(
+                            myProductList.isEmpty 
+                                ? 'No products yet' 
+                                : 'No active products',
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            myProductList.isEmpty
+                                ? 'Add your first product to get started'
+                                : 'You have ${myProductList.length} product(s) but none are active',
+                          ),
+                          if (myProductList.isEmpty) ...[
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: () async {
+                                await Get.to(() => AddProductWizardScreen());
+                                getData();
+                              },
+                              child: const Text('Add product'),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 140),
+                  itemCount: activeProducts.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final p = activeProducts[index];
+                    final image = p.image ?? '';
+                    final category = p.category ?? '';
+                    final title = p.title ?? '';
+                    final minPrice = p.minPrice ?? '';
+                    final maxPrice = p.maxPrice ?? '';
+                    final status = p.status ?? '';
+                    final id = p.id ?? -1;
               return CustomShimmer(
                 isOn: isDeleting && selectedIndex == index,
                 child: Card(
@@ -356,10 +408,10 @@ class _MyProductScreenState extends State<MyProductScreen> {
                                 });
                                 if (result.status == Status.COMPLETED && result.responseData['success']) {
                                   ShowMessage.notify(context, result.responseData['message']);
-                                  productController.myProduct.value.data?.removeAt(index);
-                                  setState(() {});
+                                  // Reload products to ensure list is up to date
+                                  await getData();
                                 } else {
-                                  ShowMessage.notify(context, result.responseData['message']);
+                                  ShowMessage.notify(context, result.responseData['message'] ?? 'Failed to delete product');
                                 }
                               } catch (e) {
                                 setState(() {
@@ -378,6 +430,7 @@ class _MyProductScreenState extends State<MyProductScreen> {
               ),
               );
             },
+          ),
         ),
         Positioned(
           right: 16,
@@ -577,7 +630,11 @@ class _MyProductScreenState extends State<MyProductScreen> {
                       TextButton.icon(
                         onPressed: () async {
                           Navigator.pop(context);
-                          await Get.to(() => EditProductScreen(product: p));
+                          final result = await Get.to(() => EditProductScreen(product: p));
+                          // Refresh products if product was updated
+                          if (result == true) {
+                            getData();
+                          }
                         },
                         icon: const Icon(Icons.edit_outlined),
                         label: const Text('Edit'),

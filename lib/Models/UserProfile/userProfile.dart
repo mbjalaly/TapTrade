@@ -66,24 +66,24 @@ class UserData {
       });
 
   UserData.fromJson(Map<String, dynamic> json) {
-    id = json['id'] ?? '';
-    email = json['email'] ?? '';
-    username = json['username'] ?? '';
-    contact = json['contact'] ?? '';
-    userType = json['user_type'] ?? '';
+    id = json['id']?.toString() ?? '';
+    email = json['email']?.toString() ?? '';
+    username = json['username']?.toString() ?? '';
+    contact = json['contact']?.toString() ?? '';
+    userType = json['user_type']?.toString() ?? '';
     isActive = json['is_active'] ?? false;
     isAdmin = json['is_admin'] ?? false;
-    createdAt = json['created_at'] ?? '';
-    updatedAt = json['updated_at'] ?? '';
-    image = json['image'] ?? '';
+    createdAt = json['created_at']?.toString() ?? '';
+    updatedAt = json['updated_at']?.toString() ?? '';
+    image = json['image']?.toString() ?? '';
     isRegistered = json['is_registered'] ?? false;
     isDeleted = json['is_deleted'] ?? false;
-    fullName = json['full_name'] ?? '';
-    address = json['address'] ?? '';
-    longitude = double.tryParse((json['longitude'] ?? 0.0).toString());
-    latitude = double.tryParse((json['latitude'] ?? 0.0).toString());
-    dob = json['dob'] ?? '';
-    gender = json['gender'] ?? '';
+    fullName = json['full_name']?.toString() ?? '';
+    address = json['address']?.toString() ?? '';
+    longitude = json['longitude'] != null ? double.tryParse(json['longitude'].toString()) : null;
+    latitude = json['latitude'] != null ? double.tryParse(json['latitude'].toString()) : null;
+    dob = json['dob']?.toString() ?? '';
+    gender = json['gender']?.toString() ?? '';
     isProfileComplete = json['is_profile_completed'] ?? false;
   }
 
