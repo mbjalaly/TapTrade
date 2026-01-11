@@ -125,7 +125,7 @@ router.get('/api/user/me/', requireAuth, async (req: Request, res: Response) => 
   return res.json(ok('OK', user));
 });
 
-router.put('/api/user/updateProfile/', requireAuth, upload.single('image'), async (req: Request, res: Response) => {
+router.post('/api/user/updateProfile/', requireAuth, upload.single('image'), async (req: Request, res: Response) => {
   const userId = uid(req);
   const body = req.body || {};
 

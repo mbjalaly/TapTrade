@@ -63,8 +63,9 @@ class ProfileService {
       )
   async {
     try{
+      // Backend uses JWT token to identify user, no need to pass user ID in URL
       final result = await ApiService.postRequestWithFile(
-        ApiEndPoint.updateProfile+'$id/', 
+        ApiEndPoint.updateProfile, 
         body, 
         context,
         sendToken: true,  // Send auth token with request
