@@ -75,21 +75,30 @@ router.post('/api/user/register/', async (req: Request, res: Response) => {
 });
 
 const loginBody = z.object({
-  username: z.string().min(1),
+  username: z.string().min(1).optional(),
+  email: z.string().email().optional(),
   password: z.string().min(1),
+}).refine(data => data.username || data.email, {
+  message: "Either username or email is required",
+  path: ["username"],
 });
 
 router.post('/api/user/login/', async (req: Request, res: Response) => {
   const parsed = loginBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ success: false, message: 'Invalid payload', errors: parsed.error.flatten() });
 
-  const { username, password } = parsed.data;
+  const { username, email, password } = parsed.data;
 
-  const { data: user, error } = await supabase
-    .from('users')
-    .select('*')
-    .ilike('username', username)
-    .maybeSingle();
+  // Build query - check username or email
+  let query = supabase.from('users').select('*');
+  
+  if (username) {
+    query = query.ilike('username', username);
+  } else if (email) {
+    query = query.ilike('email', email);
+  }
+
+  const { data: user, error } = await query.maybeSingle();
 
   if (error || !user) return res.status(401).json({ success: false, message: 'Invalid credentials' });
 
