@@ -180,6 +180,9 @@ class ApiService {
                     ),
                   );
                 }
+              } else if (value is List) {
+                // Handle arrays - convert to JSON string for multipart
+                request.fields[key] = jsonEncode(value);
               } else {
                 request.fields[key] = value.toString();
               }
