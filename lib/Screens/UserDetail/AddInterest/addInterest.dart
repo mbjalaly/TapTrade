@@ -128,7 +128,7 @@ class _AddInterestScreenState extends State<AddInterestScreen> {
                 ),
               ),
               SizedBox(
-                height: Get.height * 0.06,
+                height: Get.height * 0.03,
               ),
               Center(
                 child: GestureDetector(
@@ -148,6 +148,7 @@ class _AddInterestScreenState extends State<AddInterestScreen> {
                       if(result.status == Status.COMPLETED){
                         ShowMessage.notify(context, "${result.responseData['message']}");
                         ProfileService.instance.getUserInterests(context, id);
+                        // Profile is marked as completed in the backend after adding interests
                         Get.to(() =>  AddProductWizardScreen());
                       }else{
                         ShowMessage.notify(context, "${result.message}");
@@ -192,7 +193,8 @@ class _AddInterestScreenState extends State<AddInterestScreen> {
                       )),
                 ),
               )
-            ],
+              ],
+            ),
           ),
         ),
       ),

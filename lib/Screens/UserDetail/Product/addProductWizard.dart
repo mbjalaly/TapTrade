@@ -7,6 +7,7 @@ import 'package:taptrade/Controller/userController.dart';
 import 'package:taptrade/Services/IntegrationServices/generalService.dart';
 import 'package:taptrade/Services/IntegrationServices/productService.dart';
 import 'package:taptrade/Services/ApiResponse/apiResponse.dart';
+import 'package:taptrade/Screens/Dashboard/Bottombar/bottombarscreen.dart';
 import 'package:taptrade/Utills/appColors.dart';
 import 'package:taptrade/Utills/showMessages.dart';
 
@@ -139,20 +140,22 @@ class _AddProductWizardScreenState extends State<AddProductWizardScreen> {
     }
     setState(() => _isSubmitting = true);
     try {
-      // Upload the cover image as the main product for now.
+      // Upload all images - cover image as 'image' and all images as 'images' array
       final File cover = _images[_coverIndex];
       final Map<String, dynamic> body = {
         'category': _category,
         'title': _title.text.trim(),
         'min_price': double.tryParse(_minPrice.text.trim()) ?? 0,
         'max_price': double.tryParse(_maxPrice.text.trim()) ?? 0,
-        'image': cover,
+        'image': cover, // Primary/cover image
+        'images': _images, // All images as array
         'product_condition': _condition,
       };
       final ApiResponse resp = await ProductService.instance.addSingleProduct(context, body, id);
       if (resp.status == Status.COMPLETED) {
         ShowMessage.notify(context, 'Product submitted');
-        Navigator.pop(context);
+        // Navigate to home screen after first product submission
+        Get.offAll(() => const BottomNavigationScreen());
       } else {
         ShowMessage.notify(context, 'Failed to submit product');
       }

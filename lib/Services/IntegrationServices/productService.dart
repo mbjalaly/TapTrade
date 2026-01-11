@@ -50,7 +50,8 @@ class ProductService {
         print("Image file: ${body['image']}");
       }
       
-      final result = await ApiService.postRequestWithFile(ApiEndPoint.addSingleProducts+'$id/', body, context);
+      // Backend uses JWT token to identify user, no need to pass user ID in URL
+      final result = await ApiService.postRequestWithFile(ApiEndPoint.addSingleProducts, body, context, sendToken: true);
       print("Product added successfully!");
       return ApiResponse.completed(result);
     }catch (e) {
@@ -207,7 +208,8 @@ class ProductService {
       )
   async {
     try{
-      final result = await ApiService.getRequestData(ApiEndPoint.myProduct+'$id/', context);
+      // Backend uses JWT token to identify user, no need to pass user ID in URL
+      final result = await ApiService.getRequestData(ApiEndPoint.myProduct, context, useToken: true);
       MyProductResponseModel responseModel = MyProductResponseModel.fromJson(result);
       productController.setMyProduct = responseModel;
       return ApiResponse.completed(result);

@@ -202,14 +202,43 @@ router.get('/getallinterests/', async (_req: Request, res: Response) => {
 
 router.post('/add-interests/', requireAuth, async (req: Request, res: Response) => {
   const userId = uid(req);
-  const ids = Array.isArray(req.body?.interest_ids) ? req.body.interest_ids : [];
+  const body = req.body || {};
+  
+  // Support both interest_ids and interest_names
+  let interestIds: number[] = [];
+  
+  if (Array.isArray(body.interest_ids)) {
+    // If IDs are provided, use them directly
+    interestIds = body.interest_ids.map((id: any) => Number(id));
+  } else if (Array.isArray(body.interest_names)) {
+    // If names are provided, look them up to get IDs
+    const names = body.interest_names;
+    const { data: interests, error: lookupError } = await supabase
+      .from('interests')
+      .select('id')
+      .in('name', names);
+    
+    if (lookupError || !interests) {
+      return res.status(400).json({ success: false, message: 'Failed to find interest IDs' });
+    }
+    
+    interestIds = interests.map((i: any) => Number(i.id));
+  }
+  
   // Store as join table if it exists, else return OK
-  if (!ids.length) return res.json({ success: true, message: 'OK', data: [] });
+  if (!interestIds.length) return res.json({ success: true, message: 'OK', data: [] });
 
-  const rows = ids.map((interestId: any) => ({ user_id: userId, interest_id: Number(interestId) }));
+  // Delete existing user interests first to avoid duplicates
+  await supabase.from('user_interests').delete().eq('user_id', userId);
+  
+  const rows = interestIds.map((interestId: number) => ({ user_id: userId, interest_id: interestId }));
   const { error } = await supabase.from('user_interests').insert(rows);
   if (error) return res.status(500).json({ success: false, message: 'Failed to save interests' });
-  return res.json({ success: true, message: 'Saved', data: ids });
+  
+  // Mark profile as completed after adding interests (assuming image was already added)
+  await supabase.from('users').update({ is_profile_completed: true }).eq('id', userId);
+  
+  return res.json({ success: true, message: 'Saved', data: interestIds });
 });
 
 router.get('/getuserinterests/', requireAuth, async (req: Request, res: Response) => {
@@ -227,6 +256,30 @@ router.get('/getuserinterests/', requireAuth, async (req: Request, res: Response
 router.post('/add_products/', requireAuth, upload.any(), async (req: Request, res: Response) => {
   const userId = uid(req);
   const body: any = req.body || {};
+  const files = ((req as any).files as Express.Multer.File[]) || [];
+
+  // Process uploaded files
+  // First file with fieldname 'image' is the primary image
+  // All files with fieldname 'images' are additional images
+  let primaryImageUrl = '';
+  const imageUrls: string[] = [];
+  
+  // Extract primary image (fieldname: 'image')
+  const primaryFile = files.find(f => f.fieldname === 'image');
+  if (primaryFile) {
+    // Store as base64 data URI (temporary - should use Supabase Storage or S3 in production)
+    primaryImageUrl = `data:${primaryFile.mimetype};base64,${primaryFile.buffer.toString('base64')}`;
+    imageUrls.push(primaryImageUrl);
+  }
+  
+  // Extract additional images (fieldname: 'images')
+  const additionalFiles = files.filter(f => f.fieldname === 'images');
+  for (const file of additionalFiles) {
+    const imageUrl = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+    if (!imageUrls.includes(imageUrl)) { // Avoid duplicates
+      imageUrls.push(imageUrl);
+    }
+  }
 
   const insertData: any = {
     user: userId,
@@ -236,8 +289,8 @@ router.post('/add_products/', requireAuth, upload.any(), async (req: Request, re
     max_price: body.max_price ?? body.maxPrice ?? '0',
     product_condition: body.product_condition ?? body.productCondition ?? '',
     status: body.status ?? 'active',
-    image: body.image ?? '',
-    images: body.images ? body.images : [],
+    image: primaryImageUrl || body.image || '',
+    images: imageUrls.length > 0 ? imageUrls : (body.images || []),
   };
 
   const { data, error } = await supabase.from('products').insert(insertData).select('*').maybeSingle();
@@ -249,9 +302,27 @@ router.post('/add_products/', requireAuth, upload.any(), async (req: Request, re
 });
 
 router.post('/add_user_products/', requireAuth, upload.any(), async (req: Request, res: Response) => {
-  // Alias for compatibility
+  // Alias for compatibility - use same logic as /add_products/
   const userId = uid(req);
   const body: any = req.body || {};
+  const files = ((req as any).files as Express.Multer.File[]) || [];
+
+  // Process uploaded files (same as /add_products/)
+  let primaryImageUrl = '';
+  const imageUrls: string[] = [];
+  
+  const primaryFile = files.find(f => f.fieldname === 'image');
+  if (primaryFile) {
+    primaryImageUrl = `placeholder_${Date.now()}_${primaryFile.originalname}`;
+    imageUrls.push(primaryImageUrl);
+  }
+  
+  const additionalFiles = files.filter(f => f.fieldname === 'images');
+  for (let i = 0; i < additionalFiles.length; i++) {
+    const file = additionalFiles[i];
+    const imageUrl = `placeholder_${Date.now()}_${i}_${file.originalname}`;
+    imageUrls.push(imageUrl);
+  }
 
   const insertData: any = {
     user: userId,
@@ -261,8 +332,8 @@ router.post('/add_user_products/', requireAuth, upload.any(), async (req: Reques
     max_price: body.max_price ?? body.maxPrice ?? '0',
     product_condition: body.product_condition ?? body.productCondition ?? '',
     status: body.status ?? 'active',
-    image: body.image ?? '',
-    images: body.images ? body.images : [],
+    image: primaryImageUrl || body.image || '',
+    images: imageUrls.length > 0 ? imageUrls : (body.images || []),
   };
 
   const { data, error } = await supabase.from('products').insert(insertData).select('*').maybeSingle();
@@ -272,8 +343,14 @@ router.post('/add_user_products/', requireAuth, upload.any(), async (req: Reques
   return res.status(201).json({ success: true, message: 'Created', data });
 });
 
-router.get('/getallproducts/', async (_req: Request, res: Response) => {
-  const { data, error } = await supabase.from('products').select('*').order('id', { ascending: false });
+router.get('/getallproducts/', requireAuth, async (req: Request, res: Response) => {
+  const userId = uid(req);
+  // Return only the authenticated user's products
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .eq('user', userId)
+    .order('id', { ascending: false });
   if (error) return res.json({ success: true, message: 'OK', data: [] });
   return res.json({ success: true, message: 'OK', data: data || [] });
 });

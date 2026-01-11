@@ -181,7 +181,8 @@ class ProfileService {
       )
   async {
     try{
-      final result = await ApiService.postRequestData(ApiEndPoint.addInterest+'$id/', body, context);
+      // Backend uses JWT token to identify user, no need to pass user ID in URL
+      final result = await ApiService.postRequestData(ApiEndPoint.addInterest, body, context, sendToken: true);
       return ApiResponse.completed(result);
     }catch (e) {
       printLog("ApiException: ${e}");
@@ -207,8 +208,9 @@ class ProfileService {
       )
   async {
     try {
+      // Backend uses JWT token to identify user, no need to pass user ID in URL
       var response = await ApiService.getRequestData(
-          ApiEndPoint.getUserInterests+"$id/", context,useToken: false);
+          ApiEndPoint.getUserInterests, context, useToken: true);
       AllInterestResponseModel responseModel =
       AllInterestResponseModel.fromJson(response);
       userController.setUserInterest = responseModel;

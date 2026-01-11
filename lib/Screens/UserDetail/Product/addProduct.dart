@@ -10,6 +10,7 @@ import 'package:taptrade/Services/ApiResponse/apiResponse.dart';
 import 'package:taptrade/Services/IntegrationServices/generalService.dart';
 import 'package:taptrade/Services/IntegrationServices/productService.dart';
 import 'package:taptrade/Services/IntegrationServices/profileService.dart';
+import 'package:taptrade/Screens/Dashboard/Bottombar/bottombarscreen.dart';
 import 'package:taptrade/Utills/appColors.dart';
 import 'package:taptrade/Utills/deviceResolutionType.dart';
 import 'package:taptrade/Utills/showMessages.dart';
@@ -217,7 +218,8 @@ class _AddProductScreenState extends State<AddProductScreen> {
                       }
                     }else{
                       ShowMessage.notify(context, 'Product Added Successfully');
-                      Navigator.pop(context);
+                      // Navigate to home screen after adding product
+                      Get.offAll(() => const BottomNavigationScreen());
                     }
                   } else {
                     ShowMessage.notify(
