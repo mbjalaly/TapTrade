@@ -58,8 +58,11 @@ class Data {
     id = json['id'] ?? 0;
     category = json['category'] ?? '';
     title = json['title'] ?? '';
-    minPrice = json['min_price'] ?? '';
-    maxPrice = json['max_price'] ?? '';
+    // Handle both int and string for prices (backend may send either)
+    final minPriceValue = json['min_price'];
+    minPrice = minPriceValue != null ? minPriceValue.toString() : '';
+    final maxPriceValue = json['max_price'];
+    maxPrice = maxPriceValue != null ? maxPriceValue.toString() : '';
     image = json['image'] ?? '';
     if (json['images'] is List) {
       images = (json['images'] as List).map((e) => e.toString()).toList();

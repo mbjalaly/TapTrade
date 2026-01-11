@@ -400,21 +400,50 @@ router.post('/add_user_products/', requireAuth, upload.any(), async (req: Reques
 
 router.get('/getallproducts/', requireAuth, async (req: Request, res: Response) => {
   const userId = uid(req);
-  // Return only the authenticated user's products with category name joined
-  const { data, error } = await supabase
+  console.log('Fetching products for user:', userId);
+  
+  // Return only the authenticated user's products
+  const { data: products, error } = await supabase
     .from('products')
-    .select('*, categories(name)')
+    .select('*')
     .eq('user_id', userId)
     .order('id', { ascending: false });
+    
   if (error) {
     console.error('Error fetching products:', error);
     return res.json({ success: true, message: 'OK', data: [] });
   }
-  // Map the data to include category name as a string
-  const mappedData = (data || []).map((product: any) => ({
-    ...product,
-    category: product.categories?.name || '',
-  }));
+  
+  console.log(`Found ${products?.length || 0} products for user ${userId}`);
+  
+  // Fetch all categories to map IDs to names
+  const { data: categories } = await supabase
+    .from('categories')
+    .select('id, name');
+  
+  const categoryMap = new Map((categories || []).map((cat: any) => [Number(cat.id), cat.name]));
+  
+  // Map the data to include category name as a string and convert prices to strings
+  const mappedData = (products || []).map((product: any) => {
+    const categoryName = product.category_id ? (categoryMap.get(Number(product.category_id)) || '') : '';
+    return {
+      id: product.id,
+      user_id: product.user_id,
+      category_id: product.category_id,
+      category: categoryName,
+      title: product.title || '',
+      min_price: String(product.min_price ?? 0),
+      max_price: String(product.max_price ?? 0),
+      image: product.image || '',
+      images: product.images || [],
+      product_condition: product.product_condition || '',
+      status: product.status || 'active',
+      created_at: product.created_at,
+      updated_at: product.updated_at,
+    };
+  });
+  
+  console.log(`Returning ${mappedData.length} mapped products`);
   return res.json({ success: true, message: 'OK', data: mappedData });
 });
 

@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -27,6 +29,67 @@ class MyProductScreen extends StatefulWidget {
 }
 
 class _MyProductScreenState extends State<MyProductScreen> {
+  // Helper widget to display images (handles base64 data URIs and regular URLs)
+  Widget _buildProductImage(String? imageUrl, {double? width, double? height}) {
+    final w = width ?? 88.0;
+    final h = height ?? 88.0;
+    
+    if (imageUrl == null || imageUrl.isEmpty) {
+      return Image.network(
+        KeyConstants.imagePlaceHolder,
+        width: w,
+        height: h,
+        fit: BoxFit.cover,
+      );
+    }
+    
+    // Handle base64 data URIs
+    if (imageUrl.startsWith('data:image')) {
+      try {
+        final parts = imageUrl.split(',');
+        if (parts.length == 2) {
+          final base64String = parts[1];
+          final bytes = base64Decode(base64String);
+          return Image.memory(
+            Uint8List.fromList(bytes),
+            width: w,
+            height: h,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Image.network(
+                KeyConstants.imagePlaceHolder,
+                width: w,
+                height: h,
+                fit: BoxFit.cover,
+              );
+            },
+          );
+        }
+      } catch (e) {
+        print('Error decoding base64 image: $e');
+      }
+    }
+    
+    // Handle regular HTTP URLs or relative paths
+    final finalUrl = imageUrl.startsWith('http')
+        ? imageUrl
+        : KeyConstants.imageUrl + imageUrl;
+    
+    return Image.network(
+      finalUrl,
+      width: w,
+      height: h,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) {
+        return Image.network(
+          KeyConstants.imagePlaceHolder,
+          width: w,
+          height: h,
+          fit: BoxFit.cover,
+        );
+      },
+    );
+  }
   
   String _getCategoryName(int? categoryId) {
     if (categoryId == null) return 'Not specified';
@@ -162,35 +225,36 @@ class _MyProductScreenState extends State<MyProductScreen> {
 
   Widget _buildMyProductsTab(BuildContext context) {
     Size size = MediaQuery.of(context).size;
-    final myProductList = productController.myProduct.value.data ?? [];
     if (isLoading) {
       return const Center(
         child: CircularProgressIndicator(color: AppColors.primaryTextColor),
       );
     }
-    if (myProductList.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.inventory_2_outlined, size: 48, color: AppColors.greyTextColor),
-            const SizedBox(height: 12),
-            const Text('No products yet', style: TextStyle(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 6),
-            const Text('Add your first product to get started'),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () async {
-                await Get.to(() => AddProductWizardScreen());
-                getData();
-              },
-              child: const Text('Add product'),
-            ),
-          ],
-        ),
-      );
-    }
-    return Stack(
+    return Obx(() {
+      final myProductList = productController.myProduct.value.data ?? [];
+      if (myProductList.isEmpty) {
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.inventory_2_outlined, size: 48, color: AppColors.greyTextColor),
+              const SizedBox(height: 12),
+              const Text('No products yet', style: TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 6),
+              const Text('Add your first product to get started'),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () async {
+                  await Get.to(() => AddProductWizardScreen());
+                  getData();
+                },
+                child: const Text('Add product'),
+              ),
+            ],
+          ),
+        );
+      }
+      return Stack(
       children: [
         ListView.separated(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 140),
@@ -235,12 +299,7 @@ class _MyProductScreenState extends State<MyProductScreen> {
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: Image.network(
-                            image.isNotEmpty ? KeyConstants.imageUrl + image : KeyConstants.imagePlaceHolder,
-                            height: 88,
-                            width: 88,
-                            fit: BoxFit.cover,
-                          ),
+                          child: _buildProductImage(image, width: 88, height: 88),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -314,6 +373,7 @@ class _MyProductScreenState extends State<MyProductScreen> {
         ),
       ],
     );
+    });
   }
 
   Widget _chip(String label) {
@@ -343,12 +403,7 @@ class _MyProductScreenState extends State<MyProductScreen> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.network(
-                imageUrl,
-                height: 44,
-                width: 44,
-                fit: BoxFit.cover,
-              ),
+              child: _buildProductImage(imageUrl, width: 44, height: 44),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -468,12 +523,7 @@ class _MyProductScreenState extends State<MyProductScreen> {
                           children: [
                             ClipRRect(
                               borderRadius: BorderRadius.circular(12),
-                              child: Image.network(
-                                image.isNotEmpty ? KeyConstants.imageUrl + image : KeyConstants.imagePlaceHolder,
-                                height: 72,
-                                width: 72,
-                                fit: BoxFit.cover,
-                              ),
+                              child: _buildProductImage(image, width: 72, height: 72),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -624,28 +674,18 @@ class _MyProductScreenState extends State<MyProductScreen> {
       if (cover.isNotEmpty) cover,
     }.toList();
     if (sources.isEmpty) return const SizedBox.shrink();
-    List<String> urls = sources.map((s) {
-      final String str = s.toString();
-      if (str.startsWith('http')) return str;
-      return KeyConstants.imageUrl + str;
-    }).toList();
     return SizedBox(
       height: 140,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         scrollDirection: Axis.horizontal,
-        itemCount: urls.length,
+        itemCount: sources.length,
         separatorBuilder: (_, __) => const SizedBox(width: 10),
         itemBuilder: (_, i) {
-          final u = urls[i];
+          final imageStr = sources[i].toString();
           return ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: Image.network(
-              u,
-              height: 140,
-              width: 200,
-              fit: BoxFit.cover,
-            ),
+            child: _buildProductImage(imageStr, width: 200, height: 140),
           );
         },
       ),
