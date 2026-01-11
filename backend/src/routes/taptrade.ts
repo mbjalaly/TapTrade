@@ -447,6 +447,136 @@ router.get('/getallproducts/', requireAuth, async (req: Request, res: Response) 
   return res.json({ success: true, message: 'OK', data: mappedData });
 });
 
+router.post('/update_products/', requireAuth, upload.any(), async (req: Request, res: Response) => {
+  const userId = uid(req);
+  const body: any = req.body || {};
+  const files = ((req as any).files as Express.Multer.File[]) || [];
+  const productId = Number(body.product_id || body.id || 0);
+  
+  if (!productId) {
+    return res.status(400).json({ success: false, message: 'product_id is required' });
+  }
+  
+  // Verify the product belongs to the user
+  const { data: existingProduct, error: fetchError } = await supabase
+    .from('products')
+    .select('*')
+    .eq('id', productId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  
+  if (fetchError || !existingProduct) {
+    return res.status(404).json({ success: false, message: 'Product not found or access denied' });
+  }
+  
+  // Process uploaded files (new images)
+  let primaryImageUrl = '';
+  const imageUrls: string[] = [];
+  
+  // Extract primary image (fieldname: 'image')
+  const primaryFile = files.find(f => f.fieldname === 'image');
+  if (primaryFile) {
+    primaryImageUrl = `data:${primaryFile.mimetype};base64,${primaryFile.buffer.toString('base64')}`;
+    imageUrls.push(primaryImageUrl);
+  }
+  
+  // Extract additional images (fieldname: 'images')
+  const additionalFiles = files.filter(f => f.fieldname === 'images');
+  for (const file of additionalFiles) {
+    const imageUrl = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+    if (!imageUrls.includes(imageUrl)) {
+      imageUrls.push(imageUrl);
+    }
+  }
+  
+  // Handle existing images from body (if provided as URLs/base64 strings)
+  // This allows keeping existing images when updating
+  if (body.existing_images && Array.isArray(body.existing_images)) {
+    for (const imgUrl of body.existing_images) {
+      if (typeof imgUrl === 'string' && imgUrl.trim() && !imageUrls.includes(imgUrl)) {
+        imageUrls.push(imgUrl);
+      }
+    }
+  }
+  
+  // If no new files but existing_images provided, use those
+  if (imageUrls.length === 0 && body.existing_images && Array.isArray(body.existing_images) && body.existing_images.length > 0) {
+    imageUrls.push(...body.existing_images.filter((img: any) => typeof img === 'string' && img.trim()));
+  }
+  
+  // If no images provided at all, keep existing images from database
+  if (imageUrls.length === 0 && !primaryImageUrl) {
+    primaryImageUrl = existingProduct.image || '';
+    if (existingProduct.images && Array.isArray(existingProduct.images)) {
+      imageUrls.push(...existingProduct.images);
+    } else if (existingProduct.image) {
+      imageUrls.push(existingProduct.image);
+    }
+  } else if (primaryImageUrl && imageUrls.length === 0) {
+    // If only primary image provided, use it
+    imageUrls.push(primaryImageUrl);
+  } else if (!primaryImageUrl && imageUrls.length > 0) {
+    // If only additional images provided, use first as primary
+    primaryImageUrl = imageUrls[0];
+  }
+  
+  // Handle category - can be ID (number) or name (string)
+  let categoryId: number | null = existingProduct.category_id;
+  if (body.category_id !== undefined) {
+    categoryId = typeof body.category_id === 'string' ? parseFloat(body.category_id) || null : body.category_id;
+  } else if (body.category) {
+    if (typeof body.category === 'string') {
+      const { data: categoryData } = await supabase
+        .from('categories')
+        .select('id')
+        .ilike('name', body.category)
+        .maybeSingle();
+      if (categoryData) {
+        categoryId = Number(categoryData.id);
+      }
+    } else if (typeof body.category === 'number') {
+      categoryId = body.category;
+    }
+  }
+  
+  const updateData: any = {
+    category_id: categoryId,
+    title: body.title !== undefined ? body.title : existingProduct.title,
+    min_price: body.min_price !== undefined 
+      ? (typeof body.min_price === 'string' ? parseFloat(body.min_price) || parseFloat(body.minPrice || '0') : (body.min_price ?? body.minPrice ?? existingProduct.min_price))
+      : existingProduct.min_price,
+    max_price: body.max_price !== undefined
+      ? (typeof body.max_price === 'string' ? parseFloat(body.max_price) || parseFloat(body.maxPrice || '0') : (body.max_price ?? body.maxPrice ?? existingProduct.max_price))
+      : existingProduct.max_price,
+    product_condition: body.product_condition !== undefined ? body.product_condition : existingProduct.product_condition,
+    status: body.status !== undefined ? body.status : existingProduct.status,
+  };
+  
+  // Update images only if new files were provided or existing_images were explicitly set
+  if (primaryImageUrl || (body.existing_images && Array.isArray(body.existing_images))) {
+    updateData.image = primaryImageUrl || existingProduct.image || '';
+    updateData.images = imageUrls.length > 0 ? imageUrls : (existingProduct.images || []);
+  }
+  
+  const { data, error } = await supabase
+    .from('products')
+    .update(updateData)
+    .eq('id', productId)
+    .eq('user_id', userId)
+    .select('*')
+    .maybeSingle();
+  
+  if (error) {
+    console.error('Error updating product:', error);
+    return res.status(500).json({ success: false, message: 'Failed to update product', error: error.message });
+  }
+  if (!data) {
+    return res.status(500).json({ success: false, message: 'Failed to update product' });
+  }
+  
+  return res.json({ success: true, message: 'Updated', data });
+});
+
 router.delete('/delete_products/', requireAuth, async (req: Request, res: Response) => {
   const productId = Number((req.query.id || req.body?.id) ?? 0);
   if (!productId) return res.status(400).json({ success: false, message: 'id is required' });

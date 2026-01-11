@@ -132,8 +132,8 @@ class ApiService {
         token = await SharedPreferencesService().getString(KeyConstants.accessToken);
       }
       if (contentType == 'multipart/form-data') {
-        Future<http.Response> sendMultipart(String targetUrl) async {
-          var request = http.MultipartRequest('POST', Uri.parse(targetUrl));
+        Future<http.Response> sendMultipart(String targetUrl, {String method = 'POST'}) async {
+          var request = http.MultipartRequest(method, Uri.parse(targetUrl));
           request.followRedirects = false; // prevent 302/303 switching to GET
           request.headers.addAll(_buildHeaders(sendToken, token, contentType));
           if (body is Map<String, dynamic>) {

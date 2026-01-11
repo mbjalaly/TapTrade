@@ -38,6 +38,7 @@ class ApiEndPoint {
   static String get traderProfile => '${baseUrl}api/user/profile/';
   static String get tradePaymentStatus => '${baseUrl}api/trade/trade_payment_status/';
   static String get deleteProduct => '${baseUrl}delete_products/';
+  static String get updateProduct => '${baseUrl}update_products/';
   static String get deleteUser => '${baseUrl}api/user/delete/';
   static String get forgotPassword => '${baseUrl}api/user/forgotpassword/';
   

@@ -213,7 +213,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
       return;
     }
     
-    // Ensure at least 1 image
+    // Ensure at least 1 image exists (existing or new)
     if (_allImages.isEmpty) {
       ShowMessage.notify(context, 'At least 1 image is required');
       return;
@@ -221,28 +221,24 @@ class _EditProductScreenState extends State<EditProductScreen> {
     
     setState(() => _isSaving = true);
     try {
-      final userId = Get.find<UserController>().userProfile.value.data?.id ?? '';
-      
-      // Collect all File images (only new files can be sent to backend)
-      final List<File> allImageFiles = [];
-      for (final img in _allImages) {
-        if (img.file != null) {
-          allImageFiles.add(img.file!);
-        }
-      }
-      
-      // If we have existing images but no new File images, we can't update images
-      // For now, require at least one File image to update
-      if (allImageFiles.isEmpty) {
-        ShowMessage.notify(context, 'Please add at least one new image to update the product images');
+      final productId = widget.product.id?.toString() ?? '';
+      if (productId.isEmpty) {
+        ShowMessage.notify(context, 'Product ID is missing');
         setState(() => _isSaving = false);
         return;
       }
       
-      // Get cover image (the one at _coverIndex, or first if index is out of bounds)
-      final File coverFile = _coverIndex < allImageFiles.length 
-          ? allImageFiles[_coverIndex] 
-          : allImageFiles[0];
+      // Separate new File images from existing URLs
+      final List<File> newImageFiles = [];
+      final List<String> existingImageUrls = [];
+      
+      for (final img in _allImages) {
+        if (img.file != null) {
+          newImageFiles.add(img.file!);
+        } else if (img.url != null && img.url!.isNotEmpty) {
+          existingImageUrls.add(img.url!);
+        }
+      }
       
       final body = <String, dynamic>{
         'category': _category ?? widget.product.category ?? '',
@@ -250,11 +246,43 @@ class _EditProductScreenState extends State<EditProductScreen> {
         'min_price': double.tryParse(_minPrice.text.trim()) ?? 0,
         'max_price': double.tryParse(_maxPrice.text.trim()) ?? 0,
         'product_condition': _condition,
-        'image': coverFile,
-        'images': allImageFiles,
       };
       
-      final ApiResponse resp = await ProductService.instance.addSingleProduct(context, body, userId);
+      // Handle images: combine existing URLs with new Files
+      if (newImageFiles.isNotEmpty || existingImageUrls.isNotEmpty) {
+        // Get cover image
+        File? coverFile;
+        if (_coverIndex < _allImages.length) {
+          final coverImg = _allImages[_coverIndex];
+          if (coverImg.file != null) {
+            coverFile = coverImg.file;
+          }
+        }
+        
+        // If we have new files, use them
+        if (newImageFiles.isNotEmpty) {
+          // Use the cover file if it's a new file, otherwise use first new file
+          if (coverFile == null && newImageFiles.isNotEmpty) {
+            coverFile = newImageFiles[0];
+          }
+          body['image'] = coverFile;
+          body['images'] = newImageFiles;
+          
+          // Also send existing image URLs that should be kept
+          if (existingImageUrls.isNotEmpty) {
+            body['existing_images'] = existingImageUrls;
+          }
+        } else {
+          // Only existing images - send them as existing_images
+          // Backend will use these to update the product
+          if (existingImageUrls.isNotEmpty) {
+            body['existing_images'] = existingImageUrls;
+          }
+        }
+      }
+      
+      // Use updateProduct instead of addSingleProduct
+      final ApiResponse resp = await ProductService.instance.updateProduct(context, body, productId);
       if (resp.status == Status.COMPLETED) {
         ShowMessage.notify(context, 'Product updated');
         Navigator.pop(context, true);

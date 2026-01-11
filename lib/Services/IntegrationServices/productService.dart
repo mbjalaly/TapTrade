@@ -121,6 +121,69 @@ class ProductService {
     }
   }
 
+  Future<ApiResponse<dynamic>> updateProduct(
+      BuildContext context,
+      Map<String, dynamic> body,
+      String productId,
+      )
+  async {
+    try{
+      print("=== UPDATING PRODUCT ===");
+      print("Product ID: $productId");
+      print("Body keys: ${body.keys.toList()}");
+      if (body['image'] != null) {
+        print("Image file: ${body['image']}");
+      }
+      
+      // Add product_id to body for backend
+      body['product_id'] = productId;
+      body['id'] = productId; // Also add as 'id' for compatibility
+      
+      // Backend uses PUT method, but postRequestWithFile can handle it if we modify the method
+      // For now, use postRequestWithFile and backend will handle PUT
+      final result = await ApiService.postRequestWithFile(ApiEndPoint.updateProduct, body, context, sendToken: true);
+      print("Product updated successfully!");
+      return ApiResponse.completed(result);
+    }catch (e) {
+      printLog("ApiException: ${e}");
+      if (e is ApiException) {
+        // Handle timeout errors specifically
+        if (e.message.contains('timed out') || e.message.contains('timeout')) {
+          ShowMessage.inDialog(context, 'Update is taking longer than expected. Please check your internet connection and try again.', true);
+          return ApiResponse.error('Upload timeout - please try again with a smaller image or better internet connection');
+        }
+        
+        // Try to parse server error as JSON, otherwise fall back to plain text
+        String fallback = 'Unable to update product. Please try again later.';
+        try {
+          final Map<String, dynamic> errorMessageJson = json.decode(e.message);
+          // Handle different server response formats
+          String errorMessage = errorMessageJson['message'] ?? 
+                               errorMessageJson['error'] ?? 
+                               fallback;
+          
+          // Handle specific server errors
+          if (errorMessage.contains('disk I/O error')) {
+            errorMessage = 'Server storage error. Please try again with a smaller image or contact support.';
+          } else if (errorMessage.contains('file too large')) {
+            errorMessage = 'Image file is too large. Please use a smaller image.';
+          }
+          
+          ShowMessage.inDialog(context, errorMessage, true);
+          return ApiResponse.error(errorMessage);
+        } catch (_) {
+          final String message = e.message.toString().startsWith('<!DOCTYPE')
+              ? fallback
+              : e.message.toString();
+          ShowMessage.inDialog(context, message, true);
+          return ApiResponse.error(message);
+        }
+      } else {
+        return ApiResponse.error(e.toString());
+      }
+    }
+  }
+
   Future<ApiResponse<dynamic>> getMatchProduct(
       BuildContext context,
       String id,
