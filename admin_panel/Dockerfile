@@ -13,7 +13,7 @@ COPY web ./web
 
 # Get dependencies and build
 RUN flutter pub get
-RUN flutter build web --release --web-renderer html
+RUN flutter build web --release
 
 # Stage 2: Serve with Node.js
 FROM node:18-alpine AS production
