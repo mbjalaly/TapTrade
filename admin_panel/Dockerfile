@@ -11,6 +11,7 @@ WORKDIR /app
 COPY pubspec.yaml pubspec.lock ./
 COPY lib ./lib
 COPY web ./web
+COPY assets ./assets
 
 # Get dependencies and build
 RUN flutter pub get

@@ -30,17 +30,16 @@ class Sidebar extends StatelessWidget {
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AdminTheme.primaryColor, AdminTheme.secondaryColor],
-                    ),
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(
-                    Icons.swap_horiz,
-                    color: Colors.black,
-                    size: 24,
+                  child: Image.asset(
+                    'assets/images/mainAppLogo.png',
+                    width: 32,
+                    height: 32,
+                    fit: BoxFit.contain,
                   ),
                 ),
                 const SizedBox(width: 12),
