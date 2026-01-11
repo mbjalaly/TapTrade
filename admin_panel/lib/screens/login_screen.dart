@@ -202,7 +202,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   
                   const SizedBox(height: 24),
                   Text(
-                    '© 2024 TapTrade. All rights reserved.',
+                    '© 2026 TapTrade. All rights reserved.',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
