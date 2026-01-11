@@ -124,13 +124,31 @@ class _CreateEmailScreenState extends State<CreateEmailScreen> {
                         setState(() {
                           isLoading = false;
                         });
-                        if(result['success'] == false && result['code'] == 404){
-                          setState(() {
-                            widget.requestModel.email = emailCon.text;
-                          });
-                          Get.to( () =>  PhoneSignInScreen(requestModel: widget.requestModel,));
-                        }else{
-                          ShowMessage.notify(context, result['message']);
+                        
+                        if (result == null) {
+                          ShowMessage.notify(context, 'Error checking email. Please try again.');
+                          return;
+                        }
+                        
+                        // Check if API call was successful
+                        if (result['success'] == true) {
+                          // Backend returns { success: true, exists: true/false }
+                          bool exists = result['exists'] ?? false;
+                          
+                          if (!exists) {
+                            // Email is available - proceed to phone screen
+                            setState(() {
+                              widget.requestModel.email = emailCon.text.trim();
+                            });
+                            Get.to(() => PhoneSignInScreen(requestModel: widget.requestModel));
+                          } else {
+                            // Email already exists
+                            ShowMessage.notify(context, 'Email is already registered. Please use another email or login.');
+                          }
+                        } else {
+                          // API returned an error
+                          String message = result['message'] ?? 'Error checking email. Please try again.';
+                          ShowMessage.notify(context, message);
                         }
                       }else{
                         ShowMessage.notify(context, "Please Enter a Valid Email");

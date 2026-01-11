@@ -207,7 +207,20 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
                         setState(() {
                           isLoading = false;
                         });
-                        ShowMessage.inDialog(context, error, true);
+                        // Show error in dialog
+                        showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('OTP Error'),
+                            content: Text(error),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('OK'),
+                              ),
+                            ],
+                          ),
+                        );
                       },
                     );
                   },

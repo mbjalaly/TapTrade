@@ -228,7 +228,8 @@ class AuthService {
       var result = {
         'code': response.statusCode,
         'message': jsonBody['message'] ?? 'An error occurred',
-        'success': jsonBody['success'] ?? false
+        'success': jsonBody['success'] ?? false,
+        'exists': jsonBody['exists'] ?? false, // Backend returns 'exists' field
       };
       return result;
     } catch (e) {
@@ -237,7 +238,8 @@ class AuthService {
       return {
         'code': 500,
         'message': 'Network error. Please check your connection and try again.',
-        'success': true
+        'success': false,
+        'exists': true, // Assume exists on error to prevent proceeding
       };
     }
   }

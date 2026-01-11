@@ -49,12 +49,9 @@ import FirebaseAuth
   override func application(_ application: UIApplication,
                            didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
     // Set APNs token with proper type for phone authentication
-    // Use .production for release builds, .sandbox for debug/development
-    #if DEBUG
-      Auth.auth().setAPNSToken(deviceToken, type: .sandbox)
-    #else
-      Auth.auth().setAPNSToken(deviceToken, type: .production)
-    #endif
+    // Firebase Auth automatically detects the token type
+    // Use .unknown for automatic detection (works for both debug and release)
+    Auth.auth().setAPNSToken(deviceToken, type: .unknown)
     super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
   }
   

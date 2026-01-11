@@ -127,15 +127,24 @@ class _UserNameScreenState extends State<UserNameScreen> {
                           return;
                         }
                         
-                        // Username is available if success is false and code is 404
-                        if(result['success'] == false && result['code'] == 404){
-                          setState(() {
-                            requestModel.username = nameCon.text.trim();
-                          });
-                          Get.to(() => PasswordScreen(requestModel: requestModel));
+                        // Check if API call was successful
+                        if (result['success'] == true) {
+                          // Backend returns { success: true, exists: true/false }
+                          bool exists = result['exists'] ?? false;
+                          
+                          if (!exists) {
+                            // Username is available - proceed to password screen
+                            setState(() {
+                              requestModel.username = nameCon.text.trim();
+                            });
+                            Get.to(() => PasswordScreen(requestModel: requestModel));
+                          } else {
+                            // Username already exists
+                            ShowMessage.notify(context, 'Username is already taken. Please choose another.');
+                          }
                         } else {
-                          // Username is taken or error occurred
-                          String message = result['message'] ?? 'Username is already taken. Please choose another.';
+                          // API returned an error
+                          String message = result['message'] ?? 'Error checking username. Please try again.';
                           ShowMessage.notify(context, message);
                         }
                       } catch (e) {

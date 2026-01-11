@@ -63,6 +63,27 @@ class FirebasePhoneAuthService {
           printLog('[Firebase Phone Auth] Message: ${e.message}');
           printLog('[Firebase Phone Auth] Plugin: ${e.plugin}');
           printLog('[Firebase Phone Auth] Stack: ${e.stackTrace}');
+          
+          // Log full error details for internal-error
+          if (e.code == 'internal-error') {
+            printLog('[Firebase Phone Auth] ⚠️ INTERNAL ERROR DETAILS:');
+            printLog('[Firebase Phone Auth] Full error object: ${e.toString()}');
+            printLog('[Firebase Phone Auth] Credential: ${e.credential}');
+            printLog('[Firebase Phone Auth] Email: ${e.email}');
+            printLog('[Firebase Phone Auth] Phone number: ${e.phoneNumber ?? phoneNumber}');
+            printLog('[Firebase Phone Auth] Phone number passed to function: $phoneNumber');
+            
+            // Common causes for internal-error on iOS:
+            printLog('[Firebase Phone Auth] 💡 TROUBLESHOOTING:');
+            printLog('[Firebase Phone Auth] 1. Check if APNs certificate/key is uploaded in Firebase Console (Project Settings > Cloud Messaging)');
+            printLog('[Firebase Phone Auth] 2. Verify REVERSED_CLIENT_ID is in Info.plist URL schemes');
+            printLog('[Firebase Phone Auth] 3. Check if GoogleService-Info.plist is correct and bundle ID matches');
+            printLog('[Firebase Phone Auth] 4. Ensure Phone Authentication is enabled in Firebase Console (Authentication > Sign-in method)');
+            printLog('[Firebase Phone Auth] 5. For iOS simulator, this may require reCAPTCHA (web view will appear)');
+            printLog('[Firebase Phone Auth] 6. Try on a physical device instead of simulator');
+            printLog('[Firebase Phone Auth] 7. Restart app after uploading APNs certificate');
+          }
+          
           String errorMessage = _getErrorMessage(e.code);
           if (onError != null) {
             onError(errorMessage);
@@ -175,7 +196,11 @@ class FirebasePhoneAuthService {
       case 'operation-not-allowed':
         return 'Phone authentication is not enabled. Please contact support.';
       case 'internal-error':
-        return 'Firebase configuration error. Please check Phone Auth is enabled.';
+        return 'Firebase configuration error. This may be due to:\n'
+            '• Missing APNs certificate (upload in Firebase Console)\n'
+            '• Invalid Firebase configuration\n'
+            '• Phone Auth not enabled in Firebase Console\n\n'
+            'Please contact support or try again later.';
       case 'app-not-authorized':
         return 'App is not authorized. Please check Firebase configuration.';
       case 'missing-client-identifier':

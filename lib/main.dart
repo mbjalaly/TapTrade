@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:taptrade/Screens/Splash/splashScreen.dart';
@@ -41,6 +42,18 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       home: const SplashScreen(),
+      // Suppress route information warnings (for Firebase reCAPTCHA)
+      logWriterCallback: (String text, {bool isError = false}) {
+        // Filter out "Failed to handle route information" warnings
+        if (text.contains('Failed to handle route information')) {
+          // This is expected for Firebase reCAPTCHA - ignore it
+          return;
+        }
+        // Log other messages normally
+        if (isError) {
+          debugPrint(text);
+        }
+      },
     );
   }
 }
