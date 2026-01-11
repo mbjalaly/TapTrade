@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS logs (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   level VARCHAR(20) DEFAULT 'info' NOT NULL,
   message TEXT NOT NULL,
-  user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  user_id UUID, -- Store user_id without foreign key constraint to avoid FK issues
   metadata JSONB,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
 );

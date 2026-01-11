@@ -836,40 +836,75 @@ router.get('/api/user/profile/', async (_req: Request, res: Response) => {
 // Test endpoint for logging (for debugging)
 router.get('/test-logging/', async (req: Request, res: Response) => {
   try {
-    await logger.info('Test log entry', undefined, { test: true, timestamp: new Date().toISOString() });
-    await logger.warning('Test warning log', undefined, { test: true });
-    await logger.error('Test error log', undefined, { test: true });
-    await logger.success('Test success log', undefined, { test: true });
+    console.log('[Test-Logging] Starting test...');
+    
+    // Test write operations
+    const writeResults = [];
+    writeResults.push(await logger.info('Test log entry', undefined, { test: true, timestamp: new Date().toISOString() }));
+    writeResults.push(await logger.warning('Test warning log', undefined, { test: true }));
+    writeResults.push(await logger.error('Test error log', undefined, { test: true }));
+    writeResults.push(await logger.success('Test success log', undefined, { test: true }));
+    
+    // Wait a bit for writes to complete
+    await new Promise(resolve => setTimeout(resolve, 500));
     
     // Try to read logs to verify they were written
+    console.log('[Test-Logging] Attempting to read logs...');
     const { data: logs, error: readError } = await supabase
       .from('logs')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(5);
+      .limit(10);
     
-    if (readError) {
+    // Check table existence
+    const { error: tableCheckError } = await supabase
+      .from('logs')
+      .select('id')
+      .limit(1);
+    
+    if (readError || tableCheckError) {
+      const error = readError || tableCheckError;
+      console.error('[Test-Logging] Error:', error);
       return res.status(500).json({ 
         success: false, 
-        message: 'Logs written but failed to read back',
-        writeError: null,
-        readError: readError.message,
-        hint: 'Check if logs table exists and RLS policies are correct'
+        message: 'Failed to access logs table',
+        error: error?.message,
+        code: error?.code,
+        hint: error?.hint,
+        details: error?.details,
+        troubleshooting: {
+          step1: 'Run CREATE_LOGS_TABLE.sql in Supabase SQL Editor',
+          step2: 'Verify SUPABASE_SERVICE_ROLE_KEY is set correctly',
+          step3: 'Check RLS policies allow service_role to insert/select',
+          step4: 'Check backend console for [Logger] error messages'
+        }
       });
     }
+    
+    // Filter test logs
+    const testLogs = (logs || []).filter((log: any) => 
+      log.message?.includes('Test') || 
+      (log.metadata && typeof log.metadata === 'object' && (log.metadata as any).test === true)
+    );
     
     return res.json({ 
       success: true, 
       message: 'Test logs created',
       logsWritten: 4,
-      recentLogs: logs || [],
-      tableExists: logs !== null
+      logsFound: logs?.length || 0,
+      testLogsFound: testLogs.length,
+      recentLogs: testLogs.slice(0, 5),
+      allRecentLogs: (logs || []).slice(0, 5),
+      tableExists: true,
+      note: 'Check backend console for [Logger] messages to see if writes succeeded'
     });
   } catch (error: any) {
+    console.error('[Test-Logging] Exception:', error);
     return res.status(500).json({ 
       success: false, 
       message: 'Error testing logs',
-      error: error?.message || String(error)
+      error: error?.message || String(error),
+      stack: error?.stack
     });
   }
 });
