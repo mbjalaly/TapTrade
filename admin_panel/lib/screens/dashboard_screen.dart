@@ -44,41 +44,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
     
     try {
-      // Load counts from Supabase - handle each separately
-      int users = 0, products = 0, trades = 0, categories = 0;
+      // Load counts from Supabase - using select and length
+      int users = 0, products = 0, trades = 0, categories = 0, interests = 0;
       
       try {
-        final usersCount = await _supabase.from('users').select('id').count();
-        users = usersCount.count;
+        final usersData = await _supabase.from('users').select('id');
+        users = (usersData as List).length;
       } catch (e) {
         print('Users table error: $e');
       }
       
       try {
-        final productsCount = await _supabase.from('products').select('id').count();
-        products = productsCount.count;
+        final productsData = await _supabase.from('products').select('id');
+        products = (productsData as List).length;
       } catch (e) {
         print('Products table error: $e');
       }
       
       try {
-        final tradesCount = await _supabase.from('trade_preferences').select('user_id').count();
-        trades = tradesCount.count;
+        final tradesData = await _supabase.from('trade_preferences').select('user_id');
+        trades = (tradesData as List).length;
       } catch (e) {
         print('Trade preferences table error: $e');
       }
       
       try {
-        final categoriesCount = await _supabase.from('categories').select('id').count();
-        categories = categoriesCount.count;
+        final categoriesData = await _supabase.from('categories').select('id');
+        categories = (categoriesData as List).length;
       } catch (e) {
         print('Categories table error: $e');
       }
       
-      int interests = 0;
       try {
-        final interestsCount = await _supabase.from('interests').select('id').count();
-        interests = interestsCount.count;
+        final interestsData = await _supabase.from('interests').select('id');
+        interests = (interestsData as List).length;
       } catch (e) {
         print('Interests table error: $e');
       }
