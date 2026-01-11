@@ -71,15 +71,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
       try {
         final categoriesData = await _supabase.from('categories').select('id');
         categories = (categoriesData as List).length;
+        print('Categories count: $categories');
       } catch (e) {
         print('Categories table error: $e');
+        _error = 'Categories: $e';
       }
       
       try {
         final interestsData = await _supabase.from('interests').select('id');
         interests = (interestsData as List).length;
+        print('Interests count: $interests');
       } catch (e) {
         print('Interests table error: $e');
+        _error = '${_error ?? ""} Interests: $e';
       }
       
       if (mounted) {
