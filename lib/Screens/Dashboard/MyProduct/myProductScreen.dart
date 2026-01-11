@@ -34,13 +34,26 @@ class _MyProductScreenState extends State<MyProductScreen> {
     final w = width ?? 88.0;
     final h = height ?? 88.0;
     
-    if (imageUrl == null || imageUrl.isEmpty) {
+    // Always return a widget, even if there's an error
+    Widget buildPlaceholder() {
       return Image.network(
         KeyConstants.imagePlaceHolder,
         width: w,
         height: h,
         fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            width: w,
+            height: h,
+            color: Colors.grey[300],
+            child: const Icon(Icons.image_not_supported, color: Colors.grey),
+          );
+        },
       );
+    }
+    
+    if (imageUrl == null || imageUrl.isEmpty) {
+      return buildPlaceholder();
     }
     
     // Handle base64 data URIs
@@ -56,39 +69,37 @@ class _MyProductScreenState extends State<MyProductScreen> {
             height: h,
             fit: BoxFit.cover,
             errorBuilder: (context, error, stackTrace) {
-              return Image.network(
-                KeyConstants.imagePlaceHolder,
-                width: w,
-                height: h,
-                fit: BoxFit.cover,
-              );
+              print('Error displaying base64 image: $error');
+              return buildPlaceholder();
             },
           );
         }
       } catch (e) {
         print('Error decoding base64 image: $e');
+        return buildPlaceholder();
       }
     }
     
     // Handle regular HTTP URLs or relative paths
-    final finalUrl = imageUrl.startsWith('http')
-        ? imageUrl
-        : KeyConstants.imageUrl + imageUrl;
-    
-    return Image.network(
-      finalUrl,
-      width: w,
-      height: h,
-      fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) {
-        return Image.network(
-          KeyConstants.imagePlaceHolder,
-          width: w,
-          height: h,
-          fit: BoxFit.cover,
-        );
-      },
-    );
+    try {
+      final finalUrl = imageUrl.startsWith('http')
+          ? imageUrl
+          : KeyConstants.imageUrl + imageUrl;
+      
+      return Image.network(
+        finalUrl,
+        width: w,
+        height: h,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          print('Error loading network image: $error');
+          return buildPlaceholder();
+        },
+      );
+    } catch (e) {
+      print('Error building image URL: $e');
+      return buildPlaceholder();
+    }
   }
   
   String _getCategoryName(int? categoryId) {
@@ -161,24 +172,37 @@ class _MyProductScreenState extends State<MyProductScreen> {
         isLoading = true;
       });
 
+      print("=== FETCHING PRODUCTS ===");
+      // Backend uses JWT token, no need to check for user ID
       String id = userController.userProfile.value.data?.id ?? '';
-      if (id.isNotEmpty) {
-        await ProductService.instance.getMyProduct(context, id);
-        // Also fetch likes and matches so details sheet can compute counts
-        await Future.wait([
-          ProductService.instance.getLikeProduct(context, id),
-          ProductService.instance.getMatchProduct(context, id),
-        ]);
-      }
+      print("User ID: $id");
+      
+      final result = await ProductService.instance.getMyProduct(context, id);
+      print("getMyProduct result status: ${result.status}");
+      print("Products count: ${productController.myProduct.value.data?.length ?? 0}");
+      
+      // Also fetch likes and matches so details sheet can compute counts
+      await Future.wait([
+        ProductService.instance.getLikeProduct(context, id),
+        ProductService.instance.getMatchProduct(context, id),
+      ]);
+      
+      print("=== PRODUCTS FETCHED ===");
+      print("Final products count: ${productController.myProduct.value.data?.length ?? 0}");
     } catch (e) {
-      print("Error occurred while fetching match products: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      print("Error occurred while fetching products: $e");
+      print("Stack trace: ${StackTrace.current}");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading products: ${e.toString()}')),
+        );
+      }
     } finally {
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -232,6 +256,7 @@ class _MyProductScreenState extends State<MyProductScreen> {
     }
     return Obx(() {
       final myProductList = productController.myProduct.value.data ?? [];
+      print("Obx rebuild - Products count: ${myProductList.length}");
       if (myProductList.isEmpty) {
         return Center(
           child: Column(
