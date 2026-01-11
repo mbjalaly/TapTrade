@@ -26,6 +26,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _totalProducts = 0;
   int _totalTrades = 0;
   int _totalCategories = 0;
+  int _totalInterests = 0;
   bool _isLoading = true;
 
   @override
@@ -34,29 +35,71 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _loadStats();
   }
 
+  String? _error;
+
   Future<void> _loadStats() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
     
     try {
-      // Load counts from Supabase
-      final usersCount = await _supabase.from('users').select('id').count();
-      final productsCount = await _supabase.from('products').select('id').count();
-      final tradesCount = await _supabase.from('trades').select('id').count();
-      final categoriesCount = await _supabase.from('categories').select('id').count();
+      // Load counts from Supabase - handle each separately
+      int users = 0, products = 0, trades = 0, categories = 0;
+      
+      try {
+        final usersCount = await _supabase.from('users').select('id').count();
+        users = usersCount.count;
+      } catch (e) {
+        print('Users table error: $e');
+      }
+      
+      try {
+        final productsCount = await _supabase.from('products').select('id').count();
+        products = productsCount.count;
+      } catch (e) {
+        print('Products table error: $e');
+      }
+      
+      try {
+        final tradesCount = await _supabase.from('trades').select('id').count();
+        trades = tradesCount.count;
+      } catch (e) {
+        print('Trades table error: $e');
+      }
+      
+      try {
+        final categoriesCount = await _supabase.from('categories').select('id').count();
+        categories = categoriesCount.count;
+      } catch (e) {
+        print('Categories table error: $e');
+      }
+      
+      int interests = 0;
+      try {
+        final interestsCount = await _supabase.from('interests').select('id').count();
+        interests = interestsCount.count;
+      } catch (e) {
+        print('Interests table error: $e');
+      }
       
       if (mounted) {
         setState(() {
-          _totalUsers = usersCount.count;
-          _totalProducts = productsCount.count;
-          _totalTrades = tradesCount.count;
-          _totalCategories = categoriesCount.count;
+          _totalUsers = users;
+          _totalProducts = products;
+          _totalTrades = trades;
+          _totalCategories = categories;
+          _totalInterests = interests;
           _isLoading = false;
         });
       }
     } catch (e) {
       print('Error loading stats: $e');
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _error = e.toString();
+        });
       }
     }
   }
@@ -162,6 +205,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       icon: Icons.category,
                       color: AdminTheme.success,
                       onTap: () => setState(() => _selectedIndex = 1),
+                    ),
+                    StatsCard(
+                      title: 'Interests',
+                      value: _totalInterests.toString(),
+                      icon: Icons.interests,
+                      color: Colors.purple,
+                      onTap: () => setState(() => _selectedIndex = 2),
                     ),
                   ],
                 );
