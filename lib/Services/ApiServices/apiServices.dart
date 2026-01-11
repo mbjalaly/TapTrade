@@ -18,10 +18,11 @@ import 'package:taptrade/Utills/showMessages.dart';
 class ApiService {
   static const Duration _defaultTimeout = Duration(seconds: 12);
   static const Duration _fileUploadTimeout = Duration(seconds: 60); // Longer timeout for file uploads
+  static const Duration _largeDataTimeout = Duration(seconds: 30); // Longer timeout for endpoints that return large data (e.g., products with images)
 
   /// Get request with optional token.
   static Future<dynamic> getRequestData(
-      String url, BuildContext context, {bool useToken = false}) async {
+      String url, BuildContext context, {bool useToken = false, Duration? timeout}) async {
     String apiUrl = url;
 
     if (kDebugMode) {
@@ -50,9 +51,10 @@ class ApiService {
       }
 
       // Make the HTTP GET request with a timeout to avoid indefinite hangs
+      final requestTimeout = timeout ?? _defaultTimeout;
       final response = await http
           .get(Uri.parse(apiUrl), headers: headers)
-          .timeout(_defaultTimeout);
+          .timeout(requestTimeout);
 
       if (kDebugMode) {
         printLog("Response Status Code: ${response.statusCode}");

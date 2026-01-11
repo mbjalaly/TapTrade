@@ -211,7 +211,13 @@ class ProductService {
   async {
     try{
       // Backend uses JWT token to identify user, no need to pass user ID in URL
-      final result = await ApiService.getRequestData(ApiEndPoint.myProduct, context, useToken: true);
+      // Use longer timeout for products endpoint (may contain large base64 images)
+      final result = await ApiService.getRequestData(
+        ApiEndPoint.myProduct, 
+        context, 
+        useToken: true,
+        timeout: const Duration(seconds: 30),
+      );
       MyProductResponseModel responseModel = MyProductResponseModel.fromJson(result);
       productController.setMyProduct = responseModel;
       return ApiResponse.completed(result);
