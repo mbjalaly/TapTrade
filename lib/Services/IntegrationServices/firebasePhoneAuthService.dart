@@ -32,6 +32,17 @@ class FirebasePhoneAuthService {
   }) async {
     try {
       printLog('[Firebase Phone Auth] Sending OTP to: $phoneNumber');
+      printLog('[Firebase Phone Auth] Firebase App Name: ${_auth.app.name}');
+      printLog('[Firebase Phone Auth] Firebase App Options: ${_auth.app.options.projectId}');
+      
+      // Check if Firebase Auth settings are configured
+      try {
+        // Log current auth state
+        printLog('[Firebase Phone Auth] Current user: ${_auth.currentUser?.uid ?? 'none'}');
+        printLog('[Firebase Phone Auth] Language code: ${_auth.languageCode ?? 'default'}');
+      } catch (e) {
+        printLog('[Firebase Phone Auth] Error getting auth state: $e');
+      }
       
       // For iOS, we need to handle reCAPTCHA verification
       // The verificationCompleted callback is mainly for Android auto-verification
@@ -82,6 +93,9 @@ class FirebasePhoneAuthService {
             printLog('[Firebase Phone Auth] 5. For iOS simulator, this may require reCAPTCHA (web view will appear)');
             printLog('[Firebase Phone Auth] 6. Try on a physical device instead of simulator');
             printLog('[Firebase Phone Auth] 7. Restart app after uploading APNs certificate');
+            printLog('[Firebase Phone Auth] 8. Check if App Check is enabled and blocking requests');
+            printLog('[Firebase Phone Auth] 9. Try adding test phone numbers in Firebase Console (Authentication > Sign-in method > Phone)');
+            printLog('[Firebase Phone Auth] 10. Verify the Firebase project is on Blaze plan (required for SMS in some regions)');
           }
           
           String errorMessage = _getErrorMessage(e.code);

@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:taptrade/Models/SignUpRequestModel/signUpRequestModel.dart';
-import 'package:taptrade/Screens/Auth/SsoAccount/phoneNumberSignIn.dart';
-import 'package:taptrade/Screens/Auth/CreateAccount/createFullName.dart';
-import 'package:taptrade/Screens/UserDetail/AddProfile/addProfile.dart';
+import 'package:taptrade/Screens/Auth/CreateAccount/verifyEmailOtp.dart';
 import 'package:taptrade/Services/IntegrationServices/authService.dart';
+import 'package:taptrade/Services/IntegrationServices/firebaseEmailAuthService.dart';
 import 'package:taptrade/Utills/appColors.dart';
 import 'package:taptrade/Utills/showMessages.dart';
 import 'package:taptrade/Widgets/customButtom.dart';
@@ -20,6 +19,49 @@ class CreateEmailScreen extends StatefulWidget {
 class _CreateEmailScreenState extends State<CreateEmailScreen> {
   TextEditingController emailCon = TextEditingController();
   bool isLoading = false;
+
+  /// Create Firebase user and send verification email
+  Future<void> _sendVerificationEmail(String email) async {
+    setState(() {
+      isLoading = true;
+    });
+
+    // Use the password from the signup flow
+    final password = widget.requestModel.password ?? '';
+    
+    if (password.isEmpty) {
+      setState(() {
+        isLoading = false;
+      });
+      ShowMessage.notify(context, 'Password is required');
+      return;
+    }
+
+    // Create Firebase user and send verification email
+    final userCredential = await FirebaseEmailAuthService.instance.createUserAndSendVerification(
+      email: email,
+      password: password,
+      context: context,
+    );
+
+    setState(() {
+      isLoading = false;
+    });
+
+    if (userCredential != null) {
+      ShowMessage.notify(context, 'Verification email sent to $email');
+      
+      // Update request model
+      widget.requestModel.email = email;
+      
+      // Navigate to verification screen
+      Get.to(() => VerifyEmailOtpScreen(
+        requestModel: widget.requestModel,
+        email: email,
+        userCredential: userCredential,
+      ));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -80,17 +122,16 @@ class _CreateEmailScreenState extends State<CreateEmailScreen> {
                   cursorColor: Colors.grey,
                   keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(
-                    border: InputBorder.none, // Remove the border
+                    border: InputBorder.none,
                     focusedBorder: UnderlineInputBorder(
                       borderSide: BorderSide(
                           color: Colors.grey,
-                          width: 3), // Grey color for the underline when focused
+                          width: 3),
                     ),
                     enabledBorder: UnderlineInputBorder(
                       borderSide: BorderSide(
                           color: Colors.grey,
-                          width:
-                              3), // Grey color for the underline when not focused
+                          width: 3),
                     ),
                   ),
                 ),
@@ -99,7 +140,7 @@ class _CreateEmailScreenState extends State<CreateEmailScreen> {
                 padding: EdgeInsets.only(
                     left: Get.width * 0.065, top: Get.height * 0.015),
                 child: AppText(
-                  text: "Enter your email address",
+                  text: "Enter your email address. We'll send a verification link.",
                   fontSize: Get.width * 0.032,
                   textcolor: Colors.grey,
                   fontWeight: FontWeight.w700,
@@ -136,11 +177,8 @@ class _CreateEmailScreenState extends State<CreateEmailScreen> {
                           bool exists = result['exists'] ?? false;
                           
                           if (!exists) {
-                            // Email is available - proceed to phone screen
-                            setState(() {
-                              widget.requestModel.email = emailCon.text.trim();
-                            });
-                            Get.to(() => PhoneSignInScreen(requestModel: widget.requestModel));
+                            // Email is available - send Firebase verification email
+                            await _sendVerificationEmail(emailCon.text.trim());
                           } else {
                             // Email already exists
                             ShowMessage.notify(context, 'Email is already registered. Please use another email or login.');

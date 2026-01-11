@@ -235,8 +235,36 @@ class _ProductsScreenState extends State<ProductsScreen> {
     }
   }
 
+  String? _errorMessage;
+  
   @override
   Widget build(BuildContext context) {
+    // Catch any build errors
+    if (_errorMessage != null) {
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 64, color: AdminTheme.error),
+              const SizedBox(height: 16),
+              Text('Error: $_errorMessage', style: const TextStyle(color: AdminTheme.error)),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: () {
+                  setState(() => _errorMessage = null);
+                  _loadProducts();
+                },
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -249,7 +277,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Products', style: Theme.of(context).textTheme.headlineMedium),
-                  Text('${_products.length} products', style: TextStyle(color: AdminTheme.textMuted)),
+                  Text('${_products.length} products', style: const TextStyle(color: AdminTheme.textMuted)),
                 ],
               ),
               OutlinedButton.icon(
@@ -274,67 +302,106 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   ? const Center(child: CircularProgressIndicator())
                   : _filteredProducts.isEmpty
                       ? const Center(child: Text('No products found'))
-                      : DataTableWidget(
-                          columns: const ['ID', 'Name', 'Owner', 'Created', 'Actions'],
-                          rows: _filteredProducts.map((p) {
-                            // Safely extract id
-                            String idStr = '';
-                            try {
-                              final id = p['id'];
-                              if (id != null) {
-                                final idString = id.toString();
-                                idStr = idString.length > 8 ? idString.substring(0, 8) : idString;
-                              }
-                            } catch (e) {
-                              idStr = '-';
-                            }
-                            
-                            // Safely extract user info
-                            String ownerStr = '-';
-                            try {
-                              final users = p['users'];
-                              if (users != null) {
-                                if (users is Map) {
-                                  ownerStr = users['username'] ?? users['email'] ?? '-';
-                                }
-                              }
-                            } catch (e) {
-                              ownerStr = '-';
-                            }
-                            
-                            return [
-                              idStr,
-                              p['name']?.toString() ?? p['title']?.toString() ?? '-',
-                              ownerStr,
-                              _formatDate(p['created_at']),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.visibility, size: 18),
-                                    onPressed: () => _viewProduct(p),
-                                    color: AdminTheme.primaryColor,
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete, size: 18),
-                                    onPressed: () => _deleteProduct(p),
-                                    color: AdminTheme.error,
-                                  ),
-                                ],
-                              ),
-                            ];
-                          }).toList(),
-                        ),
+                      : _buildDataTable(),
             ),
           ),
         ],
       ),
     );
   }
-
-  String _formatDate(String? dateStr) {
-    if (dateStr == null) return '-';
+  
+  Widget _buildDataTable() {
     try {
+      final rows = _filteredProducts.map((p) {
+        // Safely extract id
+        String idStr = '';
+        try {
+          final id = p['id'];
+          if (id != null) {
+            final idString = id.toString();
+            idStr = idString.length > 8 ? idString.substring(0, 8) : idString;
+          }
+        } catch (e) {
+          idStr = '-';
+        }
+        
+        // Safely extract user info
+        String ownerStr = '-';
+        try {
+          final users = p['users'];
+          if (users != null) {
+            if (users is Map) {
+              ownerStr = users['username']?.toString() ?? users['email']?.toString() ?? '-';
+            }
+          }
+        } catch (e) {
+          ownerStr = '-';
+        }
+        
+        // Safely extract name/title
+        String nameStr = '-';
+        try {
+          nameStr = p['name']?.toString() ?? p['title']?.toString() ?? '-';
+        } catch (e) {
+          nameStr = '-';
+        }
+        
+        return [
+          idStr,
+          nameStr,
+          ownerStr,
+          _formatDate(p['created_at']?.toString()),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.visibility, size: 18),
+                onPressed: () => _viewProduct(p),
+                color: AdminTheme.primaryColor,
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete, size: 18),
+                onPressed: () => _deleteProduct(p),
+                color: AdminTheme.error,
+              ),
+            ],
+          ),
+        ];
+      }).toList();
+      
+      return DataTableWidget(
+        columns: const ['ID', 'Name', 'Owner', 'Created', 'Actions'],
+        rows: rows,
+      );
+    } catch (e, stackTrace) {
+      print('Error building data table: $e');
+      print('Stack trace: $stackTrace');
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: AdminTheme.error),
+            const SizedBox(height: 8),
+            Text('Error rendering products: $e', 
+              style: const TextStyle(color: AdminTheme.error),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadProducts,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  String _formatDate(dynamic dateValue) {
+    if (dateValue == null) return '-';
+    try {
+      final dateStr = dateValue.toString();
+      if (dateStr.isEmpty) return '-';
       final date = DateTime.parse(dateStr);
       return '${date.day}/${date.month}/${date.year}';
     } catch (e) {

@@ -21,10 +21,36 @@ class _AddInterestScreenState extends State<AddInterestScreen> {
   static const int maxSelectionCount = 5;
   List<String> selectedIndices = [];
   bool isLoading = false;
+  bool isLoadingInterests = true;
 
   @override
   void initState() {
     super.initState();
+    _loadInterests();
+  }
+
+  Future<void> _loadInterests() async {
+    // Check if interests are already loaded
+    if (GeneralService.instance.allInterest.value.data != null &&
+        GeneralService.instance.allInterest.value.data!.isNotEmpty) {
+      setState(() {
+        isLoadingInterests = false;
+      });
+      return;
+    }
+
+    // Load interests from API
+    setState(() {
+      isLoadingInterests = true;
+    });
+
+    await GeneralService.instance.getAllInterests(context);
+
+    setState(() {
+      isLoadingInterests = false;
+    });
+
+    print("[AddInterestScreen] Loaded interests: ${GeneralService.instance.allInterest.value.data?.length ?? 0}");
   }
 
   @override
@@ -77,56 +103,103 @@ class _AddInterestScreenState extends State<AddInterestScreen> {
               SizedBox(
                 height: Get.height * 0.03,
               ),
-              Container(
-                height: Get.height * 0.56, // Adjust the height as needed
-                child: GridView.builder(
-                  padding: EdgeInsets.all(0),
-                  physics: const NeverScrollableScrollPhysics(),
-                  shrinkWrap: true,
-                  itemCount: GeneralService.instance.allInterest.value.data?.length,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      mainAxisSpacing: 15,
-                      crossAxisSpacing: 15,
-                      childAspectRatio: 2.6),
-                  itemBuilder: (context, index) {
-                    String name = GeneralService.instance.allInterest.value.data?[index].name ?? '';
-                    bool isSelected = selectedIndices.contains(name);
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          if (selectedIndices.contains(name)) {
-                            selectedIndices.remove(name);
-                          } else {
-                              selectedIndices.add(name);
-                          }
-                        });
-                      },
-                      child: Container(
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                            color: isSelected
-                                ? AppColors.darkYellow.withOpacity(0.1)
-                                : Colors.transparent,
-                            border: Border.all(color: isSelected
-                                ? AppColors.darkYellow
-                                : AppColors.greyTextColor,width: isSelected ? 2.0 : 1.0),
-                            borderRadius: BorderRadius.circular(
-                              30,
-                            )),
-                        child: AppText(
-                          text: name,
-                          textAlign: TextAlign.center,
-                          textcolor:
-                              isSelected ? AppColors.secondaryColor : AppColors.greyTextColor,
-                          fontSize: 12,
-                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+              if (isLoadingInterests)
+                Container(
+                  height: Get.height * 0.56,
+                  alignment: Alignment.center,
+                  child: const CircularProgressIndicator(
+                    color: AppColors.themeColor,
+                  ),
+                )
+              else if (GeneralService.instance.allInterest.value.data == null ||
+                  GeneralService.instance.allInterest.value.data!.isEmpty)
+                Container(
+                  height: Get.height * 0.56,
+                  alignment: Alignment.center,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.error_outline,
+                        size: 48,
+                        color: Colors.grey,
+                      ),
+                      SizedBox(height: 16),
+                      AppText(
+                        text: "Failed to load interests",
+                        fontSize: 16,
+                        textcolor: Colors.grey,
+                      ),
+                      SizedBox(height: 16),
+                      GestureDetector(
+                        onTap: _loadInterests,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: AppColors.themeColor,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: AppText(
+                            text: "Retry",
+                            textcolor: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                    );
-                  },
+                    ],
+                  ),
+                )
+              else
+                Container(
+                  height: Get.height * 0.56, // Adjust the height as needed
+                  child: GridView.builder(
+                    padding: EdgeInsets.all(0),
+                    physics: const NeverScrollableScrollPhysics(),
+                    shrinkWrap: true,
+                    itemCount: GeneralService.instance.allInterest.value.data?.length ?? 0,
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        mainAxisSpacing: 15,
+                        crossAxisSpacing: 15,
+                        childAspectRatio: 2.6),
+                    itemBuilder: (context, index) {
+                      String name = GeneralService.instance.allInterest.value.data?[index].name ?? '';
+                      bool isSelected = selectedIndices.contains(name);
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            if (selectedIndices.contains(name)) {
+                              selectedIndices.remove(name);
+                            } else {
+                                selectedIndices.add(name);
+                            }
+                          });
+                        },
+                        child: Container(
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                              color: isSelected
+                                  ? AppColors.darkYellow.withOpacity(0.1)
+                                  : Colors.transparent,
+                              border: Border.all(color: isSelected
+                                  ? AppColors.darkYellow
+                                  : AppColors.greyTextColor,width: isSelected ? 2.0 : 1.0),
+                              borderRadius: BorderRadius.circular(
+                                30,
+                              )),
+                          child: AppText(
+                            text: name,
+                            textAlign: TextAlign.center,
+                            textcolor:
+                                isSelected ? AppColors.secondaryColor : AppColors.greyTextColor,
+                            fontSize: 12,
+                            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ),
-              ),
               SizedBox(
                 height: Get.height * 0.03,
               ),
