@@ -101,13 +101,13 @@ class _InterestsScreenState extends State<InterestsScreen> {
 
     if (result == true && nameController.text.isNotEmpty) {
       try {
-        final insertData = {
+        final Map<String, dynamic> insertData = {
           'name': nameController.text.trim(),
           'created_at': DateTime.now().toIso8601String(),
         };
         // Add category_id if selected (handle both int and UUID types)
         if (selectedCategoryId != null && selectedCategoryId!.isNotEmpty) {
-          insertData['category_id'] = selectedCategoryId;
+          insertData['category_id'] = selectedCategoryId!;
         }
         await _supabase.from('interests').insert(insertData);
         _loadData();
