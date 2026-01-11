@@ -36,7 +36,7 @@ class Sidebar extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Image.asset(
-                    'assets/images/mainAppLogo.png',
+                    'assets/images/appLogo.png',
                     width: 32,
                     height: 32,
                     fit: BoxFit.contain,

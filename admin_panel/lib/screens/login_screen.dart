@@ -89,7 +89,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                     ),
                     child: Image.asset(
-                      'assets/images/mainAppLogo.png',
+                      'assets/images/appLogo.png',
                       width: 80,
                       height: 80,
                       fit: BoxFit.contain,
