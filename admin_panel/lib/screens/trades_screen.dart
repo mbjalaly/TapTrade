@@ -25,7 +25,7 @@ class _TradesScreenState extends State<TradesScreen> {
     setState(() => _isLoading = true);
     try {
       final response = await _supabase
-          .from('trades')
+          .from('trade_requests')
           .select()
           .order('created_at', ascending: false)
           .limit(100);

@@ -64,11 +64,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
       
       try {
-        final tradesData = await _supabase.from('trade_preferences').select();
+        final tradesData = await _supabase.from('trade_requests').select();
         trades = (tradesData as List).length;
         print('Trades count: $trades');
       } catch (e) {
-        print('Trade preferences table error: $e');
+        print('Trade requests table error: $e');
       }
       
       try {
