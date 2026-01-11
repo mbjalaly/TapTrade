@@ -5,8 +5,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:taptrade/Screens/UserDetail/AddLocation/addLocation.dart';
+import 'package:taptrade/Controller/userController.dart';
+import 'package:taptrade/Screens/UserDetail/AddInterest/addInterest.dart';
+import 'package:taptrade/Services/ApiResponse/apiResponse.dart';
 import 'package:taptrade/Services/ImageFileService/imageFileService.dart';
+import 'package:taptrade/Services/IntegrationServices/profileService.dart';
 import 'package:taptrade/Utills/appColors.dart';
 import 'package:taptrade/Utills/showMessages.dart';
 import 'package:taptrade/Widgets/avatarSlider.dart';
@@ -24,6 +27,8 @@ class _AddProfileScreenState extends State<AddProfileScreen> {
   File? _image; // To store the selected image
   String avatarImage = '';
   String imagePath = '';
+  var userController = Get.find<UserController>();
+  bool isLoading = false;
 
   Future<void> _pickImage() async {
     showModalBottomSheet(
@@ -175,13 +180,41 @@ class _AddProfileScreenState extends State<AddProfileScreen> {
                 child: GestureDetector(
                   onTap: () async {
                     if(imagePath.isNotEmpty){
+                      setState(() {
+                        isLoading = true;
+                      });
+                      
                       File? imageFile;
                       if(avatarImage.isNotEmpty){
                         imageFile = await loadAssetAsFile(avatarImage);
                       }else if(_image!=null){
                         imageFile = _image!;
                       }
-                      Get.to( () => AddLocationScreen(imageFile: imageFile,));
+                      
+                      // Save profile with image (LocationService will handle location automatically)
+                      String userId = userController.userProfile.value.data?.id ?? '';
+                      if (userId.isNotEmpty) {
+                        Map<String, dynamic> body = {
+                          'image': imageFile,
+                        };
+                        
+                        final result = await ProfileService.instance.updateProfile(context, body, userId);
+                        
+                        setState(() {
+                          isLoading = false;
+                        });
+                        
+                        if (result.status == Status.COMPLETED) {
+                          Get.to(() => const AddInterestScreen());
+                        } else {
+                          ShowMessage.notify(context, result.message ?? "Failed to update profile");
+                        }
+                      } else {
+                        setState(() {
+                          isLoading = false;
+                        });
+                        ShowMessage.notify(context, "User ID not found");
+                      }
                     }else{
                       // ShowMessage.notify(context, "Please Add Avatar");
                       _pickImage();

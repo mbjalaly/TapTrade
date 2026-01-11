@@ -10,7 +10,6 @@ import 'package:taptrade/Services/IntegrationServices/generalService.dart';
 import 'package:taptrade/Services/IntegrationServices/profileService.dart';
 import 'package:taptrade/Services/SharedPreferenceService/sharePreferenceService.dart';
 import 'package:taptrade/Services/LocationService/locationService.dart';
-import 'package:taptrade/Screens/UserDetail/AddLocation/addLocation.dart';
 
 
 class SplashScreen extends StatefulWidget {
@@ -30,17 +29,17 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     Future.delayed(const Duration(seconds: 2)).then((value) async {
-      // Enforce location permission before proceeding into the app, with timeout fallback
+      // Try to get location permission (non-blocking - app can work without it)
       try {
         await LocationService.instance
             .ensurePermissionsGranted()
             .timeout(const Duration(seconds: 8));
       } on TimeoutException catch (_) {
-        await _navigateSafely(AddLocationScreen());
-        return;
+        // Continue anyway - LocationService will handle location when permission is granted
+        print('Location permission timeout - continuing anyway');
       } catch (e) {
-        await _navigateSafely(AddLocationScreen());
-        return;
+        // Continue anyway - LocationService will handle location when permission is granted
+        print('Location permission error - continuing anyway: $e');
       }
 
       String? token = await SharedPreferencesService().getString(KeyConstants.accessToken);
