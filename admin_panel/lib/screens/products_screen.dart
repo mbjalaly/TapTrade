@@ -24,48 +24,59 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   Future<void> _loadProducts() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
     try {
+      print('[ProductsScreen] Loading products...');
+      
+      // Simplified query without join to avoid potential issues
       final response = await _supabase
           .from('products')
-          .select('*, users(username, email)')
+          .select('id, title, user_id, created_at, status, min_price, max_price')
           .order('created_at', ascending: false)
           .limit(100);
+      
+      print('[ProductsScreen] Response received: ${response.length} items');
       
       if (mounted) {
         setState(() {
           try {
-            _products = List<Map<String, dynamic>>.from(response);
+            _products = List<Map<String, dynamic>>.from(response ?? []);
+            print('[ProductsScreen] Parsed ${_products.length} products');
           } catch (e) {
-            print('Error parsing products: $e');
+            print('[ProductsScreen] Error parsing products: $e');
             _products = [];
+            _errorMessage = 'Error parsing products: $e';
           }
           _isLoading = false;
         });
       }
     } catch (e, stackTrace) {
-      print('Error loading products: $e');
-      print('Stack trace: $stackTrace');
+      print('[ProductsScreen] Error loading products: $e');
+      print('[ProductsScreen] Stack trace: $stackTrace');
       if (mounted) {
         setState(() {
           _products = [];
           _isLoading = false;
+          _errorMessage = e.toString();
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error loading products: ${e.toString()}'),
-            backgroundColor: AdminTheme.error,
-          ),
-        );
       }
     }
   }
 
   List<Map<String, dynamic>> get _filteredProducts {
     if (_searchQuery.isEmpty) return _products;
+    final query = _searchQuery.toLowerCase();
     return _products.where((p) {
-      final name = (p['name'] ?? p['title'] ?? '').toString().toLowerCase();
-      return name.contains(_searchQuery.toLowerCase());
+      try {
+        final title = (p['title'] ?? p['name'] ?? '').toString().toLowerCase();
+        final id = (p['id'] ?? '').toString().toLowerCase();
+        return title.contains(query) || id.contains(query);
+      } catch (e) {
+        return false;
+      }
     }).toList();
   }
 
@@ -312,75 +323,68 @@ class _ProductsScreenState extends State<ProductsScreen> {
   
   Widget _buildDataTable() {
     try {
-      final rows = _filteredProducts.map((p) {
-        // Safely extract id
-        String idStr = '-';
+      print('[ProductsScreen] Building data table with ${_filteredProducts.length} products');
+      
+      final List<List<dynamic>> rows = [];
+      
+      for (int i = 0; i < _filteredProducts.length; i++) {
         try {
+          final p = _filteredProducts[i];
+          
+          // Safely extract id
           final id = p['id'];
-          if (id != null) {
-            final idString = id.toString();
-            if (idString.length > 8) {
-              idStr = '${idString.substring(0, 8)}...';
-            } else {
-              idStr = idString;
-            }
-          }
-        } catch (e) {
-          print('Error extracting ID: $e');
-          idStr = '-';
+          final idStr = id?.toString() ?? '-';
+          
+          // Safely extract name/title
+          final nameStr = p['title']?.toString() ?? p['name']?.toString() ?? '-';
+          
+          // Status
+          final statusStr = p['status']?.toString() ?? '-';
+          
+          // Price
+          final minPrice = p['min_price']?.toString() ?? '0';
+          final maxPrice = p['max_price']?.toString() ?? '0';
+          final priceStr = '$minPrice - $maxPrice';
+          
+          rows.add([
+            idStr,
+            nameStr,
+            statusStr,
+            priceStr,
+            _formatDate(p['created_at']),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.visibility, size: 18),
+                  onPressed: () => _viewProduct(p),
+                  color: AdminTheme.primaryColor,
+                  tooltip: 'View',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete, size: 18),
+                  onPressed: () => _deleteProduct(p),
+                  color: AdminTheme.error,
+                  tooltip: 'Delete',
+                ),
+              ],
+            ),
+          ]);
+        } catch (rowError) {
+          print('[ProductsScreen] Error processing row $i: $rowError');
+          rows.add(['-', 'Error loading', '-', '-', '-', const SizedBox()]);
         }
-        
-        // Safely extract user info
-        String ownerStr = '-';
-        try {
-          final users = p['users'];
-          if (users != null) {
-            if (users is Map) {
-              ownerStr = users['username']?.toString() ?? users['email']?.toString() ?? '-';
-            }
-          }
-        } catch (e) {
-          ownerStr = '-';
-        }
-        
-        // Safely extract name/title
-        String nameStr = '-';
-        try {
-          nameStr = p['name']?.toString() ?? p['title']?.toString() ?? '-';
-        } catch (e) {
-          nameStr = '-';
-        }
-        
-        return [
-          idStr,
-          nameStr,
-          ownerStr,
-          _formatDate(p['created_at']?.toString()),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.visibility, size: 18),
-                onPressed: () => _viewProduct(p),
-                color: AdminTheme.primaryColor,
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete, size: 18),
-                onPressed: () => _deleteProduct(p),
-                color: AdminTheme.error,
-              ),
-            ],
-          ),
-        ];
-      }).toList();
+      }
+      
+      print('[ProductsScreen] Built ${rows.length} rows');
       
       return DataTableWidget(
-        columns: const ['ID', 'Name', 'Owner', 'Created', 'Actions'],
+        columns: const ['ID', 'Title', 'Status', 'Price', 'Created', 'Actions'],
         rows: rows,
       );
     } catch (e, stackTrace) {
-      print('Error building data table: $e');
-      print('Stack trace: $stackTrace');
+      print('[ProductsScreen] Error building data table: $e');
+      print('[ProductsScreen] Stack trace: $stackTrace');
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
