@@ -81,7 +81,7 @@ class _AddInterestScreenState extends State<AddInterestScreen> {
                 height: Get.height * 0.56, // Adjust the height as needed
                 child: GridView.builder(
                   padding: EdgeInsets.all(0),
-                  physics: ScrollPhysics(),
+                  physics: const NeverScrollableScrollPhysics(),
                   shrinkWrap: true,
                   itemCount: GeneralService.instance.allInterest.value.data?.length,
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
