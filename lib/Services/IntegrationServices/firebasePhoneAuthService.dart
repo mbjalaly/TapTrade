@@ -33,10 +33,14 @@ class FirebasePhoneAuthService {
     try {
       printLog('[Firebase Phone Auth] Sending OTP to: $phoneNumber');
       
+      // For iOS, we need to handle reCAPTCHA verification
+      // The verificationCompleted callback is mainly for Android auto-verification
+      // On iOS, users will need to enter the OTP manually (reCAPTCHA handled automatically)
       await _auth.verifyPhoneNumber(
         phoneNumber: phoneNumber,
         timeout: const Duration(seconds: 60),
         forceResendingToken: forceResendingToken ?? _resendToken,
+        multiFactorSession: null, // Not using multi-factor auth
         
         // Called when code is sent successfully
         codeSent: (String verificationId, int? resendToken) {
@@ -176,6 +180,14 @@ class FirebasePhoneAuthService {
         return 'App is not authorized. Please check Firebase configuration.';
       case 'missing-client-identifier':
         return 'Missing APNs token. Please check push notification setup.';
+      case 'missing-verification-code':
+        return 'Please enter the OTP code you received.';
+      case 'invalid-verification-id':
+        return 'Verification session expired. Please request a new OTP.';
+      case 'credential-already-in-use':
+        return 'This phone number is already registered with another account.';
+      case 'network-request-failed':
+        return 'Network error. Please check your internet connection and try again.';
       default:
         return 'Verification failed ($code). Please try again.';
     }

@@ -76,6 +76,16 @@
 				<string>com.googleusercontent.apps.502704204773-39ov5e2o9v40jc5ph3aehb5gb3soeb59</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>firebase-phone-auth</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.502704204773-39ov5e2o9v40jc5ph3aehb5gb3soeb59</string>
+			</array>
+		</dict>
 	</array>
 </dict>
 </plist>

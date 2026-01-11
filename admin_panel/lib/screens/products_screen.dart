@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme/admin_theme.dart';
@@ -69,9 +70,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   Future<void> _viewProduct(Map<String, dynamic> product) async {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
+    try {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
         backgroundColor: AdminTheme.darkCard,
         title: Text(product['name'] ?? product['title'] ?? 'Product'),
         content: SizedBox(

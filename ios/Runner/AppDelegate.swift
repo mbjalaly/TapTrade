@@ -22,21 +22,47 @@ import FirebaseAuth
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
   
-  // Handle URL for Firebase Auth reCAPTCHA
+  // Handle URL for Firebase Auth reCAPTCHA (required for phone auth on iOS)
   override func application(_ app: UIApplication,
                            open url: URL,
                            options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+    // Check if Firebase Auth can handle the URL (for reCAPTCHA)
     if Auth.auth().canHandle(url) {
       return true
     }
+    // Let Flutter handle other URLs
     return super.application(app, open: url, options: options)
+  }
+  
+  // Handle URL schemes for iOS 8 and below (if needed)
+  override func application(_ application: UIApplication,
+                           open url: URL,
+                           sourceApplication: String?,
+                           annotation: Any) -> Bool {
+    if Auth.auth().canHandle(url) {
+      return true
+    }
+    return super.application(application, open: url, sourceApplication: sourceApplication, annotation: annotation)
   }
   
   // Handle remote notification registration for Phone Auth
   override func application(_ application: UIApplication,
                            didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-    Auth.auth().setAPNSToken(deviceToken, type: .unknown)
+    // Set APNs token with proper type for phone authentication
+    // Use .production for release builds, .sandbox for debug/development
+    #if DEBUG
+      Auth.auth().setAPNSToken(deviceToken, type: .sandbox)
+    #else
+      Auth.auth().setAPNSToken(deviceToken, type: .production)
+    #endif
     super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
+  }
+  
+  // Handle APNs token registration failures
+  override func application(_ application: UIApplication,
+                           didFailToRegisterForRemoteNotificationsWithError error: Error) {
+    print("[AppDelegate] Failed to register for remote notifications: \(error.localizedDescription)")
+    // Phone auth will fall back to reCAPTCHA if APNs fails
   }
   
   // Handle remote notification for Phone Auth verification

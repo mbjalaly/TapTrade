@@ -225,10 +225,20 @@ class AuthService {
     try {
       var response = await http.get(Uri.parse(ApiEndPoint.userNameAndEmailValidation+subject));
       var jsonBody = jsonDecode(response.body);
-      var result = {'code':response.statusCode,'message':jsonBody['message'],'success':jsonBody['success']};
+      var result = {
+        'code': response.statusCode,
+        'message': jsonBody['message'] ?? 'An error occurred',
+        'success': jsonBody['success'] ?? false
+      };
       return result;
     } catch (e) {
       printLog("ApiException: $e");
+      // Return error result instead of null
+      return {
+        'code': 500,
+        'message': 'Network error. Please check your connection and try again.',
+        'success': true
+      };
     }
   }
 

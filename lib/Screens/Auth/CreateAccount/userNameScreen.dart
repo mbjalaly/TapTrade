@@ -114,18 +114,36 @@ class _UserNameScreenState extends State<UserNameScreen> {
                       setState(() {
                         isLoading = true;
                       });
-                      String checkUserName = "username=${nameCon.text.trim()}";
-                     final result = await AuthService.instance.checkUserNameAndEmail(context,checkUserName);
-                      setState(() {
-                        isLoading = false;
-                      });
-                     if(result['success'] == false && result['code'] == 404){
-                       setState(() {
-                         requestModel.username = nameCon.text;
-                       });
-                       Get.to(() => PasswordScreen(requestModel: requestModel));
-                     }else{
-                       ShowMessage.notify(context, result['message']);
+                      try {
+                        String checkUserName = "username=${nameCon.text.trim()}";
+                        final result = await AuthService.instance.checkUserNameAndEmail(context,checkUserName);
+                        setState(() {
+                          isLoading = false;
+                        });
+                        
+                        // Check if result is null (error occurred)
+                        if (result == null) {
+                          ShowMessage.notify(context, 'Error checking username. Please try again.');
+                          return;
+                        }
+                        
+                        // Username is available if success is false and code is 404
+                        if(result['success'] == false && result['code'] == 404){
+                          setState(() {
+                            requestModel.username = nameCon.text.trim();
+                          });
+                          Get.to(() => PasswordScreen(requestModel: requestModel));
+                        } else {
+                          // Username is taken or error occurred
+                          String message = result['message'] ?? 'Username is already taken. Please choose another.';
+                          ShowMessage.notify(context, message);
+                        }
+                      } catch (e) {
+                        setState(() {
+                          isLoading = false;
+                        });
+                        ShowMessage.notify(context, 'Error checking username. Please try again.');
+                        print('Error checking username: $e');
                       }
                     }else{
                       ShowMessage.notify(context, 'Please Add UserName');
