@@ -34,12 +34,13 @@ class _AddInterestScreenState extends State<AddInterestScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.only(
-              left: Get.width * 0.045, right: Get.width * 0.045),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: EdgeInsets.only(
+                left: Get.width * 0.045, right: Get.width * 0.045),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               SizedBox(
                 height: Get.height * 0.02,
               ),
