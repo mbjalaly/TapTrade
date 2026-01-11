@@ -20,39 +20,43 @@ class _LogsScreenState extends State<LogsScreen> {
   void initState() {
     super.initState();
     _loadLogs();
+    // Set up auto-refresh if enabled
+    _startAutoRefresh();
+  }
+
+  void _startAutoRefresh() {
+    Future.delayed(const Duration(seconds: 5), () {
+      if (_autoRefresh && mounted) {
+        _loadLogs();
+        _startAutoRefresh(); // Continue auto-refresh
+      }
+    });
   }
 
   Future<void> _loadLogs() async {
     setState(() => _isLoading = true);
     try {
-      // Try to load from 'logs' table, or 'activity_logs', or 'audit_logs'
-      List<Map<String, dynamic>> logs = [];
-      
-      for (final tableName in ['logs', 'activity_logs', 'audit_logs', 'system_logs']) {
-        try {
-          final response = await _supabase
-              .from(tableName)
-              .select()
-              .order('created_at', ascending: false)
-              .limit(200);
-          
-          logs = List<Map<String, dynamic>>.from(response);
-          if (logs.isNotEmpty) break;
-        } catch (e) {
-          // Table doesn't exist, try next
-          continue;
-        }
-      }
+      // Load from 'logs' table (primary table for system logs)
+      final response = await _supabase
+          .from('logs')
+          .select('*')
+          .order('created_at', ascending: false)
+          .limit(500); // Increased limit for better visibility
       
       if (mounted) {
         setState(() {
-          _logs = logs;
+          _logs = List<Map<String, dynamic>>.from(response);
           _isLoading = false;
         });
       }
     } catch (e) {
-      print('Error: $e');
-      if (mounted) setState(() => _isLoading = false);
+      print('Error loading logs: $e');
+      if (mounted) {
+        setState(() {
+          _logs = [];
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -144,6 +148,18 @@ class _LogsScreenState extends State<LogsScreen> {
                       },
                     ),
                   ),
+                  const SizedBox(width: 12),
+                  Switch(
+                    value: _autoRefresh,
+                    onChanged: (value) {
+                      setState(() => _autoRefresh = value);
+                      if (value) {
+                        _startAutoRefresh();
+                      }
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  const Text('Auto-refresh'),
                   const SizedBox(width: 12),
                   OutlinedButton.icon(
                     onPressed: _loadLogs,
@@ -255,8 +271,17 @@ class _LogsScreenState extends State<LogsScreen> {
                                         if (log['user_id'] != null) ...[
                                           const SizedBox(height: 4),
                                           Text(
-                                            'User: ${log['user_id'].toString().substring(0, 8)}...',
+                                            'User ID: ${log['user_id'].toString().substring(0, 8)}...',
                                             style: TextStyle(color: AdminTheme.textMuted, fontSize: 11),
+                                          ),
+                                        ],
+                                        if (log['metadata'] != null && log['metadata'] is Map) ...[
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Metadata: ${log['metadata'].toString()}',
+                                            style: TextStyle(color: AdminTheme.textMuted, fontSize: 10),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
                                         ],
                                       ],

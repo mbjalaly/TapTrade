@@ -5,6 +5,7 @@ import { z } from 'zod';
 import supabase from '../services/supabaseClient';
 import { ok } from '../utils/respond';
 import { requireAuth, signUserToken } from '../utils/jwt';
+import { logger } from '../utils/logger';
 import type { Request, Response } from 'express';
 
 // Extend Request type with userId
@@ -85,10 +86,15 @@ router.post('/api/user/register/', async (req: Request, res: Response) => {
     .maybeSingle();
 
   if (error || !user) {
+    await logger.error('User registration failed', undefined, { 
+      error: (error as any)?.message || 'unknown',
+      username 
+    });
     return res.status(500).json({ success: false, message: 'Failed to register', error: (error as any)?.message || 'unknown' });
   }
 
   const token = signUserToken({ sub: String(user.id), username: user.username });
+  await logger.success('New user registered', String(user.id), { username: user.username });
   return res.status(201).json({ success: true, message: 'Registered', token, data: user });
 });
 
@@ -103,7 +109,10 @@ const loginBody = z.object({
 
 router.post('/api/user/login/', async (req: Request, res: Response) => {
   const parsed = loginBody.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ success: false, message: 'Invalid payload', errors: parsed.error.flatten() });
+  if (!parsed.success) {
+    await logger.warning('Invalid login payload', undefined, { errors: parsed.error.flatten() });
+    return res.status(400).json({ success: false, message: 'Invalid payload', errors: parsed.error.flatten() });
+  }
 
   const { username, email, password } = parsed.data;
 
@@ -118,12 +127,19 @@ router.post('/api/user/login/', async (req: Request, res: Response) => {
 
   const { data: user, error } = await query.maybeSingle();
 
-  if (error || !user) return res.status(401).json({ success: false, message: 'Invalid credentials' });
+  if (error || !user) {
+    await logger.warning('Login failed - user not found', undefined, { username: username || email });
+    return res.status(401).json({ success: false, message: 'Invalid credentials' });
+  }
 
   const okPass = bcrypt.compareSync(password, String((user as any).password_hash || ''));
-  if (!okPass) return res.status(401).json({ success: false, message: 'Invalid credentials' });
+  if (!okPass) {
+    await logger.warning('Login failed - invalid password', String(user.id), { username: user.username });
+    return res.status(401).json({ success: false, message: 'Invalid credentials' });
+  }
 
   const token = signUserToken({ sub: String(user.id), username: user.username });
+  await logger.success('User logged in successfully', String(user.id), { username: user.username });
   return res.json({ success: true, message: 'Logged in', token, data: user });
 });
 
@@ -250,7 +266,7 @@ router.post('/add-interests/', requireAuth, async (req: Request, res: Response) 
 
   // Delete existing user interests first to avoid duplicates
   await supabase.from('user_interests').delete().eq('user_id', userId);
-  
+
   const rows = interestIds.map((interestId: number) => ({ user_id: userId, interest_id: interestId }));
   const { error } = await supabase.from('user_interests').insert(rows);
   if (error) return res.status(500).json({ success: false, message: 'Failed to save interests' });
@@ -277,6 +293,12 @@ router.post('/add_products/', requireAuth, upload.any(), async (req: Request, re
   const userId = uid(req);
   const body: any = req.body || {};
   const files = ((req as any).files as MulterFile[]) || [];
+  
+  await logger.info('Product creation request', userId, {
+    title: body.title,
+    category: body.category,
+    files_count: files.length,
+  });
 
   // Process uploaded files
   // First file with fieldname 'image' is the primary image
@@ -418,7 +440,7 @@ router.post('/add_user_products/', requireAuth, upload.any(), async (req: Reques
 
 router.get('/getallproducts/', requireAuth, async (req: Request, res: Response) => {
   const userId = uid(req);
-  console.log('Fetching products for user:', userId);
+  await logger.info('Fetching user products', userId);
   
   // Return only the authenticated user's products
   const { data: products, error } = await supabase
@@ -471,19 +493,17 @@ router.post('/update_products/', requireAuth, upload.any(), async (req: Request,
     const body: any = req.body || {};
     const files = ((req as any).files as MulterFile[]) || [];
     
-    console.log('=== UPDATE PRODUCT REQUEST ===');
-    console.log('User ID:', userId);
-    console.log('Body keys:', Object.keys(body));
-    console.log('Body product_id:', body.product_id);
-    console.log('Body id:', body.id);
-    console.log('Files count:', files.length);
+    await logger.info('Product update request initiated', userId || undefined, {
+      product_id: body.product_id || body.id,
+      files_count: files.length,
+      method: req.method,
+      path: req.path,
+    });
     
     const productId = Number(body.product_id || body.id || req.query.id || 0);
     
-    console.log('Parsed product ID:', productId);
-    
     if (!productId || isNaN(productId)) {
-      console.error('Invalid product ID:', productId);
+      await logger.error('Invalid product ID in update request', userId || undefined, { product_id: productId });
       return res.status(400).json({ success: false, message: 'product_id is required and must be a valid number' });
     }
     
@@ -614,16 +634,28 @@ router.post('/update_products/', requireAuth, upload.any(), async (req: Request,
       .maybeSingle();
     
     if (error) {
-      console.error('Error updating product:', error);
+      await logger.error('Failed to update product in database', userId || undefined, { 
+        product_id: productId, 
+        error: error.message 
+      });
       return res.status(500).json({ success: false, message: 'Failed to update product', error: error.message });
     }
     if (!data) {
+      await logger.error('Product update returned no data', userId || undefined, { product_id: productId });
       return res.status(500).json({ success: false, message: 'Failed to update product' });
     }
     
+    await logger.success('Product updated successfully', userId || undefined, { 
+      product_id: data.id, 
+      title: data.title 
+    });
     return res.json({ success: true, message: 'Updated', data });
   } catch (error: any) {
-    console.error('Unexpected error in update_products:', error);
+    const userId = uid(req);
+    await logger.error('Unexpected error in update_products', userId || undefined, { 
+      error: error?.message || String(error),
+      stack: error?.stack 
+    });
     return res.status(500).json({ success: false, message: 'Internal server error', error: error?.message || String(error) });
   }
 });
