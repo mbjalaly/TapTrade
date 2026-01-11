@@ -139,9 +139,11 @@ router.post('/api/user/updateProfile/', requireAuth, upload.single('image'), asy
     if (typeof body[k] !== 'undefined') update[k] = body[k];
   }
 
-  // If an image file is uploaded we currently just ignore it (no storage wiring yet)
+  // If an image file is uploaded, process it as base64 data URI
   if ((req as any).file) {
-    update.image = update.image || '';
+    const file = (req as any).file as Express.Multer.File;
+    const imageUrl = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+    update.image = imageUrl;
   }
 
   const { data: user, error } = await supabase
@@ -281,9 +283,29 @@ router.post('/add_products/', requireAuth, upload.any(), async (req: Request, re
     }
   }
 
+  // Handle category - can be ID (number) or name (string)
+  let categoryId: number | null = null;
+  if (body.category_id) {
+    categoryId = typeof body.category_id === 'string' ? parseFloat(body.category_id) || null : body.category_id;
+  } else if (body.category) {
+    // If category is a string (name), look it up
+    if (typeof body.category === 'string') {
+      const { data: categoryData } = await supabase
+        .from('categories')
+        .select('id')
+        .ilike('name', body.category)
+        .maybeSingle();
+      if (categoryData) {
+        categoryId = Number(categoryData.id);
+      }
+    } else if (typeof body.category === 'number') {
+      categoryId = body.category;
+    }
+  }
+
   const insertData: any = {
-    user: userId,
-    category: body.category ?? body.category_id ?? null,
+    user_id: userId,
+    category_id: categoryId,
     title: body.title ?? '',
     min_price: typeof body.min_price === 'string' ? parseFloat(body.min_price) || parseFloat(body.minPrice || '0') : (body.min_price ?? body.minPrice ?? 0),
     max_price: typeof body.max_price === 'string' ? parseFloat(body.max_price) || parseFloat(body.maxPrice || '0') : (body.max_price ?? body.maxPrice ?? 0),
@@ -315,22 +337,46 @@ router.post('/add_user_products/', requireAuth, upload.any(), async (req: Reques
   let primaryImageUrl = '';
   const imageUrls: string[] = [];
   
+  // Extract primary image (fieldname: 'image')
   const primaryFile = files.find(f => f.fieldname === 'image');
   if (primaryFile) {
-    primaryImageUrl = `placeholder_${Date.now()}_${primaryFile.originalname}`;
+    // Store as base64 data URI (temporary - should use Supabase Storage or S3 in production)
+    primaryImageUrl = `data:${primaryFile.mimetype};base64,${primaryFile.buffer.toString('base64')}`;
     imageUrls.push(primaryImageUrl);
   }
   
+  // Extract additional images (fieldname: 'images')
   const additionalFiles = files.filter(f => f.fieldname === 'images');
-  for (let i = 0; i < additionalFiles.length; i++) {
-    const file = additionalFiles[i];
-    const imageUrl = `placeholder_${Date.now()}_${i}_${file.originalname}`;
-    imageUrls.push(imageUrl);
+  for (const file of additionalFiles) {
+    const imageUrl = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+    if (!imageUrls.includes(imageUrl)) { // Avoid duplicates
+      imageUrls.push(imageUrl);
+    }
+  }
+
+  // Handle category - can be ID (number) or name (string)
+  let categoryId: number | null = null;
+  if (body.category_id) {
+    categoryId = typeof body.category_id === 'string' ? parseFloat(body.category_id) || null : body.category_id;
+  } else if (body.category) {
+    // If category is a string (name), look it up
+    if (typeof body.category === 'string') {
+      const { data: categoryData } = await supabase
+        .from('categories')
+        .select('id')
+        .ilike('name', body.category)
+        .maybeSingle();
+      if (categoryData) {
+        categoryId = Number(categoryData.id);
+      }
+    } else if (typeof body.category === 'number') {
+      categoryId = body.category;
+    }
   }
 
   const insertData: any = {
-    user: userId,
-    category: body.category ?? body.category_id ?? null,
+    user_id: userId,
+    category_id: categoryId,
     title: body.title ?? '',
     min_price: typeof body.min_price === 'string' ? parseFloat(body.min_price) || parseFloat(body.minPrice || '0') : (body.min_price ?? body.minPrice ?? 0),
     max_price: typeof body.max_price === 'string' ? parseFloat(body.max_price) || parseFloat(body.maxPrice || '0') : (body.max_price ?? body.maxPrice ?? 0),
@@ -358,7 +404,7 @@ router.get('/getallproducts/', requireAuth, async (req: Request, res: Response) 
   const { data, error } = await supabase
     .from('products')
     .select('*')
-    .eq('user', userId)
+    .eq('user_id', userId)
     .order('id', { ascending: false });
   if (error) return res.json({ success: true, message: 'OK', data: [] });
   return res.json({ success: true, message: 'OK', data: data || [] });
@@ -423,8 +469,14 @@ router.post('/api/trade/create-matchfeedback/', requireAuth, async (_req: Reques
   return res.json({ success: true, message: 'OK' });
 });
 
-router.post('/api/trade/matchfeedback/user/', requireAuth, async (_req: Request, res: Response) => {
-  return res.json({ success: true, message: 'OK', data: [] });
+router.get('/api/trade/matchfeedback/user/', requireAuth, async (req: Request, res: Response) => {
+  const userId = uid(req);
+  const { data, error } = await supabase
+    .from('match_feedback')
+    .select('*, user_product:products!user_product_id_fkey(*), other_product:products!other_product_id_fkey(*)')
+    .eq('user_id', userId);
+  if (error) return res.json({ success: true, message: 'OK', data: [] });
+  return res.json({ success: true, message: 'OK', data: data || [] });
 });
 
 router.get('/api/trade/trade-requests/', requireAuth, async (_req: Request, res: Response) => {

@@ -149,8 +149,9 @@ class ProfileService {
       )
   async {
     try {
+      // Backend uses JWT token to identify user, no need to pass user ID in URL
       var response = await ApiService.getRequestData(
-          ApiEndPoint.getPreference+"$id/", context,useToken: false);
+          ApiEndPoint.getPreference, context, useToken: true);
       GetTradePreferenceResponseModel responseModel = GetTradePreferenceResponseModel.fromJson(response);
       userController.setUserPreference  = responseModel;
       printLog("getTradePreference Saved Response ${userController.userInterest.value.toJson()}");
