@@ -400,14 +400,22 @@ router.post('/add_user_products/', requireAuth, upload.any(), async (req: Reques
 
 router.get('/getallproducts/', requireAuth, async (req: Request, res: Response) => {
   const userId = uid(req);
-  // Return only the authenticated user's products
+  // Return only the authenticated user's products with category name joined
   const { data, error } = await supabase
     .from('products')
-    .select('*')
+    .select('*, categories(name)')
     .eq('user_id', userId)
     .order('id', { ascending: false });
-  if (error) return res.json({ success: true, message: 'OK', data: [] });
-  return res.json({ success: true, message: 'OK', data: data || [] });
+  if (error) {
+    console.error('Error fetching products:', error);
+    return res.json({ success: true, message: 'OK', data: [] });
+  }
+  // Map the data to include category name as a string
+  const mappedData = (data || []).map((product: any) => ({
+    ...product,
+    category: product.categories?.name || '',
+  }));
+  return res.json({ success: true, message: 'OK', data: mappedData });
 });
 
 router.delete('/delete_products/', requireAuth, async (req: Request, res: Response) => {
