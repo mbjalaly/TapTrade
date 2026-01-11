@@ -14,8 +14,26 @@ declare module 'express-serve-static-core' {
   }
 }
 
+// Type alias for multer file
+type MulterFile = {
+  fieldname: string;
+  originalname: string;
+  encoding: string;
+  mimetype: string;
+  buffer: any; // Buffer type - using any to avoid @types/node dependency in linter
+  size: number;
+};
+
 const router = Router();
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: {
+    fieldSize: 50 * 1024 * 1024, // 50MB for fields (to handle large base64 image arrays)
+    fileSize: 10 * 1024 * 1024, // 10MB per file
+    fields: 50, // Maximum number of non-file fields
+    files: 20, // Maximum number of file fields
+  }
+});
 
 // ---------- Helpers ----------
 function uid(req: Request): string {
@@ -78,7 +96,7 @@ const loginBody = z.object({
   username: z.string().min(1).optional(),
   email: z.string().email().optional(),
   password: z.string().min(1),
-}).refine(data => data.username || data.email, {
+}).refine((data: { username?: string; email?: string; password: string }) => data.username || data.email, {
   message: "Either username or email is required",
   path: ["username"],
 });
@@ -141,7 +159,7 @@ router.post('/api/user/updateProfile/', requireAuth, upload.single('image'), asy
 
   // If an image file is uploaded, process it as base64 data URI
   if ((req as any).file) {
-    const file = (req as any).file as Express.Multer.File;
+    const file = (req as any).file as MulterFile;
     const imageUrl = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
     update.image = imageUrl;
   }
@@ -258,7 +276,7 @@ router.get('/getuserinterests/', requireAuth, async (req: Request, res: Response
 router.post('/add_products/', requireAuth, upload.any(), async (req: Request, res: Response) => {
   const userId = uid(req);
   const body: any = req.body || {};
-  const files = ((req as any).files as Express.Multer.File[]) || [];
+  const files = ((req as any).files as MulterFile[]) || [];
 
   // Process uploaded files
   // First file with fieldname 'image' is the primary image
@@ -331,7 +349,7 @@ router.post('/add_user_products/', requireAuth, upload.any(), async (req: Reques
   // Alias for compatibility - use same logic as /add_products/
   const userId = uid(req);
   const body: any = req.body || {};
-  const files = ((req as any).files as Express.Multer.File[]) || [];
+  const files = ((req as any).files as MulterFile[]) || [];
 
   // Process uploaded files (same as /add_products/)
   let primaryImageUrl = '';
@@ -451,11 +469,22 @@ router.post('/update_products/', requireAuth, upload.any(), async (req: Request,
   try {
     const userId = uid(req);
     const body: any = req.body || {};
-    const files = ((req as any).files as Express.Multer.File[]) || [];
-    const productId = Number(body.product_id || body.id || 0);
+    const files = ((req as any).files as MulterFile[]) || [];
     
-    if (!productId) {
-      return res.status(400).json({ success: false, message: 'product_id is required' });
+    console.log('=== UPDATE PRODUCT REQUEST ===');
+    console.log('User ID:', userId);
+    console.log('Body keys:', Object.keys(body));
+    console.log('Body product_id:', body.product_id);
+    console.log('Body id:', body.id);
+    console.log('Files count:', files.length);
+    
+    const productId = Number(body.product_id || body.id || req.query.id || 0);
+    
+    console.log('Parsed product ID:', productId);
+    
+    if (!productId || isNaN(productId)) {
+      console.error('Invalid product ID:', productId);
+      return res.status(400).json({ success: false, message: 'product_id is required and must be a valid number' });
     }
     
     // Verify the product belongs to the user
