@@ -74,10 +74,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         await ProductService.instance.getMyProduct(context, id);
         setState(() {
           userProducts = productController.myProduct.value.data ?? [];
-          if (userProducts.isNotEmpty) {
-            // Select all products by default
-            selectedProductIds = userProducts.map((product) => product.id as int).toList();
-          }
+          // Start with no filters - user must explicitly select products to filter
+          selectedProductIds = [];
         });
       }
     } catch (e) {
@@ -272,18 +270,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       
       print("Processing match $processedCount: User Product ID: $userProductId, Other Product ID: $otherProductId, Category: $otherCategoryId, Title: $otherTitle");
       
-      // Filter by selected products (from radio list or saved filters)
-      final List<int> filterProductIds = selectedProductIds.isNotEmpty 
-          ? selectedProductIds 
+      // Filter by selected products (only apply if user explicitly selected products)
+      // Priority: 1) Runtime selection (selectedProductIds) 2) Saved filter (filters.selectedMyProductId)
+      final List<int> filterProductIds = selectedProductIds.isNotEmpty
+          ? selectedProductIds
           : (filters.selectedMyProductId != null ? [filters.selectedMyProductId!] : []);
+
+      // Only apply product filter if user explicitly selected products
       if (filterProductIds.isNotEmpty && !filterProductIds.contains(userProductId)) {
         skippedProductFilter++;
         print("SKIPPED (product filter): User Product ID $userProductId not in selected products $filterProductIds");
-        continue;
-      }
-      if (filters.myProductIds.isNotEmpty && !filters.myProductIds.contains(userProductId)) {
-        skippedProductFilter++;
-        print("SKIPPED (saved product filter): User Product ID $userProductId not in saved filters ${filters.myProductIds}");
         continue;
       }
       if (filters.categoryIds.isNotEmpty && !filters.categoryIds.contains(otherCategoryId)) {
