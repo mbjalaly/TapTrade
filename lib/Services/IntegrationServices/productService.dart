@@ -365,7 +365,7 @@ class ProductService {
     try{
       print("=== LIKE/DISLIKE DEBUG ===");
       print("Like/Dislike body: $body");
-      final result = await ApiService.postRequestData(ApiEndPoint.productLikeAndDisLike,body,context);
+      final result = await ApiService.postRequestData(ApiEndPoint.productLikeAndDisLike,body,context, sendToken: true);
       print("Like/Dislike result: $result");
       
       // Check for mutual match after successful like/dislike
@@ -514,10 +514,10 @@ extension _MatchNotifyExt on ProductService {
         return;
       }
       
-      final String userId = body['user'] ?? '';
-      final String nearbyUserId = body['nearby_user'] ?? '';
-      final String userProductId = body['user_product'] ?? '';
-      final String nearbyUserProductId = body['nearby_user_product'] ?? '';
+      final String userId = body['user']?.toString() ?? '';
+      final String nearbyUserId = body['nearby_user']?.toString() ?? '';
+      final String userProductId = body['user_product']?.toString() ?? '';
+      final String nearbyUserProductId = body['nearby_user_product']?.toString() ?? '';
       
       print("Checking mutual match:");
       print("  User ID: $userId");

@@ -1151,8 +1151,82 @@ router.get('/api/trade/api/nearby-users/', requireAuth, async (req: Request, res
   }
 });
 
-router.post('/api/trade/create-matchfeedback/', requireAuth, async (_req: Request, res: Response) => {
-  return res.json({ success: true, message: 'OK' });
+router.post('/api/trade/create-matchfeedback/', requireAuth, async (req: Request, res: Response) => {
+  const userId = uid(req);
+  const body = req.body;
+
+  try {
+    // Extract fields from request body
+    const nearbyUserId = body.nearby_user || body.nearbyUser;
+    const userProductId = body.user_product || body.userProduct;
+    const nearbyUserProductId = body.nearby_user_product || body.nearbyUserProduct;
+    const feedback = body.feedback; // 'like' or 'dislike'
+    const hasLike = body.has_like === true || body.hasLike === true || feedback === 'like';
+    const hasDislike = body.has_dislike === true || body.hasDislike === true || feedback === 'dislike';
+
+    // Validate required fields
+    if (!nearbyUserId || !userProductId || !nearbyUserProductId || !feedback) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: nearby_user, user_product, nearby_user_product, feedback'
+      });
+    }
+
+    // Check if feedback already exists
+    const { data: existing } = await supabase
+      .from('match_feedback')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('nearby_user_id', nearbyUserId)
+      .eq('user_product_id', userProductId)
+      .eq('other_product_id', nearbyUserProductId)
+      .maybeSingle();
+
+    if (existing) {
+      // Update existing feedback
+      const { data, error } = await supabase
+        .from('match_feedback')
+        .update({
+          has_like: hasLike,
+          has_dislike: hasDislike,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existing.id)
+        .select()
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error updating match feedback:', error);
+        return res.status(500).json({ success: false, message: 'Failed to update feedback' });
+      }
+
+      return res.json({ success: true, message: 'Updated', data });
+    } else {
+      // Create new feedback
+      const { data, error } = await supabase
+        .from('match_feedback')
+        .insert({
+          user_id: userId,
+          nearby_user_id: nearbyUserId,
+          user_product_id: userProductId,
+          other_product_id: nearbyUserProductId,
+          has_like: hasLike,
+          has_dislike: hasDislike,
+        })
+        .select()
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error creating match feedback:', error);
+        return res.status(500).json({ success: false, message: 'Failed to create feedback' });
+      }
+
+      return res.status(201).json({ success: true, message: 'Created', data });
+    }
+  } catch (error) {
+    console.error('Error in create-matchfeedback:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
 });
 
 router.get('/api/trade/matchfeedback/user/', requireAuth, async (req: Request, res: Response) => {

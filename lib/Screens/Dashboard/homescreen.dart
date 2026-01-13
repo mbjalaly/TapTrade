@@ -561,25 +561,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                       ),
                                       child: ClipRRect(
                                         borderRadius: BorderRadius.circular(6),
-                                        child: product.image != null && product.image!.isNotEmpty
-                                            ? Image.network(
-                                                product.image!.startsWith('http')
-                                                    ? product.image!
-                                                    : '${KeyConstants.imageUrl}${product.image}',
-                                                fit: BoxFit.cover,
-                                                errorBuilder: (context, error, stackTrace) {
-                                                  return const Icon(
-                                                    Icons.image_not_supported,
-                                                    color: Colors.grey,
-                                                    size: 20,
-                                                  );
-                                                },
-                                              )
-                                            : const Icon(
-                                                Icons.image_not_supported,
-                                                color: Colors.grey,
-                                                size: 20,
-                                              ),
+                                        child: buildProductImage(
+                                          imageUrl: product.image,
+                                          fit: BoxFit.cover,
+                                          errorWidget: const Icon(
+                                            Icons.image_not_supported,
+                                            color: Colors.grey,
+                                            size: 20,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                     const SizedBox(width: 8),
@@ -726,8 +716,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                                         borderRadius: BorderRadius.circular(100),
                                                         color: Colors.green,
                                                         image: DecorationImage(
-                                                          image: NetworkImage(
-                                                              KeyConstants.imageUrl + ((userProduct.image ?? '').toString().startsWith('http') ? '' : (userProduct.image ?? ''))),
+                                                          image: getImageProvider(userProduct.image),
                                                           fit: BoxFit.fill,
                                                         ),
                                                       ),
@@ -771,8 +760,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                                         borderRadius: BorderRadius.circular(100),
                                                         color: Colors.green,
                                                         image: DecorationImage(
-                                                          image: NetworkImage(
-                                                              KeyConstants.imageUrl + ((otherProduct.image ?? '').toString().startsWith('http') ? '' : (otherProduct.image ?? ''))),
+                                                          image: getImageProvider(otherProduct.image),
                                                           fit: BoxFit.fill,
                                                         ),
                                                       ),
@@ -849,7 +837,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                                       width: 3,
                                                     ),
                                                     AppText(
-                                                      text: "${calculateDistance(nearbyUser?.latitude ?? 0.0, nearbyUser?.longitude ?? 0.0).toStringAsFixed(1)} miles away",
+                                                      text: "${calculateDistance(nearbyUser?.latitude ?? 0.0, nearbyUser?.longitude ?? 0.0).toStringAsFixed(1)} km away",
                                                       fontWeight: FontWeight.w400,
                                                       fontSize: size.width * 0.038,
                                                       textcolor: Colors.white,
