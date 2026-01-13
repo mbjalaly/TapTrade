@@ -1001,12 +1001,154 @@ router.get('/api/trade/getuserpreferences/', requireAuth, async (req: Request, r
 
 // ---------- Matching / Feedback / Trades (minimal compatible shapes) ----------
 router.get('/api/trade/api/nearby-users/', requireAuth, async (req: Request, res: Response) => {
-  // Minimal response compatible with MatchProductResponseModel
-  return res.json({
-    success: true,
-    message: 'OK',
-    matching_products: [],
-  });
+  const userId = uid(req);
+
+  try {
+    // Get current user's info (location and trade radius)
+    const { data: currentUser } = await supabase
+      .from('users')
+      .select('latitude, longitude')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (!currentUser || !currentUser.latitude || !currentUser.longitude) {
+      return res.json({
+        success: true,
+        message: 'User location not set',
+        matching_products: [],
+      });
+    }
+
+    // Get current user's trade radius preference
+    const { data: tradePreference } = await supabase
+      .from('trade_preferences')
+      .select('trade_radius')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    const tradeRadiusKm = tradePreference?.trade_radius
+      ? parseFloat(tradePreference.trade_radius)
+      : 50; // Default 50km
+
+    // Get current user's products
+    const { data: userProducts } = await supabase
+      .from('products')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('status', 'active');
+
+    if (!userProducts || userProducts.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No products found',
+        matching_products: [],
+      });
+    }
+
+    // Get all other users' products with user location info
+    const { data: otherProducts } = await supabase
+      .from('products')
+      .select('*, users!inner(id, username, latitude, longitude)')
+      .neq('user_id', userId)
+      .eq('status', 'active');
+
+    if (!otherProducts || otherProducts.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No nearby products found',
+        matching_products: [],
+      });
+    }
+
+    // Helper function to calculate distance using Haversine formula
+    function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+      const R = 6371; // Earth's radius in km
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c; // Distance in km
+    }
+
+    // Build matching products array
+    const matchingProducts: any[] = [];
+
+    for (const userProduct of userProducts) {
+      for (const otherProduct of otherProducts) {
+        const otherUser = (otherProduct as any).users;
+
+        // Skip if other user doesn't have location
+        if (!otherUser || !otherUser.latitude || !otherUser.longitude) {
+          continue;
+        }
+
+        // Calculate distance
+        const distance = calculateDistance(
+          parseFloat(currentUser.latitude),
+          parseFloat(currentUser.longitude),
+          parseFloat(otherUser.latitude),
+          parseFloat(otherUser.longitude)
+        );
+
+        // Filter by trade radius
+        if (distance > tradeRadiusKm) {
+          continue;
+        }
+
+        // Add to matching products
+        matchingProducts.push({
+          user_product: {
+            id: userProduct.id,
+            title: userProduct.title || '',
+            min_price: String(userProduct.min_price || '0'),
+            max_price: String(userProduct.max_price || '0'),
+            image: userProduct.image || '',
+            product_condition: userProduct.product_condition || '',
+            status: userProduct.status || 'active',
+            category: userProduct.category_id || 0,
+            user: userProduct.user_id || '',
+          },
+          other_product: {
+            id: otherProduct.id,
+            title: otherProduct.title || '',
+            min_price: String(otherProduct.min_price || '0'),
+            max_price: String(otherProduct.max_price || '0'),
+            image: otherProduct.image || '',
+            product_condition: otherProduct.product_condition || '',
+            status: otherProduct.status || 'active',
+            category: otherProduct.category_id || 0,
+            user: otherProduct.user_id || '',
+          },
+          nearby_user: {
+            id: otherUser.id || '',
+            username: otherUser.username || '',
+            latitude: parseFloat(otherUser.latitude) || 0.0,
+            longitude: parseFloat(otherUser.longitude) || 0.0,
+            trade_radius: String(tradeRadiusKm),
+          },
+          matching_interest_count: 0, // Can be enhanced later with interest matching
+        });
+      }
+    }
+
+    console.log(`Found ${matchingProducts.length} matching products for user ${userId}`);
+
+    return res.json({
+      success: true,
+      message: 'OK',
+      matching_products: matchingProducts,
+    });
+  } catch (error) {
+    console.error('Error fetching nearby users:', error);
+    return res.json({
+      success: true,
+      message: 'Error fetching products',
+      matching_products: [],
+    });
+  }
 });
 
 router.post('/api/trade/create-matchfeedback/', requireAuth, async (_req: Request, res: Response) => {

@@ -16,7 +16,6 @@ import 'package:taptrade/Services/SearchFilterService/search_filter_service.dart
 import 'package:taptrade/Services/NotificationService/notification_service.dart';
 import 'package:taptrade/Services/LocationService/locationService.dart';
 import 'package:taptrade/Services/CooldownService/cooldownService.dart';
-import 'Match/matchDeal.dart';
 import 'ProductDetails/productDetailsScreen.dart';
 import 'ProfileSetting/TradePreferences/tradePreferences.dart';
 import 'ProfileSetting/SearchFilters/search_filter_screen.dart';
@@ -105,24 +104,41 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Future<void> _syncCurrentLocation() async {
     try {
+      print("Syncing current location...");
       final position = await LocationService.instance.getCurrentLocation();
       final double currentLatitude = position.latitude;
       final double currentLongitude = position.longitude;
+      print("Current location: $currentLatitude, $currentLongitude");
+
       String address = LocationService.instance.userAddress;
       if (address.isEmpty) {
         address = await LocationService.instance
             .getAddressFromLatLng(currentLatitude, currentLongitude);
       }
+      print("Address: $address");
+
       final String userId = userController.userProfile.value.data?.id ?? '';
-      if (userId.isEmpty) return;
+      if (userId.isEmpty) {
+        print("WARNING: Cannot sync location - User ID is empty");
+        return;
+      }
+
       final Map<String, dynamic> body = {
         'latitude': double.parse(currentLatitude.toStringAsFixed(6)),
         'longitude': double.parse(currentLongitude.toStringAsFixed(6)),
         'address': address,
       };
+
+      print("Updating profile with location...");
       await ProfileService.instance.updateProfile(context, body, userId);
+      print("Profile location updated successfully");
     } catch (e) {
-      // Ignore location sync errors to avoid blocking UX
+      print("ERROR syncing location: $e");
+      // Don't block UX, but log the error
+      NotificationService.info(
+        title: 'Location access',
+        message: 'Unable to access your location. Products may not be accurate.',
+      );
     }
   }
 
@@ -132,20 +148,38 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         isLoading = true;
       });
       String id = userController.userProfile.value.data?.id ?? '';
-      if (id.isNotEmpty) {
-        await _syncCurrentLocation();
-        // Load user products if not already loaded
-        if (userProducts.isEmpty) {
-          await _loadUserProducts();
-        }
-        // Nearby candidates within radius
-        await ProductService.instance.getMatchProduct(context, id);
-        await ProfileService.instance.getTradePreference(context, id);
-        await addItems();
+      if (id.isEmpty) {
+        print("ERROR: User ID is empty, cannot fetch products");
+        return;
       }
+
+      print("=== FETCHING PRODUCTS FOR USER: $id ===");
+
+      // Ensure location is synced before fetching products
+      await _syncCurrentLocation();
+      print("Location synced successfully");
+
+      // Load user products if not already loaded
+      if (userProducts.isEmpty) {
+        await _loadUserProducts();
+        print("User products loaded: ${userProducts.length}");
+      }
+
+      // Nearby candidates within radius
+      print("Fetching nearby products...");
+      await ProductService.instance.getMatchProduct(context, id);
+      print("Match products fetched: ${productController.matchedProduct.value.data?.length ?? 0}");
+
+      await ProfileService.instance.getTradePreference(context, id);
+      await addItems();
+
+      print("=== FETCH COMPLETE: ${swipeItems.length} swipe items ready ===");
     } catch (e) {
-      print("Error occurred while fetching match products: $e");
-      // silently fail with console log only
+      print("ERROR occurred while fetching match products: $e");
+      NotificationService.error(
+        title: 'Error loading products',
+        message: 'Please check your internet connection and try again',
+      );
     } finally {
       setState(() {
         isLoading = false;
@@ -194,7 +228,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     
     print("After cooldown filter: ${filteredList.length}");
 
-    // Keep server ordering; no client-side proximity sort
+    // Sort products by distance from nearest to farthest
+    filteredList.sort((a, b) {
+      final double distanceA = calculateDistanceForSorting(a.nearbyUser);
+      final double distanceB = calculateDistanceForSorting(b.nearbyUser);
+      return distanceA.compareTo(distanceB);
+    });
+
+    print("Sorted ${filteredList.length} products by distance");
+
+    // Products now sorted by proximity (nearest to farthest)
 
     // Primary: matched products (nearby candidates) - using filtered list
     int processedCount = 0;
@@ -327,7 +370,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     // No fallback to own products; keep empty if no nearby matches
     matchEngine = MatchEngine(swipeItems: swipeItems);
-    
+
     print("=== FILTERING SUMMARY ===");
     print("Total processed: $processedCount");
     print("Skipped - Own products: $skippedOwnProduct");
@@ -337,7 +380,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     print("Skipped - Interest filter: $skippedInterestFilter");
     print("Final swipe items: ${swipeItems.length}");
     print("=== END DEBUGGING ===");
-    
+
     setState(() {});
     if (swipeItems.isNotEmpty) {
       NotificationService.success(
@@ -345,10 +388,28 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         message: 'Swipe to explore ${swipeItems.length} items',
       );
     } else {
-      NotificationService.info(
-        title: 'No matches yet',
-        message: 'Adjust preferences to find more deals',
-      );
+      // Provide helpful feedback based on why no products are showing
+      if (userProducts.isEmpty) {
+        NotificationService.info(
+          title: 'Add your first product',
+          message: 'List products to start trading with others nearby',
+        );
+      } else if (listResponse.isEmpty) {
+        NotificationService.info(
+          title: 'No nearby trades',
+          message: 'Try increasing your search radius in preferences',
+        );
+      } else if (skippedProductFilter > 0 || skippedCategoryFilter > 0 || skippedInterestFilter > 0) {
+        NotificationService.info(
+          title: 'All products filtered',
+          message: 'Try adjusting your filters to see more trades',
+        );
+      } else {
+        NotificationService.info(
+          title: 'No matches yet',
+          message: 'Check back soon for new trading opportunities',
+        );
+      }
     }
   }
 
@@ -852,25 +913,53 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           ),
                         );
                       } else {
+                        // Show appropriate empty state based on the situation
+                        String title = 'No matches found nearby';
+                        String message = 'Try increasing your search radius or adding more interests to discover more products.';
+                        IconData icon = Icons.tune_rounded;
+                        String buttonText = 'Adjust search preferences';
+                        VoidCallback? onPressed = () async {
+                          final profile = userController.userProfile.value;
+                          await Get.to(() => TradePreferences(profileData: profile));
+                          await getData();
+                        };
+
+                        if (userProducts.isEmpty) {
+                          title = 'No products to trade';
+                          message = 'Add your first product to start trading with others nearby.';
+                          icon = Icons.add_circle_outline;
+                          buttonText = 'Add a product';
+                          onPressed = () async {
+                            // Navigate to add product screen
+                            await getData();
+                          };
+                        }
+
                         return Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Text(
-                                'No matches found nearby',
-                                style: TextStyle(
+                              Icon(
+                                userProducts.isEmpty ? Icons.inventory_2_outlined : Icons.location_off_outlined,
+                                size: 64,
+                                color: AppColors.primaryTextColor.withOpacity(0.3),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                title,
+                                style: const TextStyle(
                                   color: AppColors.primaryTextColor,
                                   fontWeight: FontWeight.w700,
                                   fontSize: 18,
                                 ),
                               ),
                               const SizedBox(height: 8),
-                              const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 24.0),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 24.0),
                                 child: Text(
-                                  'Try increasing your search radius or adding more interests to discover more products.',
+                                  message,
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     color: AppColors.primaryTextColor,
                                     fontSize: 14,
                                   ),
@@ -878,20 +967,26 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                               ),
                               const SizedBox(height: 16),
                               ElevatedButton.icon(
-                                onPressed: () async {
-                                  final profile = userController.userProfile.value;
-                                  await Get.to(() => TradePreferences(profileData: profile));
-                                  await getData();
-                                },
+                                onPressed: onPressed,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.primaryTextColor,
                                   foregroundColor: Colors.white,
                                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                 ),
-                                icon: const Icon(Icons.tune_rounded),
-                                label: const Text('Adjust search preferences'),
+                                icon: Icon(icon),
+                                label: Text(buttonText),
                               ),
+                              if (userProducts.isNotEmpty) ...[
+                                const SizedBox(height: 12),
+                                TextButton.icon(
+                                  onPressed: () async {
+                                    await getData();
+                                  },
+                                  icon: const Icon(Icons.refresh_rounded),
+                                  label: const Text('Refresh'),
+                                ),
+                              ],
                             ],
                           ),
                         );
