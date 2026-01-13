@@ -9,8 +9,8 @@ class CooldownService {
   CooldownService._internal();
   
   static const String _cooldownKey = 'product_cooldowns';
-  static const int _cooldownDays = 3;
-  static const int _cooldownMilliseconds = _cooldownDays * 24 * 60 * 60 * 1000; // 3 days in milliseconds
+  static const int _cooldownDays = 2;
+  static const int _cooldownMilliseconds = _cooldownDays * 24 * 60 * 60 * 1000; // 2 days in milliseconds
   
   /// Record that a product was interacted with (liked or disliked)
   Future<void> recordProductInteraction(int productId) async {

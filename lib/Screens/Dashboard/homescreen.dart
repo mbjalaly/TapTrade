@@ -218,7 +218,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     print("Saved Filters - Category IDs: ${filters.categoryIds}");
     print("Saved Filters - Interest Names: ${filters.interestNames}");
     
-    // Filter out products that are in cooldown (3-day cooldown)
+    // Filter out products that are in cooldown (2-day cooldown)
     final List<MatchData> filteredList = await CooldownService.instance.filterProductsInCooldown(
       listResponse, 
       (MatchData matchData) => matchData.otherProduct?.id ?? -1

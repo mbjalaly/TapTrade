@@ -545,14 +545,30 @@ extension _MatchNotifyExt on ProductService {
       
       if (mutualMatch) {
         print("🎉 MUTUAL MATCH DETECTED! 🎉");
+
         // Show notification for mutual match
         await NotificationService.showLocalMatchNotification(
           otherProductId: int.tryParse(nearbyUserProductId) ?? 0,
           otherProductTitle: "Mutual Match Found!",
         );
-        
-        // You could also trigger a refresh of the MyProducts screen here
-        // or send a push notification to the other user
+
+        // Navigate to match screen to show the match
+        final matchedLike = allLikes.firstWhere(
+          (like) =>
+              (like.userProduct?.id.toString() == nearbyUserProductId) &&
+              (like.otherProduct?.id.toString() == userProductId) &&
+              (like.hasLike ?? false),
+        );
+
+        // Use Get.to to navigate to match screen
+        // Import required: import 'package:get/get.dart';
+        // Import required: import 'package:taptrade/Screens/Dashboard/Match/matchDeal.dart';
+        Get.to(() => MatchDealScreen(
+          isDirect: false,
+          likeData: matchedLike,
+          matchData: null,
+          tradeRequestData: null,
+        ));
       }
       
     } catch (e) {
