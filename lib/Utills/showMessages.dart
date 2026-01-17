@@ -16,93 +16,137 @@ import 'appColors.dart';
 
 class ShowMessage {
 
-  // static void toast(String msg) {
-  //   Fluttertoast.showToast(
-  //       msg: msg,
-  //       fontSize: 16,
-  //       toastLength: Toast.LENGTH_SHORT,
-  //       gravity: ToastGravity.CENTER);
-  // }
-
-  static void inDialog(BuildContext context,String message, bool isError) {
-    Color color = isError ? Colors.redAccent : Colors.green;
-    Get.defaultDialog(
-        title: '',
-        titleStyle: TextStyle(
-            fontFamily: 'Monts',
-            fontSize: Get.height * 0.0,
-            fontWeight: FontWeight.bold),
-        content: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircleAvatar(
-              radius: Get.height * 0.032,
-              backgroundColor: color,
-              child: CircleAvatar(
-                  backgroundColor: Colors.white,
-                  radius: Get.height * 0.030,
-                  child: Icon(
-                    isError ? Icons.warning : Icons.done_outline,
-                    color: color,
-                    size: Get.height * 0.042,
-                  )),
-            ),
-            SizedBox(
-              height: Get.height * 0.016,
-            ),
-            Text(message,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    fontFamily: 'Monts', fontSize: Get.height * 0.022)),
-            SizedBox(height: Get.height * 0.02),
-          ],
-        ),
-        actions: [
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              GestureDetector(
-                onTap: () => Get.back(),
-                child: Container(
-                  alignment: Alignment.center,
-                  margin: const EdgeInsets.only(bottom: 16),
-                  width: Get.width * .32,
-                  height: Get.height * .05,
-                  decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
-                      color: AppColors.primaryColor),
-                  child: Text(
-                    'OK',
-                    style: TextStyle(
-                        fontFamily: 'Monts',
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: Get.height * .024),
-                  ),
-                ),
-              )
-            ],
-          )
-        ]);
+  /// Shows a modern snackbar notification
+  static void notify(BuildContext context, String text) {
+    _showModernSnackbar(context, text, SnackbarType.info);
   }
 
-  static void notify(BuildContext context, String text) {
+  /// Shows an error snackbar - use this for errors
+  static void error(BuildContext context, String text) {
+    _showModernSnackbar(context, text, SnackbarType.error);
+  }
+
+  /// Shows a success snackbar
+  static void success(BuildContext context, String text) {
+    _showModernSnackbar(context, text, SnackbarType.success);
+  }
+
+  /// Shows a warning snackbar
+  static void warning(BuildContext context, String text) {
+    _showModernSnackbar(context, text, SnackbarType.warning);
+  }
+
+  /// Replaces the old popup dialog with a snackbar for better UX
+  static void inDialog(BuildContext context, String message, bool isError) {
+    _showModernSnackbar(
+      context, 
+      message, 
+      isError ? SnackbarType.error : SnackbarType.success,
+    );
+  }
+
+  static void _showModernSnackbar(BuildContext context, String text, SnackbarType type) {
+    final colors = _getSnackbarColors(type);
+    
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        margin: const EdgeInsets.all(20),
-        backgroundColor: AppColors.primaryTextColor,
-        elevation: 4,
+        margin: const EdgeInsets.all(16),
+        padding: EdgeInsets.zero,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          side: const BorderSide(color: Colors.white, width: 1.5),
-          borderRadius: BorderRadius.circular(10),
+        duration: const Duration(seconds: 3),
+        content: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: colors.background,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: colors.border, width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: colors.shadow,
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: colors.iconBackground,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  colors.icon,
+                  color: colors.iconColor,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  text,
+                  style: TextStyle(
+                    color: colors.textColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-        content: Text(text),
       ),
     );
+  }
+
+  static _SnackbarColors _getSnackbarColors(SnackbarType type) {
+    switch (type) {
+      case SnackbarType.success:
+        return _SnackbarColors(
+          background: const Color(0xFFE8F5E9),
+          border: const Color(0xFF81C784),
+          iconBackground: const Color(0xFF4CAF50),
+          iconColor: Colors.white,
+          icon: Icons.check_rounded,
+          textColor: const Color(0xFF2E7D32),
+          shadow: const Color(0xFF4CAF50).withOpacity(0.15),
+        );
+      case SnackbarType.error:
+        return _SnackbarColors(
+          background: const Color(0xFFFFEBEE),
+          border: const Color(0xFFE57373),
+          iconBackground: const Color(0xFFE53935),
+          iconColor: Colors.white,
+          icon: Icons.error_outline_rounded,
+          textColor: const Color(0xFFC62828),
+          shadow: const Color(0xFFE53935).withOpacity(0.15),
+        );
+      case SnackbarType.warning:
+        return _SnackbarColors(
+          background: const Color(0xFFFFF3E0),
+          border: const Color(0xFFFFB74D),
+          iconBackground: const Color(0xFFFF9800),
+          iconColor: Colors.white,
+          icon: Icons.warning_amber_rounded,
+          textColor: const Color(0xFFE65100),
+          shadow: const Color(0xFFFF9800).withOpacity(0.15),
+        );
+      case SnackbarType.info:
+      default:
+        return _SnackbarColors(
+          background: Colors.white,
+          border: AppColors.primaryColor.withOpacity(0.3),
+          iconBackground: AppColors.primaryColor,
+          iconColor: AppColors.darkBlue,
+          icon: Icons.info_outline_rounded,
+          textColor: AppColors.darkBlue,
+          shadow: AppColors.darkBlue.withOpacity(0.1),
+        );
+    }
   }
 
   static void inDialogInternet(String message, bool isError) {
@@ -625,4 +669,28 @@ class ShowMessage {
     );
   }
 
+}
+
+/// Enum for snackbar types
+enum SnackbarType { success, error, warning, info }
+
+/// Helper class for snackbar colors
+class _SnackbarColors {
+  final Color background;
+  final Color border;
+  final Color iconBackground;
+  final Color iconColor;
+  final IconData icon;
+  final Color textColor;
+  final Color shadow;
+
+  _SnackbarColors({
+    required this.background,
+    required this.border,
+    required this.iconBackground,
+    required this.iconColor,
+    required this.icon,
+    required this.textColor,
+    required this.shadow,
+  });
 }

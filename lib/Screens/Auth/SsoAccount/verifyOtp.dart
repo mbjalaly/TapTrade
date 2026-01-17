@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:taptrade/Const/globleKey.dart';
 import 'package:taptrade/Models/SignUpRequestModel/signUpRequestModel.dart';
-import 'package:taptrade/Screens/UserDetail/AddProfile/addProfile.dart';
+import 'package:taptrade/Screens/UserDetail/AddInterest/addInterest.dart';
 import 'package:taptrade/Services/ApiResponse/apiResponse.dart';
 import 'package:taptrade/Services/IntegrationServices/authService.dart';
 import 'package:taptrade/Services/IntegrationServices/firebasePhoneAuthService.dart';
@@ -190,7 +190,7 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
         
         // Get profile and navigate
         ProfileService.instance.getProfile(context);
-        Get.offAll(() => const AddProfileScreen());
+        Get.offAll(() => const AddInterestScreen());
       }
     } catch (e) {
       setState(() {

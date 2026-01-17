@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 import 'package:taptrade/Controller/productController.dart';
+import 'package:taptrade/Controller/settingsController.dart';
 import 'package:taptrade/Controller/userController.dart';
 
 class ControllerBinding extends Bindings {
@@ -7,5 +8,6 @@ class ControllerBinding extends Bindings {
   void dependencies() {
     Get.put<UserController>(UserController());
     Get.put<ProductController>(ProductController());
+    Get.put<SettingsController>(SettingsController());
   }
 }

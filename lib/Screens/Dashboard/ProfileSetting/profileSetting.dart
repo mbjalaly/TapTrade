@@ -18,11 +18,11 @@ import 'package:taptrade/Utills/showMessages.dart';
 import 'package:taptrade/Widgets/NetworkImageProvider/networkImageProvider.dart';
 import 'package:taptrade/Widgets/avatarSlider.dart';
 import 'package:taptrade/Widgets/customButtom.dart';
-import 'package:taptrade/Utills/soundManager.dart';
 import 'package:taptrade/Services/NotificationService/notification_service.dart';
 import 'AddBio/addBio.dart';
 import 'ContactUs/contactUs.dart';
 import 'TradePreferences/tradePreferences.dart';
+import 'package:taptrade/Screens/Dashboard/Chat/matchesListScreen.dart';
 
 class ProfileSetting extends StatefulWidget {
   const ProfileSetting({super.key});
@@ -37,7 +37,6 @@ class _ProfileSettingState extends State<ProfileSetting> {
   String avatarImage = '';
   bool isLoading = false;
   String? selectedOption;
-  bool _muted = SoundManager().isMuted;
 
   Future<void> _pickImage() async {
     showModalBottomSheet(
@@ -186,25 +185,12 @@ class _ProfileSettingState extends State<ProfileSetting> {
             appBar: AppBar(
               automaticallyImplyLeading: false,
               centerTitle: false,
-              title: Text('More menu', style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.darkBlue)),
+              title: Text('Settings', style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.darkBlue)),
               actions: [
                 TextButton.icon(
                   onPressed: () {},
                   icon: const Icon(Icons.language, color: AppColors.primaryTextColor),
                   label: Text('English', style: TextStyle(color: AppColors.primaryTextColor, fontWeight: FontWeight.w600)),
-                ),
-                IconButton(
-                  tooltip: _muted ? 'Unmute sounds' : 'Mute sounds',
-                  onPressed: () {
-                    setState(() {
-                      _muted = !_muted;
-                      SoundManager().setMuted(_muted);
-                    });
-                  },
-                  icon: Icon(
-                    _muted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-                    color: AppColors.primaryTextColor,
-                  ),
                 ),
               ],
             ),
@@ -229,6 +215,12 @@ class _ProfileSettingState extends State<ProfileSetting> {
                             icon: Icons.tune,
                             label: 'Trade preferences',
                             onTap: () => Get.to(() => TradePreferences(profileData: profileData)),
+                          ),
+                          const Divider(),
+                          _SettingsItem(
+                            icon: Icons.favorite_outline,
+                            label: 'Matches & Chat',
+                            onTap: () => Get.to(() => const MatchesListScreen()),
                           ),
                           const Divider(),
                           _SettingsItem(
@@ -286,6 +278,18 @@ class _ProfileSettingState extends State<ProfileSetting> {
   }
 
   Widget _buildHeader(Size size, dynamic profileData) {
+    // Get user initials from full name
+    String fullName = profileData.data?.fullName ?? '';
+    String initials = '';
+    if (fullName.isNotEmpty) {
+      List<String> nameParts = fullName.trim().split(' ');
+      if (nameParts.length >= 2) {
+        initials = '${nameParts[0][0]}${nameParts[1][0]}'.toUpperCase();
+      } else if (nameParts.isNotEmpty) {
+        initials = nameParts[0][0].toUpperCase();
+      }
+    }
+    
     return Container(
       width: size.width,
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
@@ -306,33 +310,31 @@ class _ProfileSettingState extends State<ProfileSetting> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          SizedBox(
-            height: 130,
-            width: 130,
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white.withOpacity(0.9), width: 3),
-                    ),
-                    child: ClipOval(child: avatarSelection(context, profileData)),
-                  ),
+          // User initials avatar (no edit button)
+          Container(
+            height: 100,
+            width: 100,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white.withOpacity(0.9), width: 3),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white.withOpacity(0.3),
+                  Colors.white.withOpacity(0.1),
+                ],
+              ),
+            ),
+            child: Center(
+              child: Text(
+                initials.isNotEmpty ? initials : '?',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 36,
+                  fontWeight: FontWeight.w800,
                 ),
-                Positioned(
-                  right: 4,
-                  bottom: 4,
-                  child: GestureDetector(
-                    onTap: _pickImage,
-                    child: const CircleAvatar(
-                      radius: 18,
-                      backgroundColor: Colors.white,
-                      child: Icon(Icons.edit, color: AppColors.greyTextColor, size: 18),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -340,7 +342,7 @@ class _ProfileSettingState extends State<ProfileSetting> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                (profileData.data?.fullName ?? '').toString(),
+                fullName,
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 26,
@@ -410,48 +412,6 @@ class _ProfileSettingState extends State<ProfileSetting> {
           padding: const EdgeInsets.symmetric(vertical: 14),
         ),
       ),
-    );
-  }
-
-  void _openMoreBottomSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.volume_up_rounded),
-                  title: const Text('Mute sounds', style: TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle: const Text('Silence swipes and match sounds'),
-                  trailing: Switch(
-                    value: _muted,
-                    onChanged: (val) {
-                      setState(() {
-                        _muted = val;
-                        SoundManager().setMuted(val);
-                      });
-                    },
-                  ),
-                ),
-                const Divider(),
-                const ListTile(
-                  leading: Icon(Icons.info_outline),
-                  title: Text('App version'),
-                  subtitle: Text('1.0.0'),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 

@@ -15,7 +15,6 @@ import 'package:taptrade/Widgets/customText.dart';
 import 'package:taptrade/Services/SearchFilterService/search_filter_service.dart';
 import 'package:taptrade/Services/NotificationService/notification_service.dart';
 import 'package:taptrade/Services/LocationService/locationService.dart';
-import 'package:taptrade/Services/CooldownService/cooldownService.dart';
 import 'ProductDetails/productDetailsScreen.dart';
 import 'ProfileSetting/TradePreferences/tradePreferences.dart';
 import 'ProfileSetting/SearchFilters/search_filter_screen.dart';
@@ -179,9 +178,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         message: 'Please check your internet connection and try again',
       );
     } finally {
-      setState(() {
-        isLoading = false;
-      });
+      // Only call setState if the widget is still mounted
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -205,35 +207,41 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Future<void> addItems() async {
     // Build the swipe deck from nearby candidates within radius
     final List<MatchData> listResponse = List<MatchData>.from(productController.matchedProduct.value.data ?? const <MatchData>[]);
+    final List<MatchData> alreadyLikedResponse = List<MatchData>.from(productController.matchedProduct.value.alreadyLikedProducts ?? const <MatchData>[]);
     final String currentUserId = userController.userProfile.value.data?.id ?? '';
     swipeItems.clear();
     // Load any saved filters
     final SearchFilters filters = await SearchFilterService.instance.loadFilters();
-    
+
     print("=== DEBUGGING MATCH FILTERING ===");
-    print("API Response - Total matches from server: ${listResponse.length}");
+    print("API Response - New matches from server: ${listResponse.length}");
+    print("API Response - Already liked products: ${alreadyLikedResponse.length}");
     print("Current User ID: $currentUserId");
     print("Selected Product IDs: $selectedProductIds");
     print("Saved Filters - My Product IDs: ${filters.myProductIds}");
     print("Saved Filters - Category IDs: ${filters.categoryIds}");
     print("Saved Filters - Interest Names: ${filters.interestNames}");
-    
-    // Filter out products that are in cooldown (2-day cooldown)
-    final List<MatchData> filteredList = await CooldownService.instance.filterProductsInCooldown(
-      listResponse, 
-      (MatchData matchData) => matchData.otherProduct?.id ?? -1
-    );
-    
-    print("After cooldown filter: ${filteredList.length}");
+
+    // No cooldown - use listResponse directly
+    // Backend already filters out liked/disliked products
+
+    // If no new products, use already-liked products as fallback
+    bool usingFallback = false;
+    List<MatchData> productsToShow = listResponse;
+    if (listResponse.isEmpty && alreadyLikedResponse.isNotEmpty) {
+      print("No new products available, showing ${alreadyLikedResponse.length} already-liked products as fallback");
+      productsToShow = alreadyLikedResponse;
+      usingFallback = true;
+    }
 
     // Sort products by distance from nearest to farthest
-    filteredList.sort((a, b) {
+    productsToShow.sort((a, b) {
       final double distanceA = calculateDistanceForSorting(a.nearbyUser);
       final double distanceB = calculateDistanceForSorting(b.nearbyUser);
       return distanceA.compareTo(distanceB);
     });
 
-    print("Sorted ${filteredList.length} products by distance");
+    print("Sorted ${productsToShow.length} products by distance");
 
     // Products now sorted by proximity (nearest to farthest)
 
@@ -244,10 +252,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     int skippedProductFilter = 0;
     int skippedCategoryFilter = 0;
     int skippedInterestFilter = 0;
-    
-    for (int i = 0; i < filteredList.length; i++) {
+
+    for (int i = 0; i < productsToShow.length; i++) {
       processedCount++;
-      final match = filteredList[i];
+      final match = productsToShow[i];
       
       // Skip matches where the other product belongs to the current user
       final String otherOwnerId = match.otherProduct?.user ?? '';
@@ -298,24 +306,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       }
 
       swipeItems.add(SwipeItem(
-        content: filteredList[i],
+        content: productsToShow[i],
         likeAction: () {
           // Block making deals with own product
-          if ((filteredList[i].otherProduct?.user ?? '') == currentUserId) {
+          if ((productsToShow[i].otherProduct?.user ?? '') == currentUserId) {
             return;
           }
-          
-          // Record product interaction for cooldown
-          final int productId = filteredList[i].otherProduct?.id ?? -1;
-          if (productId > 0) {
-            CooldownService.instance.recordProductInteraction(productId);
-          }
-          
+
           Map<String, dynamic> body = {
-            "user": filteredList[i].userProduct?.user ?? '',
-            "nearby_user": filteredList[i].otherProduct?.user ?? '',
-            "user_product": filteredList[i].userProduct?.id ?? '',
-            "nearby_user_product": filteredList[i].otherProduct?.id ?? '',
+            "user": productsToShow[i].userProduct?.user ?? '',
+            "nearby_user": productsToShow[i].otherProduct?.user ?? '',
+            "user_product": productsToShow[i].userProduct?.id ?? '',
+            "nearby_user_product": productsToShow[i].otherProduct?.id ?? '',
             "feedback": "like",
             "has_like": true,
             "has_dislike": false
@@ -332,22 +334,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         },
         nopeAction: () {
           // Block making deals with own product
-          if ((filteredList[i].otherProduct?.user ?? '') == currentUserId) {
+          if ((productsToShow[i].otherProduct?.user ?? '') == currentUserId) {
             return;
           }
-          
-          // Record product interaction for cooldown
-          final int productId = filteredList[i].otherProduct?.id ?? -1;
-          if (productId > 0) {
-            CooldownService.instance.recordProductInteraction(productId);
-          }
-          
+
           Map<String, dynamic> body = {
-            "user": filteredList[i].userProduct?.user ?? '',
-            "nearby_user": filteredList[i].otherProduct?.user ?? '',
-            "user_product": filteredList[i].userProduct?.id ?? '',
-            "nearby_user_product": filteredList[i].otherProduct?.id ?? '',
-            "feedback": "like",
+            "user": productsToShow[i].userProduct?.user ?? '',
+            "nearby_user": productsToShow[i].otherProduct?.user ?? '',
+            "user_product": productsToShow[i].userProduct?.id ?? '',
+            "nearby_user_product": productsToShow[i].otherProduct?.id ?? '',
+            "feedback": "dislike",
             "has_like": false,
             "has_dislike": true
           };
@@ -379,10 +375,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     setState(() {});
     if (swipeItems.isNotEmpty) {
-      NotificationService.success(
-        title: 'Deals near you',
-        message: 'Swipe to explore ${swipeItems.length} items',
-      );
+      if (usingFallback) {
+        NotificationService.info(
+          title: 'No new products nearby',
+          message: 'Showing ${swipeItems.length} products you already liked',
+        );
+      } else {
+        NotificationService.success(
+          title: 'Deals near you',
+          message: 'Swipe to explore ${swipeItems.length} items',
+        );
+      }
     } else {
       // Provide helpful feedback based on why no products are showing
       if (userProducts.isEmpty) {
@@ -390,7 +393,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           title: 'Add your first product',
           message: 'List products to start trading with others nearby',
         );
-      } else if (listResponse.isEmpty) {
+      } else if (listResponse.isEmpty && alreadyLikedResponse.isEmpty) {
         NotificationService.info(
           title: 'No nearby trades',
           message: 'Try increasing your search radius in preferences',
@@ -861,31 +864,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         rightSwipeAllowed: true,
                         // upSwipeAllowed: true,
                         // fillSpace: true,
-                        likeTag: SizedBox.expand(
-                          child: Align(
-                            alignment: Alignment.bottomRight,
-                            child: Padding(
-                              padding: const EdgeInsets.only(right: 24, bottom: 0),
-                              child: const CircleAvatar(
-                                radius: 32,
-                                backgroundColor: Colors.green,
-                                child: Icon(Icons.check_rounded, color: Colors.white, size: 36),
-                              ),
-                            ),
-                          ),
+                        likeTag: const CircleAvatar(
+                          radius: 32,
+                          backgroundColor: Colors.green,
+                          child: Icon(Icons.check_rounded, color: Colors.white, size: 36),
                         ),
-                        nopeTag: SizedBox.expand(
-                          child: Align(
-                            alignment: Alignment.bottomLeft,
-                            child: Padding(
-                              padding: const EdgeInsets.only(left: 24, bottom: 0),
-                              child: const CircleAvatar(
-                                radius: 32,
-                                backgroundColor: Colors.red,
-                                child: Icon(Icons.close_rounded, color: Colors.white, size: 36),
-                              ),
-                            ),
-                          ),
+                        nopeTag: const CircleAvatar(
+                          radius: 32,
+                          backgroundColor: Colors.red,
+                          child: Icon(Icons.close_rounded, color: Colors.white, size: 36),
                         ),
                         ),
                       );

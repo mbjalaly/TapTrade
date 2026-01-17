@@ -132,10 +132,21 @@ class NotificationService {
     await FirebaseMessaging.instance.unsubscribeFromTopic('marketing');
   }
 
-  static void _showForegroundNotification(RemoteMessage message) {
+  static Future<void> _showForegroundNotification(RemoteMessage message) async {
     final RemoteNotification? notification = message.notification;
     final AndroidNotification? android = notification?.android;
     final String type = message.data['type'] ?? 'generic';
+
+    // Check match notification preference (from SettingsController)
+    if (type == 'match') {
+      final prefs = await SharedPreferences.getInstance();
+      final matchNotificationsEnabled = prefs.getBool('PREF_MATCH_NOTIFICATIONS') ?? true;
+
+      if (!matchNotificationsEnabled) {
+        print('🔕 Match notification silenced by user preference');
+        return; // Silently ignore match notifications if disabled
+      }
+    }
 
     String channelId = _marketingChannelId;
     if (type == 'match') channelId = _matchChannelId;

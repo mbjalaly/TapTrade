@@ -4,7 +4,7 @@ import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart';
 import 'package:taptrade/Const/globleKey.dart';
 import 'package:taptrade/Screens/Dashboard/Bottombar/bottombarscreen.dart';
-import 'package:taptrade/Screens/UserDetail/AddProfile/addProfile.dart';
+import 'package:taptrade/Screens/UserDetail/AddInterest/addInterest.dart';
 import 'package:taptrade/Services/ApiResponse/apiResponse.dart';
 import 'package:taptrade/Services/IntegrationServices/authService.dart';
 import 'package:taptrade/Services/IntegrationServices/profileService.dart';
@@ -231,7 +231,7 @@ class AppleAuthService {
                 MaterialPageRoute(builder: (_) => const BottomNavigationScreen()),
                     (route) => false);
           } else {
-            Get.to(const AddProfileScreen());
+            Get.to(const AddInterestScreen());
           }
         } else {
           AppLoadingPopup.hide();

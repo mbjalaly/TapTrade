@@ -10,6 +10,7 @@ import supabase from '../services/supabaseClient';
 import { ok } from '../utils/respond';
 import { requireAuth, signUserToken } from '../utils/jwt';
 import { logger } from '../utils/logger';
+import { uploadImageToStorage } from '../utils/imageUpload';
 // @ts-ignore - Module resolution in sandbox environment
 import type { Request, Response } from 'express';
 
@@ -416,34 +417,42 @@ router.post('/add_products/', requireAuth, upload.any(), async (req: Request, re
   const userId = uid(req);
   const body: any = req.body || {};
   const files = ((req as any).files as MulterFile[]) || [];
-  
+
   await logger.info('Product creation request', userId, {
     title: body.title,
     category: body.category,
     files_count: files.length,
   });
 
-  // Process uploaded files
+  // Process uploaded files - upload to Supabase Storage
   // First file with fieldname 'image' is the primary image
   // All files with fieldname 'images' are additional images
   let primaryImageUrl = '';
   const imageUrls: string[] = [];
-  
-  // Extract primary image (fieldname: 'image')
-  const primaryFile = files.find(f => f.fieldname === 'image');
-  if (primaryFile) {
-    // Store as base64 data URI (temporary - should use Supabase Storage or S3 in production)
-    primaryImageUrl = `data:${primaryFile.mimetype};base64,${primaryFile.buffer.toString('base64')}`;
-    imageUrls.push(primaryImageUrl);
-  }
-  
-  // Extract additional images (fieldname: 'images')
-  const additionalFiles = files.filter(f => f.fieldname === 'images');
-  for (const file of additionalFiles) {
-    const imageUrl = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
-    if (!imageUrls.includes(imageUrl)) { // Avoid duplicates
-      imageUrls.push(imageUrl);
+
+  try {
+    // Extract primary image (fieldname: 'image')
+    const primaryFile = files.find(f => f.fieldname === 'image');
+    if (primaryFile) {
+      primaryImageUrl = await uploadImageToStorage(primaryFile.buffer, primaryFile.mimetype, 'products');
+      imageUrls.push(primaryImageUrl);
     }
+
+    // Extract additional images (fieldname: 'images')
+    const additionalFiles = files.filter(f => f.fieldname === 'images');
+    for (const file of additionalFiles) {
+      const imageUrl = await uploadImageToStorage(file.buffer, file.mimetype, 'products');
+      if (!imageUrls.includes(imageUrl)) { // Avoid duplicates
+        imageUrls.push(imageUrl);
+      }
+    }
+  } catch (uploadError: any) {
+    console.error('Image upload error:', uploadError);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to upload images',
+      error: uploadError.message
+    });
   }
 
   // Handle category - can be ID (number) or name (string)
@@ -530,25 +539,33 @@ router.post('/add_user_products/', requireAuth, upload.any(), async (req: Reques
   const body: any = req.body || {};
   const files = ((req as any).files as MulterFile[]) || [];
 
-  // Process uploaded files (same as /add_products/)
+  // Process uploaded files - upload to Supabase Storage
   let primaryImageUrl = '';
   const imageUrls: string[] = [];
-  
-  // Extract primary image (fieldname: 'image')
-  const primaryFile = files.find(f => f.fieldname === 'image');
-  if (primaryFile) {
-    // Store as base64 data URI (temporary - should use Supabase Storage or S3 in production)
-    primaryImageUrl = `data:${primaryFile.mimetype};base64,${primaryFile.buffer.toString('base64')}`;
-    imageUrls.push(primaryImageUrl);
-  }
-  
-  // Extract additional images (fieldname: 'images')
-  const additionalFiles = files.filter(f => f.fieldname === 'images');
-  for (const file of additionalFiles) {
-    const imageUrl = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
-    if (!imageUrls.includes(imageUrl)) { // Avoid duplicates
-      imageUrls.push(imageUrl);
+
+  try {
+    // Extract primary image (fieldname: 'image')
+    const primaryFile = files.find(f => f.fieldname === 'image');
+    if (primaryFile) {
+      primaryImageUrl = await uploadImageToStorage(primaryFile.buffer, primaryFile.mimetype, 'products');
+      imageUrls.push(primaryImageUrl);
     }
+
+    // Extract additional images (fieldname: 'images')
+    const additionalFiles = files.filter(f => f.fieldname === 'images');
+    for (const file of additionalFiles) {
+      const imageUrl = await uploadImageToStorage(file.buffer, file.mimetype, 'products');
+      if (!imageUrls.includes(imageUrl)) { // Avoid duplicates
+        imageUrls.push(imageUrl);
+      }
+    }
+  } catch (uploadError: any) {
+    console.error('Image upload error:', uploadError);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to upload images',
+      error: uploadError.message
+    });
   }
 
   // Handle category - can be ID (number) or name (string)
@@ -710,24 +727,33 @@ router.post('/update_products/', requireAuth, upload.any(), async (req: Request,
       return res.status(404).json({ success: false, message: 'Product not found or access denied' });
     }
     
-    // Process uploaded files (new images)
+    // Process uploaded files (new images) - upload to Supabase Storage
     let primaryImageUrl = '';
     const imageUrls: string[] = [];
-    
-    // Extract primary image (fieldname: 'image')
-    const primaryFile = files.find(f => f.fieldname === 'image');
-    if (primaryFile) {
-      primaryImageUrl = `data:${primaryFile.mimetype};base64,${primaryFile.buffer.toString('base64')}`;
-      imageUrls.push(primaryImageUrl);
-    }
-    
-    // Extract additional images (fieldname: 'images')
-    const additionalFiles = files.filter(f => f.fieldname === 'images');
-    for (const file of additionalFiles) {
-      const imageUrl = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
-      if (!imageUrls.includes(imageUrl)) {
-        imageUrls.push(imageUrl);
+
+    try {
+      // Extract primary image (fieldname: 'image')
+      const primaryFile = files.find(f => f.fieldname === 'image');
+      if (primaryFile) {
+        primaryImageUrl = await uploadImageToStorage(primaryFile.buffer, primaryFile.mimetype, 'products');
+        imageUrls.push(primaryImageUrl);
       }
+
+      // Extract additional images (fieldname: 'images')
+      const additionalFiles = files.filter(f => f.fieldname === 'images');
+      for (const file of additionalFiles) {
+        const imageUrl = await uploadImageToStorage(file.buffer, file.mimetype, 'products');
+        if (!imageUrls.includes(imageUrl)) {
+          imageUrls.push(imageUrl);
+        }
+      }
+    } catch (uploadError: any) {
+      console.error('Image upload error:', uploadError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to upload images',
+        error: uploadError.message
+      });
     }
     
     // Limit total images to 4 (including primary)
@@ -1002,6 +1028,7 @@ router.get('/api/trade/getuserpreferences/', requireAuth, async (req: Request, r
 // ---------- Matching / Feedback / Trades (minimal compatible shapes) ----------
 router.get('/api/trade/api/nearby-users/', requireAuth, async (req: Request, res: Response) => {
   const userId = uid(req);
+  const includeInteracted = req.query.include_interacted === 'true'; // Query param to include already-liked products
 
   try {
     // Get current user's info (location and trade radius)
@@ -1045,6 +1072,27 @@ router.get('/api/trade/api/nearby-users/', requireAuth, async (req: Request, res
       });
     }
 
+    // Get user's existing feedback to filter out already-interacted products
+    const { data: existingFeedback } = await supabase
+      .from('match_feedback')
+      .select('user_product_id, other_product_id, has_like, has_dislike')
+      .eq('user_id', userId);
+
+    // Create sets of interacted product pairs
+    const likedPairs = new Set<string>(); // Products user liked (can show again)
+    const dislikedPairs = new Set<string>(); // Products user disliked (don't show)
+    if (existingFeedback) {
+      for (const feedback of existingFeedback) {
+        const pairKey = `${feedback.user_product_id}-${feedback.other_product_id}`;
+        if (feedback.has_like) {
+          likedPairs.add(pairKey);
+        }
+        if (feedback.has_dislike) {
+          dislikedPairs.add(pairKey);
+        }
+      }
+    }
+
     // Get all other users' products with user location info
     const { data: otherProducts } = await supabase
       .from('products')
@@ -1075,6 +1123,8 @@ router.get('/api/trade/api/nearby-users/', requireAuth, async (req: Request, res
 
     // Build matching products array
     const matchingProducts: any[] = [];
+    const alreadyLikedProducts: any[] = []; // Products user already liked (for fallback)
+    let skippedDisliked = 0;
 
     for (const userProduct of userProducts) {
       for (const otherProduct of otherProducts) {
@@ -1098,8 +1148,17 @@ router.get('/api/trade/api/nearby-users/', requireAuth, async (req: Request, res
           continue;
         }
 
-        // Add to matching products
-        matchingProducts.push({
+        const pairKey = `${userProduct.id}-${otherProduct.id}`;
+        const wasDisliked = dislikedPairs.has(pairKey);
+        const wasLiked = likedPairs.has(pairKey);
+
+        // Always skip disliked products
+        if (wasDisliked) {
+          skippedDisliked++;
+          continue;
+        }
+
+        const productData = {
           user_product: {
             id: userProduct.id,
             title: userProduct.title || '',
@@ -1129,17 +1188,28 @@ router.get('/api/trade/api/nearby-users/', requireAuth, async (req: Request, res
             longitude: parseFloat(otherUser.longitude) || 0.0,
             trade_radius: String(tradeRadiusKm),
           },
-          matching_interest_count: 0, // Can be enhanced later with interest matching
-        });
+          matching_interest_count: 0,
+          already_liked: wasLiked,
+        };
+
+        // Separate already-liked products from new products
+        if (wasLiked && !includeInteracted) {
+          alreadyLikedProducts.push(productData);
+        } else {
+          matchingProducts.push(productData);
+        }
       }
     }
 
-    console.log(`Found ${matchingProducts.length} matching products for user ${userId}`);
+    console.log(`Found ${matchingProducts.length} new products, ${alreadyLikedProducts.length} already liked, ${skippedDisliked} disliked for user ${userId}`);
 
     return res.json({
       success: true,
       message: 'OK',
       matching_products: matchingProducts,
+      already_liked_products: alreadyLikedProducts, // Send liked products separately for fallback
+      total_nearby: matchingProducts.length + alreadyLikedProducts.length,
+      skipped_disliked: skippedDisliked,
     });
   } catch (error) {
     console.error('Error fetching nearby users:', error);
@@ -1155,6 +1225,10 @@ router.post('/api/trade/create-matchfeedback/', requireAuth, async (req: Request
   const userId = uid(req);
   const body = req.body;
 
+  console.log('=== CREATE MATCH FEEDBACK ===');
+  console.log('User ID from token:', userId);
+  console.log('Request body:', JSON.stringify(body, null, 2));
+
   try {
     // Extract fields from request body
     const nearbyUserId = body.nearby_user || body.nearbyUser;
@@ -1164,65 +1238,205 @@ router.post('/api/trade/create-matchfeedback/', requireAuth, async (req: Request
     const hasLike = body.has_like === true || body.hasLike === true || feedback === 'like';
     const hasDislike = body.has_dislike === true || body.hasDislike === true || feedback === 'dislike';
 
+    console.log('Parsed values:', { nearbyUserId, userProductId, nearbyUserProductId, feedback, hasLike, hasDislike });
+
     // Validate required fields
     if (!nearbyUserId || !userProductId || !nearbyUserProductId || !feedback) {
+      console.log('Validation failed - missing fields');
       return res.status(400).json({
         success: false,
         message: 'Missing required fields: nearby_user, user_product, nearby_user_product, feedback'
       });
     }
 
-    // Check if feedback already exists
-    const { data: existing } = await supabase
+    // Ensure product IDs are integers
+    const userProductIdInt = typeof userProductId === 'number' ? userProductId : parseInt(String(userProductId), 10);
+    const nearbyUserProductIdInt = typeof nearbyUserProductId === 'number' ? nearbyUserProductId : parseInt(String(nearbyUserProductId), 10);
+
+    console.log('Parsed product IDs:', { userProductIdInt, nearbyUserProductIdInt });
+
+    // Use upsert to handle both insert and update
+    // First, delete any existing feedback for this combination to avoid constraint issues
+    const { error: deleteError } = await supabase
       .from('match_feedback')
-      .select('*')
+      .delete()
       .eq('user_id', userId)
       .eq('nearby_user_id', nearbyUserId)
-      .eq('user_product_id', userProductId)
-      .eq('other_product_id', nearbyUserProductId)
+      .eq('user_product_id', userProductIdInt)
+      .eq('other_product_id', nearbyUserProductIdInt);
+
+    if (deleteError) {
+      console.log('Delete error (may be OK if no existing record):', deleteError);
+    }
+
+    // Now insert the new feedback
+    const insertData = {
+      user_id: userId,
+      nearby_user_id: nearbyUserId,
+      user_product_id: userProductIdInt,
+      other_product_id: nearbyUserProductIdInt,
+      has_like: hasLike,
+      has_dislike: hasDislike,
+    };
+    console.log('Insert data:', insertData);
+
+    const { data: feedbackData, error: insertError } = await supabase
+      .from('match_feedback')
+      .insert(insertData)
+      .select()
       .maybeSingle();
 
-    if (existing) {
-      // Update existing feedback
-      const { data, error } = await supabase
-        .from('match_feedback')
-        .update({
-          has_like: hasLike,
-          has_dislike: hasDislike,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', existing.id)
-        .select()
-        .maybeSingle();
-
-      if (error) {
-        console.error('Error updating match feedback:', error);
-        return res.status(500).json({ success: false, message: 'Failed to update feedback' });
-      }
-
-      return res.json({ success: true, message: 'Updated', data });
-    } else {
-      // Create new feedback
-      const { data, error } = await supabase
-        .from('match_feedback')
-        .insert({
-          user_id: userId,
-          nearby_user_id: nearbyUserId,
-          user_product_id: userProductId,
-          other_product_id: nearbyUserProductId,
-          has_like: hasLike,
-          has_dislike: hasDislike,
-        })
-        .select()
-        .maybeSingle();
-
-      if (error) {
-        console.error('Error creating match feedback:', error);
-        return res.status(500).json({ success: false, message: 'Failed to create feedback' });
-      }
-
-      return res.status(201).json({ success: true, message: 'Created', data });
+    if (insertError) {
+      console.error('Error creating match feedback:', insertError);
+      console.error('Full error details:', JSON.stringify(insertError, null, 2));
+      return res.status(500).json({ success: false, message: 'Failed to save feedback', error: insertError.message });
     }
+    console.log('Insert successful:', feedbackData);
+
+    // Check for mutual match if this was a like
+    let isMutualMatch = false;
+    let mutualMatchData: any = null;
+
+    if (hasLike) {
+      // Check if the other user has also liked our product
+      // The other user's feedback would have:
+      // - user_id = nearbyUserId (the other user)
+      // - nearby_user_id = userId (current user)
+      // - user_product_id = nearbyUserProductId (their product that we liked)
+      // - other_product_id = userProductId (our product)
+      const { data: otherFeedback } = await supabase
+        .from('match_feedback')
+        .select('*')
+        .eq('user_id', nearbyUserId)
+        .eq('nearby_user_id', userId)
+        .eq('user_product_id', nearbyUserProductId)
+        .eq('other_product_id', userProductId)
+        .eq('has_like', true)
+        .maybeSingle();
+
+      if (otherFeedback) {
+        isMutualMatch = true;
+        mutualMatchData = otherFeedback;
+        console.log(`🎉 MUTUAL MATCH DETECTED! User ${userId} and ${nearbyUserId} both liked each other's products`);
+
+        // Auto-create match record
+        // Check if match already exists FOR THESE SPECIFIC PRODUCTS
+        const { data: existingMatch } = await supabase
+          .from('matches')
+          .select('*')
+          .or(`and(user1_id.eq.${userId},user2_id.eq.${nearbyUserId},user1_product_id.eq.${userProductIdInt},user2_product_id.eq.${nearbyUserProductIdInt}),and(user1_id.eq.${nearbyUserId},user2_id.eq.${userId},user1_product_id.eq.${nearbyUserProductIdInt},user2_product_id.eq.${userProductIdInt})`)
+          .maybeSingle();
+
+        if (!existingMatch) {
+          // Create new match - insert without joins first
+          const { data: newMatch, error: matchError } = await supabase
+            .from('matches')
+            .insert({
+              user1_id: userId,
+              user2_id: nearbyUserId,
+              user1_product_id: userProductIdInt,
+              user2_product_id: nearbyUserProductIdInt,
+              status: 'active'
+            })
+            .select('*')
+            .single();
+
+          if (!matchError && newMatch) {
+            console.log('Match record created:', newMatch.id);
+
+            // Fetch users separately (no foreign keys needed)
+            const { data: users } = await supabase
+              .from('users')
+              .select('id, username')
+              .in('id', [userId, nearbyUserId]);
+
+            // Fetch products separately (no foreign keys needed)
+            const { data: products } = await supabase
+              .from('products')
+              .select('id, title, image, min_price, max_price, product_condition')
+              .in('id', [userProductIdInt, nearbyUserProductIdInt]);
+
+            const user1Data = users?.find((u: any) => u.id === userId);
+            const user2Data = users?.find((u: any) => u.id === nearbyUserId);
+            const product1Data = products?.find((p: any) => p.id === userProductIdInt);
+            const product2Data = products?.find((p: any) => p.id === nearbyUserProductIdInt);
+
+            mutualMatchData = {
+              ...mutualMatchData,
+              match: {
+                id: newMatch.id,
+                user1_id: newMatch.user1_id,
+                user2_id: newMatch.user2_id,
+                user1_product_id: newMatch.user1_product_id,
+                user2_product_id: newMatch.user2_product_id,
+                matched_at: newMatch.matched_at,
+                status: newMatch.status,
+                my_product: product1Data,
+                their_product: product2Data,
+                other_user: user2Data
+              }
+            };
+            console.log('✅ Match data built successfully:', JSON.stringify(mutualMatchData, null, 2));
+          } else if (matchError) {
+            console.error('Error creating match record:', matchError);
+          }
+        } else {
+          console.log('Match already exists:', existingMatch.id);
+
+          // Fetch match record
+          const { data: fullMatch } = await supabase
+            .from('matches')
+            .select('*')
+            .eq('id', existingMatch.id)
+            .single();
+
+          if (fullMatch) {
+            // Fetch users separately
+            const { data: users } = await supabase
+              .from('users')
+              .select('id, username')
+              .in('id', [fullMatch.user1_id, fullMatch.user2_id]);
+
+            // Fetch products separately
+            const { data: products } = await supabase
+              .from('products')
+              .select('id, title, image, min_price, max_price, product_condition')
+              .in('id', [fullMatch.user1_product_id, fullMatch.user2_product_id]);
+
+            const isUser1 = fullMatch.user1_id === userId;
+            const user1Data = users?.find((u: any) => u.id === fullMatch.user1_id);
+            const user2Data = users?.find((u: any) => u.id === fullMatch.user2_id);
+            const product1Data = products?.find((p: any) => p.id === fullMatch.user1_product_id);
+            const product2Data = products?.find((p: any) => p.id === fullMatch.user2_product_id);
+
+            mutualMatchData = {
+              ...mutualMatchData,
+              match: {
+                id: fullMatch.id,
+                user1_id: fullMatch.user1_id,
+                user2_id: fullMatch.user2_id,
+                user1_product_id: fullMatch.user1_product_id,
+                user2_product_id: fullMatch.user2_product_id,
+                matched_at: fullMatch.matched_at,
+                status: fullMatch.status,
+                my_product: isUser1 ? product1Data : product2Data,
+                their_product: isUser1 ? product2Data : product1Data,
+                other_user: isUser1 ? user2Data : user1Data
+              }
+            };
+            console.log('✅ Existing match data built successfully');
+          }
+        }
+      }
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: 'Saved',
+      data: feedbackData,
+      is_mutual_match: isMutualMatch,
+      mutual_match_data: mutualMatchData,
+    });
   } catch (error) {
     console.error('Error in create-matchfeedback:', error);
     return res.status(500).json({ success: false, message: 'Internal server error' });
@@ -1231,12 +1445,67 @@ router.post('/api/trade/create-matchfeedback/', requireAuth, async (req: Request
 
 router.get('/api/trade/matchfeedback/user/', requireAuth, async (req: Request, res: Response) => {
   const userId = uid(req);
+
+  // Only return products the user LIKED (not dislikes)
   const { data, error } = await supabase
     .from('match_feedback')
     .select('*, user_product:products!user_product_id_fkey(*), other_product:products!other_product_id_fkey(*)')
-    .eq('user_id', userId);
-  if (error) return res.json({ success: true, message: 'OK', data: [] });
-  return res.json({ success: true, message: 'OK', data: data || [] });
+    .eq('user_id', userId)
+    .eq('has_like', true);
+
+  if (error) {
+    console.error('Error fetching liked products:', error);
+    return res.json({ success: true, message: 'OK', data: [] });
+  }
+
+  // Transform data to match the Flutter model expectations
+  // Flutter LikeData model expects specific field names and formats
+  const transformedData = (data || []).map((item: any) => {
+    // Transform user_product to match LikeUserProduct model
+    const userProduct = item.user_product ? {
+      id: item.user_product.id,
+      title: item.user_product.title || '',
+      min_price: String(item.user_product.min_price || '0'),
+      max_price: String(item.user_product.max_price || '0'),
+      image: item.user_product.image || '',
+      product_condition: item.user_product.product_condition || '',
+      status: item.user_product.status || 'active',
+      category: item.user_product.category_id || 0,
+      user: item.user_product.user_id || '',
+    } : null;
+
+    // Transform other_product to match LikeUserProduct model
+    // Flutter expects 'nearby_user_product' key
+    const otherProduct = item.other_product ? {
+      id: item.other_product.id,
+      title: item.other_product.title || '',
+      min_price: String(item.other_product.min_price || '0'),
+      max_price: String(item.other_product.max_price || '0'),
+      image: item.other_product.image || '',
+      product_condition: item.other_product.product_condition || '',
+      status: item.other_product.status || 'active',
+      category: item.other_product.category_id || 0,
+      user: item.other_product.user_id || '',
+    } : null;
+
+    return {
+      id: item.id,
+      user_id: item.user_id,
+      nearby_user_id: item.nearby_user_id,
+      user_product_id: item.user_product_id,
+      other_product_id: item.other_product_id,
+      has_like: item.has_like,
+      has_dislike: item.has_dislike,
+      feedback: item.has_like ? 'like' : 'dislike',
+      created_at: item.created_at,
+      updated_at: item.updated_at,
+      user_product: userProduct,
+      nearby_user_product: otherProduct, // Flutter expects this key name
+    };
+  });
+
+  console.log(`Found ${transformedData.length} liked products for user ${userId}`);
+  return res.json({ success: true, message: 'OK', data: transformedData });
 });
 
 router.get('/api/trade/trade-requests/', requireAuth, async (_req: Request, res: Response) => {
@@ -1332,6 +1601,365 @@ router.get('/test-logging/', async (req: Request, res: Response) => {
       message: 'Error testing logs',
       error: error?.message || String(error),
       stack: error?.stack
+    });
+  }
+});
+
+// =====================================================
+// MATCHES & CHAT SYSTEM
+// =====================================================
+
+/**
+ * Create a match when mutual like is detected
+ * Called automatically by match detection logic
+ */
+router.post('/api/matches/create/', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = uid(req);
+    const body: any = req.body || {};
+
+    const { user1_id, user2_id, user1_product_id, user2_product_id } = body;
+
+    if (!user1_id || !user2_id || !user1_product_id || !user2_product_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: user1_id, user2_id, user1_product_id, user2_product_id'
+      });
+    }
+
+    // Check if match already exists (either direction)
+    const { data: existingMatch } = await supabase
+      .from('matches')
+      .select('*')
+      .or(`and(user1_id.eq.${user1_id},user2_id.eq.${user2_id},user1_product_id.eq.${user1_product_id},user2_product_id.eq.${user2_product_id}),and(user1_id.eq.${user2_id},user2_id.eq.${user1_id},user1_product_id.eq.${user2_product_id},user2_product_id.eq.${user1_product_id})`)
+      .maybeSingle();
+
+    if (existingMatch) {
+      return res.json({
+        success: true,
+        message: 'Match already exists',
+        data: existingMatch
+      });
+    }
+
+    // Create new match
+    const { data: match, error } = await supabase
+      .from('matches')
+      .insert({
+        user1_id,
+        user2_id,
+        user1_product_id,
+        user2_product_id,
+        status: 'active'
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating match:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to create match',
+        error: error.message
+      });
+    }
+
+    await logger.success('Match created', userId, {
+      match_id: match.id,
+      user1_id,
+      user2_id
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Match created successfully',
+      data: match
+    });
+  } catch (error: any) {
+    console.error('Error in create match:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Get all matches for the authenticated user
+ * Returns matches with other user's name and product details
+ */
+router.get('/api/matches/', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = uid(req);
+    const status = (req.query.status as string) || 'active';
+
+    // Get matches where user is either user1 or user2
+    const { data: matches, error } = await supabase
+      .from('matches')
+      .select(`
+        *,
+        user1:user1_id (id, username, first_name, last_name),
+        user2:user2_id (id, username, first_name, last_name),
+        user1_product:user1_product_id (id, title, image, images),
+        user2_product:user2_product_id (id, title, image, images)
+      `)
+      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
+      .eq('status', status)
+      .order('last_message_at', { ascending: false, nullsFirst: false });
+
+    if (error) {
+      console.error('Error fetching matches:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch matches',
+        error: error.message
+      });
+    }
+
+    // Transform matches to include the "other" user's info
+    const transformedMatches = (matches || []).map((match: any) => {
+      const isUser1 = match.user1_id === userId;
+      const otherUser = isUser1 ? match.user2 : match.user1;
+      const myProduct = isUser1 ? match.user1_product : match.user2_product;
+      const otherProduct = isUser1 ? match.user2_product : match.user1_product;
+      const unreadCount = isUser1 ? match.user1_unread_count : match.user2_unread_count;
+
+      return {
+        match_id: match.id,
+        user1_id: match.user1_id,
+        user2_id: match.user2_id,
+        matched_at: match.matched_at,
+        last_message_at: match.last_message_at,
+        status: match.status,
+        unread_count: unreadCount,
+        other_user: {
+          id: otherUser?.id,
+          username: otherUser?.username,
+          first_name: otherUser?.first_name,
+          last_name: otherUser?.last_name,
+          full_name: `${otherUser?.first_name || ''} ${otherUser?.last_name || ''}`.trim() || otherUser?.username
+        },
+        my_product: myProduct,
+        other_product: otherProduct
+      };
+    });
+
+    return res.json({
+      success: true,
+      message: 'OK',
+      data: transformedMatches
+    });
+  } catch (error: any) {
+    console.error('Error in get matches:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Get messages for a specific match
+ */
+router.get('/api/matches/:matchId/messages/', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = uid(req);
+    const matchId = req.params.matchId;
+
+    // Verify user is part of this match
+    const { data: match, error: matchError } = await supabase
+      .from('matches')
+      .select('*')
+      .eq('id', matchId)
+      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
+      .single();
+
+    if (matchError || !match) {
+      return res.status(404).json({
+        success: false,
+        message: 'Match not found or access denied'
+      });
+    }
+
+    // Get messages
+    const { data: messages, error } = await supabase
+      .from('messages')
+      .select(`
+        *,
+        sender:sender_id (id, username, first_name, last_name)
+      `)
+      .eq('match_id', matchId)
+      .order('sent_at', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching messages:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch messages',
+        error: error.message
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'OK',
+      data: messages || []
+    });
+  } catch (error: any) {
+    console.error('Error in get messages:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Send a message in a match
+ */
+router.post('/api/matches/:matchId/messages/', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = uid(req);
+    const matchId = req.params.matchId;
+    const body: any = req.body || {};
+
+    const { message_text, message_type = 'text' } = body;
+
+    if (!message_text || message_text.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Message text is required'
+      });
+    }
+
+    // Verify user is part of this match and get receiver info
+    const { data: match, error: matchError } = await supabase
+      .from('matches')
+      .select('*')
+      .eq('id', matchId)
+      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
+      .single();
+
+    if (matchError || !match) {
+      return res.status(404).json({
+        success: false,
+        message: 'Match not found or access denied'
+      });
+    }
+
+    // Determine receiver (the other user in the match)
+    const receiverId = match.user1_id === userId ? match.user2_id : match.user1_id;
+
+    // Insert message
+    const { data: message, error } = await supabase
+      .from('messages')
+      .insert({
+        match_id: matchId,
+        sender_id: userId,
+        receiver_id: receiverId,
+        message_text: message_text.trim(),
+        message_type
+      })
+      .select(`
+        *,
+        sender:sender_id (id, username, first_name, last_name)
+      `)
+      .single();
+
+    if (error) {
+      console.error('Error sending message:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to send message',
+        error: error.message
+      });
+    }
+
+    await logger.info('Message sent', userId, {
+      match_id: matchId,
+      message_id: message.id
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Message sent successfully',
+      data: message
+    });
+  } catch (error: any) {
+    console.error('Error in send message:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Mark messages as read in a match
+ */
+router.put('/api/matches/:matchId/read/', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = uid(req);
+    const matchId = req.params.matchId;
+
+    // Verify user is part of this match
+    const { data: match, error: matchError } = await supabase
+      .from('matches')
+      .select('*')
+      .eq('id', matchId)
+      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
+      .single();
+
+    if (matchError || !match) {
+      return res.status(404).json({
+        success: false,
+        message: 'Match not found or access denied'
+      });
+    }
+
+    // Mark all messages as read
+    const { error: updateError } = await supabase
+      .from('messages')
+      .update({
+        is_read: true,
+        read_at: new Date().toISOString()
+      })
+      .eq('match_id', matchId)
+      .eq('receiver_id', userId)
+      .eq('is_read', false);
+
+    if (updateError) {
+      console.error('Error marking messages as read:', updateError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to mark messages as read',
+        error: updateError.message
+      });
+    }
+
+    // Reset unread counter for this user
+    const isUser1 = match.user1_id === userId;
+    const updateField = isUser1 ? 'user1_unread_count' : 'user2_unread_count';
+
+    await supabase
+      .from('matches')
+      .update({ [updateField]: 0 })
+      .eq('id', matchId);
+
+    return res.json({
+      success: true,
+      message: 'Messages marked as read'
+    });
+  } catch (error: any) {
+    console.error('Error in mark read:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
     });
   }
 });

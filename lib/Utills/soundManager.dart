@@ -35,7 +35,7 @@ class SoundManager {
   factory SoundManager() => _instance;
 
   final Map<String, AudioPlayer> _audioPlayers = {};
-  bool _isMuted = false;
+  bool _isMuted = true; // Sounds disabled by default
 
   SoundManager._internal();
 

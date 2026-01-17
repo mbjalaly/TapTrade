@@ -1,11 +1,9 @@
-import 'dart:io';
-
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:taptrade/Screens/Dashboard/MyProduct/myProductScreen.dart';
-import 'package:taptrade/Screens/Dashboard/ProfileSetting/profileSetting.dart';
 import 'package:taptrade/Screens/Dashboard/homescreen.dart';
+import 'package:taptrade/Screens/Dashboard/Chat/matchesListScreen.dart';
+import 'package:taptrade/Screens/Dashboard/More/moreScreen.dart';
 import 'package:taptrade/Utills/appColors.dart';
 
 class BottomNavigationScreen extends StatefulWidget {
@@ -17,14 +15,15 @@ class BottomNavigationScreen extends StatefulWidget {
 }
 
 class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
-  int selectedPage = 1; // 0: Products, 1: Bazaar, 2: Profile
+  int selectedPage = 1; // 0: Products, 1: Bazaar, 2: Matches, 3: More
 
   final List<Widget> pages = const [
     MyProductScreen(),
     // Center tab: Bazaar (Home)
     // Placeholder, will be replaced at runtime with HomeScreen() since it's not const
     SizedBox.shrink(),
-    ProfileSetting(),
+    MatchesListScreen(), // Matches tab
+    MoreScreen(), // NEW: More tab (settings and profile)
   ];
 
   // Function to change page
@@ -74,31 +73,44 @@ class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
             notchMargin: 4,
             color: Colors.white,
             elevation: 6,
-            child: SizedBox(
-              height: MediaQuery.of(context).size.height * 0.075,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: _sideTab(
-                      context,
-                      index: 0,
-                      asset: 'assets/images/board.png',
-                      label: 'Products',
-                    ),
+            height: 56, // Standard Material height - no overflow
+            padding: EdgeInsets.zero, // Remove default padding
+            child: Row(
+              children: [
+                // Left side: Products + Matches
+                Expanded(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildNavItem(
+                        index: 0,
+                        asset: 'assets/images/board.png',
+                        label: 'Products',
+                      ),
+                      _buildNavItem(
+                        index: 2,
+                        icon: Icons.favorite,
+                        label: 'Matches',
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 56), // space for FAB notch
-                  Expanded(
-                    child: _sideTab(
-                      context,
-                      index: 2,
-                      asset: 'assets/images/profile.png',
-                      label: 'More',
-                      alignRight: true,
-                    ),
+                ),
+                // Spacer for FAB
+                const SizedBox(width: 80),
+                // Right side: More
+                Expanded(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _buildNavItem(
+                        index: 3,
+                        icon: Icons.more_horiz,
+                        label: 'More',
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
@@ -106,31 +118,53 @@ class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
     );
   }
 
-  Widget _sideTab(BuildContext context, {required int index, required String asset, required String label, bool alignRight = false}) {
+  Widget _buildNavItem({
+    required int index,
+    String? asset,
+    IconData? icon,
+    required String label,
+  }) {
     final bool isSelected = selectedPage == index;
-    return InkWell(
-      onTap: () => changePage(index),
-      child: Padding(
-        padding: EdgeInsets.only(left: alignRight ? 12 : 20, right: alignRight ? 20 : 12),
-        child: Row(
-          mainAxisAlignment: alignRight ? MainAxisAlignment.end : MainAxisAlignment.start,
-          children: [
-            Image.asset(
-              asset,
-              height: 28,
-              width: 28,
-              color: isSelected ? AppColors.primaryColor : AppColors.greyTextColor,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: isSelected ? AppColors.primaryColor : AppColors.greyTextColor,
+    final color = isSelected ? AppColors.primaryColor : AppColors.greyTextColor;
+
+    return Expanded(
+      child: InkWell(
+        onTap: index >= 0 ? () => changePage(index) : null,
+        child: SizedBox(
+          height: 56, // Match BottomAppBar height exactly
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Icon - compact size
+              if (asset != null)
+                Image.asset(
+                  asset,
+                  height: 22,
+                  width: 22,
+                  color: color,
+                )
+              else if (icon != null)
+                Icon(icon, size: 22, color: color),
+              const SizedBox(height: 2),
+              // Label - intrinsically sized with FittedBox to prevent overflow
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    color: color,
+                    height: 1.0,
+                    letterSpacing: -0.2, // Tighter letter spacing
+                  ),
+                  maxLines: 1,
+                  textAlign: TextAlign.center,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -153,7 +187,7 @@ class InstructionOverLay extends StatelessWidget {
             Container(
               width: size.width,
               height: size.height,
-              color: Colors.black.withOpacity(0.5),
+              color: Colors.black.withValues(alpha: 0.5),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.center,

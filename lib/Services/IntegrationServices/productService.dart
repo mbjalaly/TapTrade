@@ -8,7 +8,9 @@ import 'package:taptrade/Models/MatchProduct/matchProduct.dart';
 import 'package:taptrade/Models/MyProductModel/myProductModel.dart';
 import 'package:taptrade/Models/TradeModel/tradeModel.dart';
 import 'package:taptrade/Models/MatchProduct/matchProduct.dart';
+import 'package:taptrade/Models/ChatModels/matchModel.dart';
 import 'package:taptrade/Screens/Dashboard/Match/matchDeal.dart';
+import 'package:taptrade/Screens/Dashboard/Chat/chatScreen.dart';
 import 'package:taptrade/Models/TradeRequest/tradeRequest.dart';
 import 'package:taptrade/Services/ApiResponse/apiResponse.dart';
 import 'package:taptrade/Services/ApiServices/apiServices.dart';
@@ -17,6 +19,7 @@ import 'package:taptrade/Utills/showMessages.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:taptrade/Services/NotificationService/notification_service.dart';
 import 'package:taptrade/Const/globleKey.dart';
+import 'package:taptrade/Widgets/matchPopupDialog.dart';
  
 
 class ProductService {
@@ -327,6 +330,54 @@ class ProductService {
       }
     }
   }
+  
+  /// Fetch a single product by ID with all images
+  /// This fetches from getallproducts and filters by ID
+  Future<Data?> getProductById(
+      BuildContext context,
+      int productId,
+      ) async {
+    try {
+      debugPrint('=== FETCHING PRODUCT BY ID ===');
+      debugPrint('Product ID: $productId');
+      
+      // Use the getallproducts endpoint which returns full product data with images
+      final result = await ApiService.getRequestData(
+        '${ApiEndPoint.myProduct}?product_id=$productId',
+        context,
+        useToken: true,
+        timeout: const Duration(seconds: 15),
+      );
+      
+      // Parse response - could be single product or list
+      if (result is Map<String, dynamic>) {
+        if (result['data'] != null) {
+          if (result['data'] is List && (result['data'] as List).isNotEmpty) {
+            // Find the product with matching ID
+            final List<dynamic> products = result['data'] as List;
+            final productJson = products.firstWhereOrNull(
+              (p) => p['id'] == productId,
+            );
+            if (productJson != null) {
+              final product = Data.fromJson(productJson);
+              return product;
+            }
+          } else if (result['data'] is Map) {
+            // Single product returned
+            final product = Data.fromJson(result['data']);
+            if (product.id == productId) {
+              return product;
+            }
+          }
+        }
+      }
+      
+      return null;
+    } catch (e) {
+      printLog("Error fetching product by ID: $e");
+      return null;
+    }
+  }
 
 
   Future<ApiResponse<dynamic>> getTradeRequestProduct(
@@ -367,24 +418,107 @@ class ProductService {
       print("Like/Dislike body: $body");
       final result = await ApiService.postRequestData(ApiEndPoint.productLikeAndDisLike,body,context, sendToken: true);
       print("Like/Dislike result: $result");
-      
-      // Check for mutual match after successful like/dislike
-      await _checkForMutualMatch(context, body);
-      
+
+      // Check if backend detected a mutual match
+      final bool isMutualMatch = result['is_mutual_match'] == true;
+      if (isMutualMatch) {
+        print("🎉 MUTUAL MATCH DETECTED BY BACKEND! 🎉");
+        print("Full result: ${json.encode(result)}");
+
+        // Parse match data from response
+        final mutualMatchData = result['mutual_match_data'];
+        print("Mutual match data: ${json.encode(mutualMatchData)}");
+
+        if (mutualMatchData != null && mutualMatchData['match'] != null) {
+          final matchData = mutualMatchData['match'];
+          print("Match data received: ${json.encode(matchData)}");
+
+          // Create MatchModel from the response
+          final match = MatchModel(
+            id: matchData['id'],
+            user1Id: matchData['user1_id'],
+            user2Id: matchData['user2_id'],
+            user1ProductId: matchData['user1_product_id'],
+            user2ProductId: matchData['user2_product_id'],
+            matchedAt: matchData['matched_at'] != null
+                ? DateTime.tryParse(matchData['matched_at'])
+                : DateTime.now(),
+            status: matchData['status'] ?? 'active',
+            myProduct: matchData['my_product'] != null
+                ? MatchProductInfo.fromJson(matchData['my_product'])
+                : null,
+            theirProduct: matchData['their_product'] != null
+                ? MatchProductInfo.fromJson(matchData['their_product'])
+                : null,
+            otherUser: matchData['other_user'] != null
+                ? MatchUserInfo.fromJson(matchData['other_user'])
+                : null,
+          );
+
+          // Show "It's a Match!" popup immediately (interrupt swiping like Tinder)
+          print("🎊 Showing match popup - interrupting swipe session!");
+          try {
+            await MatchPopupDialog.show(
+              context: context,
+              match: match,
+              onSendMessage: () {
+                // Navigate to chat screen
+                print("User chose to send message");
+                Get.to(() => ChatScreen(match: match));
+              },
+              onKeepSwiping: () {
+                // Just close popup, user continues swiping
+                print("User chose to keep swiping");
+              },
+            );
+          } catch (e) {
+            print("❌ Error showing match popup: $e");
+            // Fallback to notification if popup fails
+            await NotificationService.showLocalMatchNotification(
+              otherProductId: matchData['user2_product_id'] ?? 0,
+              otherProductTitle: match.theirProduct?.title ?? "It's a Match!",
+            );
+          }
+        } else {
+          print("⚠️ WARNING: Match data is null or incomplete");
+          print("mutualMatchData is null: ${mutualMatchData == null}");
+          if (mutualMatchData != null) {
+            print("mutualMatchData['match'] is null: ${mutualMatchData['match'] == null}");
+          }
+
+          // Fallback: Show notification if no match data
+          final String nearbyUserProductId = body['nearby_user_product']?.toString() ?? '';
+          await NotificationService.showLocalMatchNotification(
+            otherProductId: int.tryParse(nearbyUserProductId) ?? 0,
+            otherProductTitle: "It's a Match!",
+          );
+        }
+
+        // Refresh like data
+        final String userId = body['user']?.toString() ?? '';
+        if (userId.isNotEmpty) {
+          await getLikeProduct(context, userId);
+        }
+      }
+
       return ApiResponse.completed(result);
     }catch (e) {
-      printLog("ApiException: ${e}");
+      printLog("ApiException in productLikeDislike: ${e}");
       if (e is ApiException) {
-        // Handle ApiException
-        printLog("ApiException: ${e.message}");
+        printLog("ApiException message: ${e.message}");
 
-        Map<String, dynamic> errorMessageJson = json.decode(e.message);
-        String errorMessage =
-            errorMessageJson['error'] ?? 'An error occurred';
-        ShowMessage.inDialog(context,errorMessage.capitalizeFirst.toString(), true);
-
-        return ApiResponse.error(errorMessage);
+        try {
+          Map<String, dynamic> errorMessageJson = json.decode(e.message);
+          String errorMessage = errorMessageJson['error'] ?? errorMessageJson['message'] ?? 'An error occurred';
+          ShowMessage.inDialog(context, errorMessage.capitalizeFirst.toString(), true);
+          return ApiResponse.error(errorMessage);
+        } catch (parseError) {
+          // If error message isn't valid JSON, use it as-is
+          ShowMessage.inDialog(context, e.message.capitalizeFirst.toString(), true);
+          return ApiResponse.error(e.message);
+        }
       } else {
+        print("Non-ApiException error in productLikeDislike: $e");
         return ApiResponse.error(e.toString());
       }
     }

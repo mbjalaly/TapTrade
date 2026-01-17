@@ -166,6 +166,48 @@ class _MyProductScreenState extends State<MyProductScreen> {
     return v[0].toUpperCase() + v.substring(1);
   }
 
+  // Extract mutual match logic into reusable helper
+  List<LikeData> _getMutualMatchesForProduct(dynamic product) {
+    final p = product;
+    final liked = productController.likeProduct.value.data ?? [];
+
+    // Filter likes for this product where I actually liked
+    final filtered = liked.where((e) =>
+      ((e.userProduct?.id ?? -1) == (p.id ?? -2)) && (e.hasLike ?? false)
+    );
+
+    // De-duplicate by other product id
+    final Map<int, LikeData> uniqueByOtherId = {};
+    for (final e in filtered) {
+      final oid = e.otherProduct?.id ?? -1;
+      if (oid >= 0) uniqueByOtherId[oid] = e;
+    }
+    final likedForThis = uniqueByOtherId.values.toList();
+
+    // Find mutual matches (where both users liked each other's products)
+    final allLikes = productController.likeProduct.value.data ?? [];
+    final mutualMatches = <LikeData>[];
+
+    // For each product I liked, check if the other user also liked my product
+    for (final myLike in likedForThis) {
+      final otherProductId = myLike.otherProduct?.id ?? -1;
+      final myProductId = p.id ?? -1;
+
+      // Check if the other user also liked my product
+      final otherUserLikedMe = allLikes.where((like) =>
+        (like.userProduct?.id ?? -1) == otherProductId &&
+        (like.otherProduct?.id ?? -1) == myProductId &&
+        (like.hasLike ?? false)
+      ).isNotEmpty;
+
+      if (otherUserLikedMe) {
+        mutualMatches.add(myLike);
+      }
+    }
+
+    return mutualMatches;
+  }
+
   Future<void> getData({bool showLoader = true}) async {
     try {
       if (showLoader) {
@@ -215,6 +257,129 @@ class _MyProductScreenState extends State<MyProductScreen> {
           isLoading = false;
         });
       }
+    }
+  }
+
+  /// Show modern delete confirmation dialog
+  Future<void> _showDeleteConfirmation({
+    required BuildContext context,
+    required String productTitle,
+    required int productId,
+    required int index,
+  }) async {
+    if (productId < 0) return;
+
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.delete_outline, color: Colors.red.shade400, size: 24),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Delete Product',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Are you sure you want to delete:',
+                style: TextStyle(color: Colors.grey.shade700),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '"${_cap(productTitle)}"',
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'This action cannot be undone.',
+                style: TextStyle(color: Colors.red.shade400, fontSize: 13),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(
+                'Cancel',
+                style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w600),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade400,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              ),
+              child: const Text('Delete', style: TextStyle(fontWeight: FontWeight.w600)),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    // Proceed with deletion
+    try {
+      setState(() {
+        isDeleting = true;
+        selectedIndex = index;
+      });
+
+      final result = await ProductService.instance.deleteMyProduct(
+        context,
+        productId.toString(),
+      );
+
+      setState(() {
+        isDeleting = false;
+        selectedIndex = -1;
+      });
+
+      // Handle multiple possible success response formats
+      final isSuccess = result.status == Status.COMPLETED &&
+          (result.responseData['success'] == true ||
+           result.responseData['status'] == 'success' ||
+           result.responseData['status'] == true ||
+           result.responseData['message']?.toString().toLowerCase().contains('deleted') == true ||
+           result.responseData['message']?.toString().toLowerCase().contains('success') == true);
+
+      if (isSuccess) {
+        ShowMessage.success(context, result.responseData['message'] ?? 'Product deleted successfully');
+        // Reload products to ensure list is up to date
+        await getData();
+      } else {
+        final errorMsg = result.responseData['message'] 
+            ?? result.responseData['error']
+            ?? 'Failed to delete product';
+        ShowMessage.error(context, errorMsg.toString());
+      }
+    } catch (e) {
+      setState(() {
+        isDeleting = false;
+        selectedIndex = -1;
+      });
+      ShowMessage.error(context, 'An error occurred. Please try again.');
+      debugPrint('Delete error: $e');
     }
   }
 
@@ -383,45 +548,53 @@ class _MyProductScreenState extends State<MyProductScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(_cap(title), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      _cap(title),
+                                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  _matchBadge(_getMutualMatchesForProduct(p).length),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              // Price range display
+                              Row(
+                                children: [
+                                  Icon(Icons.attach_money, size: 14, color: AppColors.primaryTextColor.withOpacity(0.6)),
+                                  const SizedBox(width: 2),
+                                  Expanded(
+                                    child: Text(
+                                      '$minPrice - $maxPrice',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.primaryTextColor.withOpacity(0.7),
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
                               _chip(_cap(category)),
                             ],
                           ),
                         ),
                         IconButton(
                           tooltip: 'Delete',
-                          onPressed: () async {
-                            if (id >= 0) {
-                              try {
-                                setState(() {
-                                  isDeleting = true;
-                                  selectedIndex = index;
-                                });
-                                final result = await ProductService.instance.deleteMyProduct(
-                                  context,
-                                  id.toString(),
-                                );
-                                setState(() {
-                                  isDeleting = false;
-                                  selectedIndex = -1;
-                                });
-                                if (result.status == Status.COMPLETED && result.responseData['success']) {
-                                  ShowMessage.notify(context, result.responseData['message']);
-                                  // Reload products to ensure list is up to date
-                                  await getData();
-                                } else {
-                                  ShowMessage.notify(context, result.responseData['message'] ?? 'Failed to delete product');
-                                }
-                              } catch (e) {
-                                setState(() {
-                                  isDeleting = false;
-                                });
-                                ShowMessage.notify(context, 'An error occurred: ${e.toString()}');
-                              }
-                            }
-                          },
-                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () => _showDeleteConfirmation(
+                            context: context,
+                            productTitle: title,
+                            productId: id,
+                            index: index,
+                          ),
+                          icon: Icon(Icons.delete_outline, color: Colors.red.shade400),
                         )
                       ],
                     ),
@@ -463,6 +636,54 @@ class _MyProductScreenState extends State<MyProductScreen> {
         border: Border.all(color: AppColors.outline),
       ),
       child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primaryTextColor)),
+    );
+  }
+
+  // Elegant match badge that feels inevitable
+  Widget _matchBadge(int count) {
+    if (count <= 0) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(left: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            AppColors.primaryColor,
+            Color(0xFF00B894), // Darker teal for depth
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primaryColor.withValues(alpha: 0.3),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            count > 99 ? '99+' : count.toString(),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(width: 4),
+          const Icon(
+            Icons.favorite,
+            color: Colors.white,
+            size: 12,
+          ),
+        ],
+      ),
     );
   }
 
@@ -523,58 +744,28 @@ class _MyProductScreenState extends State<MyProductScreen> {
     final maxPrice = p.maxPrice ?? '';
     final status = p.status ?? '';
     final condition = p.productCondition ?? '';
-    final liked = productController.likeProduct.value.data ?? [];
-    // Filter likes for this product and only where you actually liked
-    final filtered = liked.where((e) =>
-      ((e.userProduct?.id ?? -1) == (p.id ?? -2)) && (e.hasLike ?? false)
-    );
-    // De-duplicate by other product id
-    final Map<int, LikeData> uniqueByOtherId = {};
-    for (final e in filtered) {
-      final oid = e.otherProduct?.id ?? -1;
-      if (oid >= 0) uniqueByOtherId[oid] = e;
-    }
-    final likedForThis = uniqueByOtherId.values.toList();
-
-    // Find mutual matches (where both users liked each other's products)
-    final allLikes = productController.likeProduct.value.data ?? [];
-    final mutualMatches = <LikeData>[];
     
-    print("=== MUTUAL MATCH DEBUGGING ===");
-    print("Product ID: ${p.id}");
-    print("Total likes for this product: ${likedForThis.length}");
-    print("Total all likes: ${allLikes.length}");
+    // Get liked products from matchedProduct's alreadyLikedProducts (not likeProduct)
+    final allLikedProducts = productController.matchedProduct.value.alreadyLikedProducts ?? [];
     
-    // For each product I liked, check if the other user also liked my product
-    for (final myLike in likedForThis) {
-      final otherProductId = myLike.otherProduct?.id ?? -1;
-      final myProductId = p.id ?? -1;
-      final otherUserId = myLike.otherProduct?.user ?? '';
-      
-      print("Checking mutual match:");
-      print("  My Product ID: $myProductId");
-      print("  Other Product ID: $otherProductId");
-      print("  Other User ID: $otherUserId");
-      print("  I liked their product: ${myLike.hasLike}");
-      
-      // Check if the other user also liked my product
-      final otherUserLikedMe = allLikes.where((like) =>
-        (like.userProduct?.id ?? -1) == otherProductId &&
-        (like.otherProduct?.id ?? -1) == myProductId &&
-        (like.hasLike ?? false)
-      ).toList();
-      
-      print("  Found ${otherUserLikedMe.length} likes from other user to my product");
-      if (otherUserLikedMe.isNotEmpty) {
-        print("  Mutual match found! Adding to list.");
-        mutualMatches.add(myLike);
-      } else {
-        print("  No mutual match - other user hasn't liked my product yet");
-      }
-    }
+    // Debug: Print all likes data
+    debugPrint('=== LIKES DEBUG ===');
+    debugPrint('Selected Product ID: ${p.id}');
+    debugPrint('Total alreadyLikedProducts: ${allLikedProducts.length}');
     
-    print("Final mutual matches count: ${mutualMatches.length}");
-    print("=== END MUTUAL MATCH DEBUGGING ===");
+    // Filter likes for this product - userProduct is MY product, otherProduct is what I liked
+    final likedForThis = allLikedProducts.where((e) {
+      final myProductId = e.userProduct?.id ?? -1;
+      final selectedProductId = p.id ?? -2;
+      final isLiked = e.alreadyLiked ?? true; // Default true since it's in alreadyLikedProducts
+      
+      debugPrint('Like entry: myProductId=$myProductId, selectedProductId=$selectedProductId, alreadyLiked=$isLiked, otherProduct=${e.otherProduct?.title}');
+      
+      return myProductId == selectedProductId;
+    }).toList();
+    
+    debugPrint('Filtered likedForThis count: ${likedForThis.length}');
+    debugPrint('=== END LIKES DEBUG ===');
 
     return DraggableScrollableSheet(
       expand: false,
@@ -582,13 +773,11 @@ class _MyProductScreenState extends State<MyProductScreen> {
       minChildSize: 0.25,
       maxChildSize: 0.92,
       builder: (context, controller) {
-        return DefaultTabController(
-          length: 2,
-          child: SingleChildScrollView(
-            controller: controller,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+        return SingleChildScrollView(
+          controller: controller,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
                 Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Row(
@@ -643,107 +832,87 @@ class _MyProductScreenState extends State<MyProductScreen> {
                   ),
                 ),
                 _productGallery(p),
-                TabBar(
-                  labelColor: AppColors.primaryTextColor,
-                  unselectedLabelColor: AppColors.greyTextColor,
-                  tabs: [
-                    Tab(text: 'Liked by you (${likedForThis.length})'),
-                    Tab(text: 'Matched Product (${mutualMatches.length})'),
-                  ],
+                // Section header for liked products
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Row(
+                    children: [
+                      Icon(Icons.favorite, color: Colors.red.shade400, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Products You Liked (${likedForThis.length})',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                          color: AppColors.primaryTextColor,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+                const Divider(height: 1),
+                // Liked products list
                 Builder(builder: (context) {
-                  final double h = MediaQuery.of(context).size.height * 0.55;
-                  return SizedBox(
-                    height: h,
-                    child: TabBarView(
-                      children: [
-                        likedForThis.isEmpty
-                            ? const Center(child: Text('No likes yet'))
-                            : Row(
-                                children: [
-                                  Expanded(
-                                    child: ListView.builder(
-                                      physics: const BouncingScrollPhysics(),
-                                      padding: const EdgeInsets.all(12),
-                                      itemCount: likedForThis.length,
-                                      itemBuilder: (_, i) {
-                                        final item = likedForThis[i];
-                                        final other = item.otherProduct;
-                                        final imageUrl = (other?.image ?? '').isNotEmpty
-                                            ? (other?.image ?? '')
-                                            : KeyConstants.imagePlaceHolder;
-                                        return _listRow(
-                                          imageUrl: imageUrl,
-                                          title: _cap(other?.title),
-                                          subtitle: _getCategoryName(other?.category),
-                                          onTap: () {
-                                            final matchData = _convertLikeDataToMatchData(item);
-                                            Get.to(() => ProductDetailsScreen(matchData: matchData));
-                                          },
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                  // Scroll indicator
-                                  Container(
-                                    width: 4,
-                                    height: 200,
-                                    margin: const EdgeInsets.only(right: 8),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[300],
-                                      borderRadius: BorderRadius.circular(2),
-                                    ),
-                                    child: Stack(
-                                      children: [
-                                        Container(
-                                          width: 4,
-                                          height: 200,
-                                          decoration: BoxDecoration(
-                                            color: AppColors.primaryTextColor.withOpacity(0.3),
-                                            borderRadius: BorderRadius.circular(2),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                        mutualMatches.isEmpty
-                            ? const Center(child: Text('No mutual matches yet'))
-                            : ListView.builder(
-                                physics: const NeverScrollableScrollPhysics(),
-                                shrinkWrap: true,
-                                padding: const EdgeInsets.all(12),
-                                itemCount: mutualMatches.length,
-                                itemBuilder: (_, i) {
-                                  final likeData = mutualMatches[i];
-                                  final other = likeData.otherProduct;
-                                  final imageUrl = (other?.image ?? '').isNotEmpty
-                                      ? (KeyConstants.imageUrl + (other?.image ?? ''))
-                                      : KeyConstants.imagePlaceHolder;
-                                  return _listRow(
-                                    imageUrl: imageUrl,
-                                    title: _cap(other?.title),
-                                    subtitle: 'Mutual match!',
-                                    onTap: () async {
-                                      await Get.to(() => MatchDealScreen(
-                                        isDirect: true,
-                                        likeData: likeData,
-                                        matchData: null,
-                                        tradeRequestData: null,
-                                      ));
-                                    },
-                                  );
-                                },
-                              ),
-                      ],
-                    ),
+                  if (likedForThis.isEmpty) {
+                    return Container(
+                      padding: const EdgeInsets.all(32),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.favorite_outline,
+                            size: 48,
+                            color: AppColors.greyTextColor.withOpacity(0.5),
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'No likes yet',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.greyTextColor,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Swipe on products to like them',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppColors.greyTextColor.withOpacity(0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  
+                  return ListView.separated(
+                    physics: const NeverScrollableScrollPhysics(),
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.all(12),
+                    itemCount: likedForThis.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (_, i) {
+                      final item = likedForThis[i];
+                      final other = item.otherProduct;
+                      final imageUrl = (other?.image ?? '').isNotEmpty
+                          ? (other?.image ?? '')
+                          : KeyConstants.imagePlaceHolder;
+                      return _listRow(
+                        imageUrl: imageUrl,
+                        title: _cap(other?.title),
+                        subtitle: _getCategoryName(other?.category),
+                        onTap: () {
+                          // item is already MatchData, no conversion needed
+                          Get.to(() => ProductDetailsScreen(matchData: item));
+                        },
+                      );
+                    },
                   );
                 }),
+                const SizedBox(height: 24),
               ],
             ),
-          ),
-        );
+          );
       },
     );
   }

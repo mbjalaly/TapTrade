@@ -3,8 +3,18 @@ class MatchProductResponseModel {
   bool? success;
   String? message;
   List<MatchData>? data;
+  List<MatchData>? alreadyLikedProducts; // Products user already liked (for fallback)
+  int? totalNearby;
+  int? skippedDisliked;
 
-  MatchProductResponseModel({this.success, this.message, this.data});
+  MatchProductResponseModel({
+    this.success,
+    this.message,
+    this.data,
+    this.alreadyLikedProducts,
+    this.totalNearby,
+    this.skippedDisliked,
+  });
 
   MatchProductResponseModel.fromJson(Map<String, dynamic> json) {
     success = json['success'] ?? false;
@@ -15,6 +25,14 @@ class MatchProductResponseModel {
         data!.add(MatchData.fromJson(v));
       });
     }
+    if (json['already_liked_products'] != null) {
+      alreadyLikedProducts = <MatchData>[];
+      json['already_liked_products'].forEach((v) {
+        alreadyLikedProducts!.add(MatchData.fromJson(v));
+      });
+    }
+    totalNearby = json['total_nearby'] ?? 0;
+    skippedDisliked = json['skipped_disliked'] ?? 0;
   }
 
   Map<String, dynamic> toJson() {
@@ -24,6 +42,11 @@ class MatchProductResponseModel {
     if (this.data != null) {
       data['matching_products'] = this.data!.map((v) => v.toJson()).toList();
     }
+    if (alreadyLikedProducts != null) {
+      data['already_liked_products'] = alreadyLikedProducts!.map((v) => v.toJson()).toList();
+    }
+    data['total_nearby'] = totalNearby ?? 0;
+    data['skipped_disliked'] = skippedDisliked ?? 0;
     return data;
   }
 }
@@ -33,9 +56,15 @@ class MatchData {
   UserProduct? otherProduct;
   NearbyUser? nearbyUser;
   int? matchCount;
+  bool? alreadyLiked; // Whether user already liked this product
 
-  MatchData(
-      {this.userProduct, this.otherProduct, this.nearbyUser, this.matchCount});
+  MatchData({
+    this.userProduct,
+    this.otherProduct,
+    this.nearbyUser,
+    this.matchCount,
+    this.alreadyLiked,
+  });
 
   MatchData.fromJson(Map<String, dynamic> json) {
     userProduct = json['user_product'] != null
@@ -48,6 +77,7 @@ class MatchData {
         ? NearbyUser.fromJson(json['nearby_user'])
         : null;
     matchCount = json['matching_interest_count'] ?? 0;
+    alreadyLiked = json['already_liked'] ?? false;
   }
 
   Map<String, dynamic> toJson() {
@@ -62,6 +92,7 @@ class MatchData {
       data['nearby_user'] = nearbyUser!.toJson();
     }
     data['matching_interest_count'] = matchCount ?? 0;
+    data['already_liked'] = alreadyLiked ?? false;
     return data;
   }
 }
@@ -72,6 +103,7 @@ class UserProduct {
   String? minPrice;
   String? maxPrice;
   String? image;
+  List<String>? images; // Multiple product images
   String? productCondition;
   String? status;
   int? category;
@@ -83,6 +115,7 @@ class UserProduct {
         this.minPrice,
         this.maxPrice,
         this.image,
+        this.images,
         this.productCondition,
         this.status,
         this.category,
@@ -94,6 +127,12 @@ class UserProduct {
     minPrice = json['min_price'] ?? '';
     maxPrice = json['max_price'] ?? '';
     image = json['image'] ?? '';
+    // Parse images array if available
+    if (json['images'] is List) {
+      images = (json['images'] as List).map((e) => e.toString()).toList();
+    } else {
+      images = [];
+    }
     productCondition = json['product_condition'] ?? '';
     status = json['status'] ?? '';
     category = json['category'] ?? -1;
@@ -107,6 +146,9 @@ class UserProduct {
     data['min_price'] = minPrice ?? '';
     data['max_price'] = maxPrice ?? '';
     data['image'] = image ?? '';
+    if (images != null) {
+      data['images'] = images;
+    }
     data['product_condition'] = productCondition ?? '';
     data['status'] = status ?? '';
     data['category'] = category ?? -1;

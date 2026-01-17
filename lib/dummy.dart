@@ -124,10 +124,11 @@ Future<File?> resizeImage(XFile pickedFile, int width, int height) async {
 
   final img.Image resizedImage = img.copyResize(image, width: width, height: height);
 
-  // Generate a unique file name and write PNG to preserve original style
-  final String uniqueName = 'resized_${DateTime.now().millisecondsSinceEpoch}.png';
+  // Generate a unique file name and write JPEG with compression for much smaller file sizes
+  // JPEG at 85% quality is 5-10x smaller than PNG with negligible quality loss for photos
+  final String uniqueName = 'resized_${DateTime.now().millisecondsSinceEpoch}.jpg';
   final File resizedFile = File('${file.parent.path}/$uniqueName')
-    ..writeAsBytesSync(img.encodePng(resizedImage));
+    ..writeAsBytesSync(img.encodeJpg(resizedImage, quality: 85));
 
   return resizedFile;
 }
@@ -187,9 +188,10 @@ Future<File> mergeImagesToSinglePng(
     final int dy = padding + row * (tileSize + padding);
     img.copyInto(canvas, tiles[i], dstX: dx, dstY: dy);
   }
-  final String uniqueName = 'merged_${DateTime.now().millisecondsSinceEpoch}.png';
+  // Output as JPEG with compression to reduce file size (5-10x smaller than PNG)
+  final String uniqueName = 'merged_${DateTime.now().millisecondsSinceEpoch}.jpg';
   final File out = File('${files.first.parent.path}/$uniqueName')
-    ..writeAsBytesSync(img.encodePng(canvas));
+    ..writeAsBytesSync(img.encodeJpg(canvas, quality: quality));
   return out;
 }
 

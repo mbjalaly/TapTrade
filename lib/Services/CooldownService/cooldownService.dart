@@ -3,31 +3,58 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class CooldownService {
   static final CooldownService instance = CooldownService._internal();
-  
+
   factory CooldownService() => instance;
-  
+
   CooldownService._internal();
-  
+
   static const String _cooldownKey = 'product_cooldowns';
+  static const String _dislikedKey = 'disliked_products'; // Track disliked products separately
   static const int _cooldownDays = 2;
   static const int _cooldownMilliseconds = _cooldownDays * 24 * 60 * 60 * 1000; // 2 days in milliseconds
-  
-  /// Record that a product was interacted with (liked or disliked)
-  Future<void> recordProductInteraction(int productId) async {
+
+  /// Record that a product was disliked (only disliked products go into cooldown)
+  Future<void> recordDislike(int productId) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final cooldownData = prefs.getString(_cooldownKey) ?? '{}';
       final Map<String, dynamic> cooldowns = json.decode(cooldownData);
-      
+
       // Record the current timestamp for this product
       cooldowns[productId.toString()] = DateTime.now().millisecondsSinceEpoch;
-      
+
       // Save back to preferences
       await prefs.setString(_cooldownKey, json.encode(cooldowns));
-      
-      print("Recorded interaction for product $productId at ${DateTime.now()}");
+
+      // Also add to disliked set
+      final dislikedData = prefs.getString(_dislikedKey) ?? '[]';
+      final List<dynamic> disliked = json.decode(dislikedData);
+      if (!disliked.contains(productId)) {
+        disliked.add(productId);
+        await prefs.setString(_dislikedKey, json.encode(disliked));
+      }
+
+      print("Recorded DISLIKE for product $productId at ${DateTime.now()}");
     } catch (e) {
-      print("Error recording product interaction: $e");
+      print("Error recording product dislike: $e");
+    }
+  }
+
+  /// Record that a product was liked (likes are saved to DB, not local cooldown)
+  /// This method is kept for compatibility but doesn't add to cooldown
+  Future<void> recordLike(int productId) async {
+    // Likes are now tracked in the database, not local cooldown
+    // This allows the backend to filter liked products and detect mutual matches
+    print("Like recorded for product $productId (handled by backend)");
+  }
+
+  /// Legacy method - now only records dislikes to cooldown
+  /// Kept for backwards compatibility
+  Future<void> recordProductInteraction(int productId, {bool isLike = false}) async {
+    if (isLike) {
+      await recordLike(productId);
+    } else {
+      await recordDislike(productId);
     }
   }
   

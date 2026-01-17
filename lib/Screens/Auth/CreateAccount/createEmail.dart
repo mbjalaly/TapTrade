@@ -6,204 +6,178 @@ import 'package:taptrade/Services/IntegrationServices/authService.dart';
 import 'package:taptrade/Services/IntegrationServices/firebaseEmailAuthService.dart';
 import 'package:taptrade/Utills/appColors.dart';
 import 'package:taptrade/Utills/showMessages.dart';
-import 'package:taptrade/Widgets/customButtom.dart';
-import 'package:taptrade/Widgets/customText.dart';
+import 'package:taptrade/Widgets/Auth/auth_scaffold.dart';
 
 class CreateEmailScreen extends StatefulWidget {
-  CreateEmailScreen({Key? key, required this.requestModel}) : super(key: key);
-  SignUpRequestModel requestModel;
+  final SignUpRequestModel requestModel;
+
+  const CreateEmailScreen({Key? key, required this.requestModel}) : super(key: key);
+
   @override
   State<CreateEmailScreen> createState() => _CreateEmailScreenState();
 }
 
 class _CreateEmailScreenState extends State<CreateEmailScreen> {
-  TextEditingController emailCon = TextEditingController();
+  final TextEditingController emailCon = TextEditingController();
   bool isLoading = false;
+  String? emailError;
 
-  /// Create Firebase user and send verification email
+  @override
+  void dispose() {
+    emailCon.dispose();
+    super.dispose();
+  }
+
+  void _clearError() {
+    if (emailError != null) {
+      setState(() => emailError = null);
+    }
+  }
+
+  String? _validateEmail(String value) {
+    if (value.isEmpty) {
+      return 'Please enter your email';
+    }
+    String pattern = r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$';
+    if (!RegExp(pattern).hasMatch(value)) {
+      return 'Please enter a valid email address';
+    }
+    return null;
+  }
+
   Future<void> _sendVerificationEmail(String email) async {
-    setState(() {
-      isLoading = true;
-    });
+    setState(() => isLoading = true);
 
-    // Use the password from the signup flow
     final password = widget.requestModel.password ?? '';
-    
+
     if (password.isEmpty) {
       setState(() {
         isLoading = false;
+        emailError = 'Password is required. Please go back and try again.';
       });
-      ShowMessage.notify(context, 'Password is required');
       return;
     }
 
-    // Create Firebase user and send verification email
-    final userCredential = await FirebaseEmailAuthService.instance.createUserAndSendVerification(
+    final userCredential =
+        await FirebaseEmailAuthService.instance.createUserAndSendVerification(
       email: email,
       password: password,
       context: context,
     );
 
-    setState(() {
-      isLoading = false;
-    });
+    setState(() => isLoading = false);
 
     if (userCredential != null) {
       ShowMessage.notify(context, 'Verification email sent to $email');
-      
-      // Update request model
       widget.requestModel.email = email;
-      
-      // Navigate to verification screen
+
       Get.to(() => VerifyEmailOtpScreen(
-        requestModel: widget.requestModel,
-        email: email,
-        userCredential: userCredential,
-      ));
+            requestModel: widget.requestModel,
+            email: email,
+            userCredential: userCredential,
+          ));
+    }
+  }
+
+  Future<void> _handleContinue() async {
+    final validation = _validateEmail(emailCon.text.trim());
+    if (validation != null) {
+      setState(() => emailError = validation);
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+      emailError = null;
+    });
+
+    String checkEmail = "email=${emailCon.text.trim()}";
+    final result =
+        await AuthService.instance.checkUserNameAndEmail(context, checkEmail);
+
+    setState(() => isLoading = false);
+
+    if (result == null) {
+      setState(() => emailError = 'Error checking email. Please try again.');
+      return;
+    }
+
+    if (result['success'] == true) {
+      bool exists = result['exists'] ?? false;
+
+      if (!exists) {
+        await _sendVerificationEmail(emailCon.text.trim());
+      } else {
+        setState(() => emailError = 'This email is already registered');
+      }
+    } else {
+      setState(() => emailError = result['message'] ?? 'Error checking email');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => FocusScope.of(context).unfocus(),
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        body: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                height: Get.height * 0.04,
-              ),
-              Container(
-                height: 4,
-                width: Get.width,
-                color: Colors.grey.withOpacity(.40),
-                child: Row(
-                  children: [
-                    Container(
-                      height: 4,
-                      width: Get.width,
-                      color: AppColors.themeColor,
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: GestureDetector(
-                    onTap: () {
-                      Get.back();
-                    },
-                    child: const Icon(
-                      Icons.arrow_back_ios_new,
-                      color: Colors.grey,
-                      size: 29,
-                    )),
-              ),
-              Padding(
-                padding: EdgeInsets.only(
-                    left: Get.width * 0.065, top: Get.height * 0.05),
-                child: AppText(
-                  text: "Email",
-                  fontSize: Get.width * 0.065,
-                  textcolor: AppColors.darkBlue,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.only(
-                    left: Get.width * 0.065,
-                    top: Get.height * 0.0,
-                    right: Get.width * 0.065),
-                child: TextFormField(
-                  controller: emailCon,
-                  cursorColor: Colors.grey,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    focusedBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(
-                          color: Colors.grey,
-                          width: 3),
-                    ),
-                    enabledBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(
-                          color: Colors.grey,
-                          width: 3),
-                    ),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.only(
-                    left: Get.width * 0.065, top: Get.height * 0.015),
-                child: AppText(
-                  text: "Enter your email address. We'll send a verification link.",
-                  fontSize: Get.width * 0.032,
-                  textcolor: Colors.grey,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              SizedBox(
-                height: Get.height * 0.06,
-              ),
-              Center(
-                child: AppButton(
-                  onPressed: () async {
-                    if(emailCon.text.trim().isNotEmpty){
-                      String pattern = r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$';
-                      RegExp regex = RegExp(pattern);
-                      if(regex.hasMatch(emailCon.text.trim())){
+    return AuthScaffold(
+      showBackButton: true,
+      showProgress: true,
+      currentStep: 4,
+      totalSteps: 4,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 40),
 
-                        setState(() {
-                          isLoading = true;
-                        });
-                        String checkUserName = "email=${emailCon.text.trim()}";
-                        final result = await AuthService.instance.checkUserNameAndEmail(context,checkUserName);
-                        setState(() {
-                          isLoading = false;
-                        });
-                        
-                        if (result == null) {
-                          ShowMessage.notify(context, 'Error checking email. Please try again.');
-                          return;
-                        }
-                        
-                        // Check if API call was successful
-                        if (result['success'] == true) {
-                          // Backend returns { success: true, exists: true/false }
-                          bool exists = result['exists'] ?? false;
-                          
-                          if (!exists) {
-                            // Email is available - send Firebase verification email
-                            await _sendVerificationEmail(emailCon.text.trim());
-                          } else {
-                            // Email already exists
-                            ShowMessage.notify(context, 'Email is already registered. Please use another email or login.');
-                          }
-                        } else {
-                          // API returned an error
-                          String message = result['message'] ?? 'Error checking email. Please try again.';
-                          ShowMessage.notify(context, message);
-                        }
-                      }else{
-                        ShowMessage.notify(context, "Please Enter a Valid Email");
-                      }
-                    }else{
-                      ShowMessage.notify(context, "Please Add Your Email");
-                    }
-                  },
-                  isLoading: isLoading,
-                  text: "CONTINUE",
-                  fontSize: Get.width * 0.043,
-                  width: Get.width * 0.88,
-                ),
-              )
-            ],
+          // Title
+          Text(
+            'Enter your email',
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              color: AppColors.darkBlue,
+            ),
           ),
-        ),
+
+          const SizedBox(height: 12),
+
+          Text(
+            'We\'ll send you a verification link to confirm your account.',
+            style: TextStyle(
+              fontSize: 15,
+              color: AppColors.darkBlue.withOpacity(0.6),
+              height: 1.5,
+            ),
+          ),
+
+          const SizedBox(height: 40),
+
+          // Email input card
+          AuthCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AuthTextField(
+                  controller: emailCon,
+                  label: 'Email Address',
+                  hint: 'example@gmail.com',
+                  keyboardType: TextInputType.emailAddress,
+                  autofocus: true,
+                  errorText: emailError,
+                  onChanged: (_) => _clearError(),
+                ),
+
+                const SizedBox(height: 32),
+
+                AuthPrimaryButton(
+                  text: 'Send Verification',
+                  isLoading: isLoading,
+                  onPressed: _handleContinue,
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+        ],
       ),
     );
   }

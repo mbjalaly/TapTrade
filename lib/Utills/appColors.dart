@@ -31,4 +31,20 @@ class AppColors {
   static const warning = Color(0xFFF57F17);
   static const danger = Color(0xFFB71C1C);
 
+  // Modern Design System Colors (for new auth flow)
+  // Text colors
+  static const secondaryTextColor = Color(0xFF6B6B6B); // Gray
+  static const hintTextColor = Color(0xFF9E9E9E); // Light gray
+
+  // Background
+  static const cardBackground = Color(0xFFFAFAFA); // Slightly off-white
+
+  // Modern states (brighter, more vibrant)
+  static const successColor = Color(0xFF00C853); // Bright green
+  static const errorColor = Color(0xFFD32F2F); // Material red
+  static const warningColor = Color(0xFFFFA726); // Material orange
+
+  // Shadows
+  static const shadowColor = Color(0x1A000000); // 10% black
+
 }

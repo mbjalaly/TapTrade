@@ -66,3 +66,24 @@ yarn.lock
 .env.*.local
 # Temporarily excluded
 /web/
+
+# AI and Temporary Documentation
+CLAUDE.md
+DEPLOYMENT_COMPLETE.md
+DEPLOYMENT_SUMMARY.md
+LOGGING_SETUP.md
+MIGRATION_GUIDE.md
+PRODUCTION_READY_CHANGES.md
+QUICK_START.md
+RAILWAY_BACKEND_SETUP.md
+RAILWAY_DEPLOYMENT.md
+RAILWAY_MIGRATION_SUMMARY.txt
+README_ENV_SETUP.md
+SETUP_COMPLETE.txt
+SPEACH.md
+SUPABASE_STORAGE_SETUP.md
+task.md
+implementation_plan.md
+walkthrough.md
+backend/dist/
+MATCH_CHAT_SCHEMA.sql

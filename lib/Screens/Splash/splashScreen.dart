@@ -4,7 +4,7 @@ import 'package:get/get.dart';
 import 'package:taptrade/Const/globleKey.dart';
 import 'package:taptrade/Screens/Dashboard/Bottombar/bottombarscreen.dart';
 import 'package:taptrade/Screens/GetStarted/getStarted.dart';
-import 'package:taptrade/Screens/UserDetail/AddProfile/addProfile.dart';
+import 'package:taptrade/Screens/UserDetail/AddInterest/addInterest.dart';
 import 'package:taptrade/Services/ApiResponse/apiResponse.dart';
 import 'package:taptrade/Services/IntegrationServices/generalService.dart';
 import 'package:taptrade/Services/IntegrationServices/profileService.dart';
@@ -58,7 +58,7 @@ class _SplashScreenState extends State<SplashScreen> {
             if (isProfileComplete) {
               await _navigateSafely(const BottomNavigationScreen());
             } else {
-              await _navigateSafely(const AddProfileScreen());
+              await _navigateSafely(const AddInterestScreen());
             }
           } else {
             await _navigateSafely(const GetStartedScreen());

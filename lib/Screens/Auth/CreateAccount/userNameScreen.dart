@@ -4,9 +4,7 @@ import 'package:taptrade/Models/SignUpRequestModel/signUpRequestModel.dart';
 import 'package:taptrade/Screens/Auth/CreateAccount/createPasswordScreen.dart';
 import 'package:taptrade/Services/IntegrationServices/authService.dart';
 import 'package:taptrade/Utills/appColors.dart';
-import 'package:taptrade/Utills/showMessages.dart';
-import 'package:taptrade/Widgets/customButtom.dart';
-import 'package:taptrade/Widgets/customText.dart';
+import 'package:taptrade/Widgets/Auth/auth_scaffold.dart';
 
 class UserNameScreen extends StatefulWidget {
   const UserNameScreen({super.key});
@@ -16,158 +14,147 @@ class UserNameScreen extends StatefulWidget {
 }
 
 class _UserNameScreenState extends State<UserNameScreen> {
-  TextEditingController nameCon = TextEditingController();
-  SignUpRequestModel requestModel = SignUpRequestModel();
+  final TextEditingController nameCon = TextEditingController();
+  final SignUpRequestModel requestModel = SignUpRequestModel();
   bool isLoading = false;
+  String? usernameError;
+
+  @override
+  void dispose() {
+    nameCon.dispose();
+    super.dispose();
+  }
+
+  void _clearError() {
+    if (usernameError != null) {
+      setState(() => usernameError = null);
+    }
+  }
+
+  String? _validateUsername(String value) {
+    if (value.isEmpty) {
+      return 'Please enter a username';
+    }
+    if (value.length < 3) {
+      return 'Username must be at least 3 characters';
+    }
+    if (value.length > 20) {
+      return 'Username must be less than 20 characters';
+    }
+    if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(value)) {
+      return 'Username can only contain letters, numbers, and underscores';
+    }
+    return null;
+  }
+
+  Future<void> _checkUsernameAndProceed() async {
+    final validation = _validateUsername(nameCon.text.trim());
+    if (validation != null) {
+      setState(() => usernameError = validation);
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+      usernameError = null;
+    });
+
+    try {
+      String checkUserName = "username=${nameCon.text.trim()}";
+      final result = await AuthService.instance
+          .checkUserNameAndEmail(context, checkUserName);
+
+      setState(() => isLoading = false);
+
+      if (result == null) {
+        setState(() => usernameError = 'Error checking username. Please try again.');
+        return;
+      }
+
+      if (result['success'] == true) {
+        bool exists = result['exists'] ?? false;
+
+        if (!exists) {
+          requestModel.username = nameCon.text.trim();
+          Get.to(() => PasswordScreen(requestModel: requestModel));
+        } else {
+          setState(() => usernameError = 'This username is already taken');
+        }
+      } else {
+        setState(() => usernameError = result['message'] ?? 'Error checking username');
+      }
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+        usernameError = 'Error checking username. Please try again.';
+      });
+      debugPrint('Error checking username: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => FocusScope.of(context).unfocus(),
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        body: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                height: Get.height * 0.04,
-              ),
-              Container(
-                height: 4,
-                width: Get.width,
-                color: Colors.grey.withOpacity(.40),
-                child: Row(
-                  children: [
-                    Container(
-                      height: 4,
-                      width: Get.width * 0.25,
-                      color: AppColors.themeColor,
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: GestureDetector(
-                    onTap: () {
-                      Get.back();
-                    },
-                    child: const Icon(
-                      Icons.close,
-                      color: Colors.grey,
-                      size: 29,
-                    )),
-              ),
-              Padding(
-                padding: EdgeInsets.only(
-                    left: Get.width * 0.065, top: Get.height * 0.05),
-                child: AppText(
-                  text: "Username",
-                  fontSize: Get.width * 0.065,
-                  textcolor: AppColors.darkBlue,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.only(
-                    left: Get.width * 0.065,
-                    top: Get.height * 0.0,
-                    right: Get.width * 0.065),
-                child: TextField(
-                  controller: nameCon,
-                  cursorColor: Colors.grey,
-                  decoration: const InputDecoration(
-                    border: InputBorder.none, // Remove the border
-                    focusedBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(
-                          color: Colors.grey,
-                          width: 3), // Grey color for the underline when focused
-                    ),
-                    enabledBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(
-                          color: Colors.grey,
-                          width:
-                              3), // Grey color for the underline when not focused
-                    ),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.only(
-                    left: Get.width * 0.065, top: Get.height * 0.015),
-                child: AppText(
-                  text:
-                      "This is how it will appear in TapTrade and you \nwill not be able to change it ",
-                  fontSize: Get.width * 0.032,
-                  textcolor: Colors.grey,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              SizedBox(
-                height: Get.height * 0.06,
-              ),
-              Center(
-                child: AppButton(
-                  onPressed: () async {
-                    if(nameCon.text.trim().isNotEmpty){
-                      setState(() {
-                        isLoading = true;
-                      });
-                      try {
-                        String checkUserName = "username=${nameCon.text.trim()}";
-                        final result = await AuthService.instance.checkUserNameAndEmail(context,checkUserName);
-                        setState(() {
-                          isLoading = false;
-                        });
-                        
-                        // Check if result is null (error occurred)
-                        if (result == null) {
-                          ShowMessage.notify(context, 'Error checking username. Please try again.');
-                          return;
-                        }
-                        
-                        // Check if API call was successful
-                        if (result['success'] == true) {
-                          // Backend returns { success: true, exists: true/false }
-                          bool exists = result['exists'] ?? false;
-                          
-                          if (!exists) {
-                            // Username is available - proceed to password screen
-                            setState(() {
-                              requestModel.username = nameCon.text.trim();
-                            });
-                            Get.to(() => PasswordScreen(requestModel: requestModel));
-                          } else {
-                            // Username already exists
-                            ShowMessage.notify(context, 'Username is already taken. Please choose another.');
-                          }
-                        } else {
-                          // API returned an error
-                          String message = result['message'] ?? 'Error checking username. Please try again.';
-                          ShowMessage.notify(context, message);
-                        }
-                      } catch (e) {
-                        setState(() {
-                          isLoading = false;
-                        });
-                        ShowMessage.notify(context, 'Error checking username. Please try again.');
-                        print('Error checking username: $e');
-                      }
-                    }else{
-                      ShowMessage.notify(context, 'Please Add UserName');
-                    }
+    return AuthScaffold(
+      showBackButton: true,
+      showProgress: true,
+      currentStep: 1,
+      totalSteps: 4,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 40),
 
-                  },
-                  isLoading: isLoading,
-                  text: "CONTINUE",
-                  fontSize: Get.width * 0.043,
-                  width: Get.width * 0.88,
-                ),
-              )
-            ],
+          // Title
+          Text(
+            'Create your username',
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              color: AppColors.darkBlue,
+            ),
           ),
-        ),
+
+          const SizedBox(height: 12),
+
+          Text(
+            'This is how you\'ll appear in TapTrade. Choose wisely – you can\'t change it later!',
+            style: TextStyle(
+              fontSize: 15,
+              color: AppColors.darkBlue.withOpacity(0.6),
+              height: 1.5,
+            ),
+          ),
+
+          const SizedBox(height: 40),
+
+          // Username input card
+          AuthCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AuthTextField(
+                  controller: nameCon,
+                  label: 'Username',
+                  hint: 'Enter your username',
+                  autofocus: true,
+                  errorText: usernameError,
+                  onChanged: (_) => _clearError(),
+                  helperText: 'Letters, numbers, and underscores only',
+                ),
+
+                const SizedBox(height: 32),
+
+                AuthPrimaryButton(
+                  text: 'Continue',
+                  isLoading: isLoading,
+                  onPressed: _checkUsernameAndProceed,
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+        ],
       ),
     );
   }

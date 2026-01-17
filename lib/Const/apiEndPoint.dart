@@ -41,8 +41,15 @@ class ApiEndPoint {
   static String get updateProduct => '${baseUrl}update_products/';
   static String get deleteUser => '${baseUrl}api/user/delete/';
   static String get forgotPassword => '${baseUrl}api/user/forgotpassword/';
-  
+
   // Payment URL - separate service, also configurable
   static String get paymentUrl => AppConfig.paymentApiUrl;
+
+  // Match & Chat Endpoints
+  static String get createMatch => '${baseUrl}api/matches/create/';
+  static String get getMatches => '${baseUrl}api/matches/';
+  static String getMatchMessages(int matchId) => '${baseUrl}api/matches/$matchId/messages/';
+  static String sendMatchMessage(int matchId) => '${baseUrl}api/matches/$matchId/messages/';
+  static String markMatchRead(int matchId) => '${baseUrl}api/matches/$matchId/read/';
 
 }
