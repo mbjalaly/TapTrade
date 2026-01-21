@@ -11,6 +11,12 @@ import { ok } from '../utils/respond';
 import { requireAuth, signUserToken } from '../utils/jwt';
 import { logger } from '../utils/logger';
 import { uploadImageToStorage } from '../utils/imageUpload';
+import {
+  sendMatchNotification,
+  sendMessageNotification,
+  sendTradeCompletedNotification,
+  sendTradeConfirmationNeededNotification
+} from '../services/pushNotificationService';
 // @ts-ignore - Module resolution in sandbox environment
 import type { Request, Response } from 'express';
 
@@ -33,7 +39,7 @@ type MulterFile = {
 };
 
 const router = Router();
-const upload = multer({ 
+const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
     fieldSize: 50 * 1024 * 1024, // 50MB for fields (to handle large base64 image arrays)
@@ -93,9 +99,9 @@ router.post('/api/user/register/', async (req: Request, res: Response) => {
     .maybeSingle();
 
   if (error || !user) {
-    await logger.error('User registration failed', undefined, { 
+    await logger.error('User registration failed', undefined, {
       error: (error as any)?.message || 'unknown',
-      username 
+      username
     });
     return res.status(500).json({ success: false, message: 'Failed to register', error: (error as any)?.message || 'unknown' });
   }
@@ -128,51 +134,51 @@ setInterval(() => {
 router.post('/api/email/send-otp/', async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
-    
+
     if (!email || typeof email !== 'string') {
       return res.status(400).json({ success: false, message: 'Email is required' });
     }
-    
+
     // Validate email format
     const emailRegex = /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/;
     if (!emailRegex.test(email)) {
       return res.status(400).json({ success: false, message: 'Invalid email format' });
     }
-    
+
     // Check rate limiting (max 3 OTPs per 5 minutes)
     const existingOtp = otpStore.get(email.toLowerCase());
     if (existingOtp && existingOtp.attempts >= 3) {
       const remainingTime = Math.ceil((existingOtp.expiresAt - Date.now()) / 1000);
       if (remainingTime > 0) {
-        return res.status(429).json({ 
-          success: false, 
-          message: `Too many attempts. Please wait ${remainingTime} seconds.` 
+        return res.status(429).json({
+          success: false,
+          message: `Too many attempts. Please wait ${remainingTime} seconds.`
         });
       }
     }
-    
+
     // Generate OTP
     const otp = generateOtp();
     const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
-    
+
     // Store OTP
     otpStore.set(email.toLowerCase(), {
       otp,
       expiresAt,
       attempts: (existingOtp?.attempts || 0) + 1,
     });
-    
+
     // TODO: In production, send actual email using nodemailer or similar
     // For now, log the OTP (in development) and simulate email sent
     console.log(`[Email OTP] Sending OTP ${otp} to ${email}`);
     await logger.info('Email OTP sent', undefined, { email, otp_preview: `${otp.substring(0, 2)}****` });
-    
+
     // In development mode, include the OTP in response for testing
     // REMOVE THIS IN PRODUCTION!
     const isDevelopment = process.env.NODE_ENV !== 'production';
-    
-    return res.json({ 
-      success: true, 
+
+    return res.json({
+      success: true,
       message: 'OTP sent to your email',
       ...(isDevelopment && { otp }) // Only include OTP in development
     });
@@ -186,35 +192,35 @@ router.post('/api/email/send-otp/', async (req: Request, res: Response) => {
 router.post('/api/email/verify-otp/', async (req: Request, res: Response) => {
   try {
     const { email, otp } = req.body;
-    
+
     if (!email || !otp) {
       return res.status(400).json({ success: false, message: 'Email and OTP are required' });
     }
-    
+
     const storedData = otpStore.get(email.toLowerCase());
-    
+
     if (!storedData) {
       return res.status(400).json({ success: false, message: 'OTP expired or not found. Please request a new one.' });
     }
-    
+
     if (storedData.expiresAt < Date.now()) {
       otpStore.delete(email.toLowerCase());
       return res.status(400).json({ success: false, message: 'OTP has expired. Please request a new one.' });
     }
-    
+
     if (storedData.otp !== otp) {
       return res.status(400).json({ success: false, message: 'Invalid OTP. Please try again.' });
     }
-    
+
     // OTP verified - delete it
     otpStore.delete(email.toLowerCase());
-    
+
     await logger.success('Email OTP verified', undefined, { email });
-    
-    return res.json({ 
-      success: true, 
+
+    return res.json({
+      success: true,
       message: 'Email verified successfully',
-      email_verified: true 
+      email_verified: true
     });
   } catch (error: any) {
     await logger.error('Failed to verify email OTP', undefined, { error: error?.message });
@@ -242,7 +248,7 @@ router.post('/api/user/login/', async (req: Request, res: Response) => {
 
   // Build query - check username or email
   let query = supabase.from('users').select('*');
-  
+
   if (username) {
     query = query.ilike('username', username);
   } else if (email) {
@@ -288,10 +294,12 @@ router.post('/api/user/updateProfile/', requireAuth, upload.single('image'), asy
   const body = req.body || {};
 
   // Accept most fields as-is; Flutter sends JSON or multipart fields
+  console.log('Profile update body:', JSON.stringify(body));
   const update: any = {};
   const allowed = [
     'email', 'username', 'contact', 'full_name', 'address',
     'longitude', 'latitude', 'dob', 'gender', 'is_profile_completed',
+    'fcm_token', // For push notifications
   ];
   for (const k of allowed) {
     if (typeof body[k] !== 'undefined') update[k] = body[k];
@@ -311,7 +319,10 @@ router.post('/api/user/updateProfile/', requireAuth, upload.single('image'), asy
     .select('*')
     .maybeSingle();
 
-  if (error || !user) return res.status(500).json({ success: false, message: 'Failed to update profile' });
+  if (error || !user) {
+    console.error('Update profile error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to update profile', error });
+  }
   return res.json(ok('Profile updated', user));
 });
 
@@ -363,10 +374,10 @@ router.get('/getallinterests/', async (_req: Request, res: Response) => {
 router.post('/add-interests/', requireAuth, async (req: Request, res: Response) => {
   const userId = uid(req);
   const body = req.body || {};
-  
+
   // Support both interest_ids and interest_names
   let interestIds: number[] = [];
-  
+
   if (Array.isArray(body.interest_ids)) {
     // If IDs are provided, use them directly
     interestIds = body.interest_ids.map((id: any) => Number(id));
@@ -377,14 +388,14 @@ router.post('/add-interests/', requireAuth, async (req: Request, res: Response) 
       .from('interests')
       .select('id')
       .in('name', names);
-    
+
     if (lookupError || !interests) {
       return res.status(400).json({ success: false, message: 'Failed to find interest IDs' });
     }
-    
+
     interestIds = interests.map((i: any) => Number(i.id));
   }
-  
+
   // Store as join table if it exists, else return OK
   if (!interestIds.length) return res.json({ success: true, message: 'OK', data: [] });
 
@@ -394,10 +405,10 @@ router.post('/add-interests/', requireAuth, async (req: Request, res: Response) 
   const rows = interestIds.map((interestId: number) => ({ user_id: userId, interest_id: interestId }));
   const { error } = await supabase.from('user_interests').insert(rows);
   if (error) return res.status(500).json({ success: false, message: 'Failed to save interests' });
-  
+
   // Mark profile as completed after adding interests (assuming image was already added)
   await supabase.from('users').update({ is_profile_completed: true }).eq('id', userId);
-  
+
   return res.json({ success: true, message: 'Saved', data: interestIds });
 });
 
@@ -474,38 +485,38 @@ router.post('/add_products/', requireAuth, upload.any(), async (req: Request, re
       categoryId = body.category;
     }
   }
-  
+
   // Limit total images to 4 (including primary)
   const MAX_IMAGES = 4;
   if (imageUrls.length > MAX_IMAGES) {
     imageUrls.splice(MAX_IMAGES);
-    await logger.warning('Images limited to maximum of 4', userId, { 
+    await logger.warning('Images limited to maximum of 4', userId, {
       attempted_count: imageUrls.length,
-      limited_to: MAX_IMAGES 
+      limited_to: MAX_IMAGES
     });
   }
-  
+
   // Also check images from body if provided
   let finalImages = imageUrls.length > 0 ? imageUrls : (body.images || []);
   if (finalImages.length > MAX_IMAGES) {
     finalImages = finalImages.slice(0, MAX_IMAGES);
-    await logger.warning('Images from body limited to maximum of 4', userId, { 
-      limited_to: MAX_IMAGES 
+    await logger.warning('Images from body limited to maximum of 4', userId, {
+      limited_to: MAX_IMAGES
     });
   }
 
   // Validate min_price < max_price
   const minPrice = typeof body.min_price === 'string' ? parseFloat(body.min_price) || parseFloat(body.minPrice || '0') : (body.min_price ?? body.minPrice ?? 0);
   const maxPrice = typeof body.max_price === 'string' ? parseFloat(body.max_price) || parseFloat(body.maxPrice || '0') : (body.max_price ?? body.maxPrice ?? 0);
-  
+
   if (minPrice >= maxPrice) {
     await logger.warning('Invalid price range - min_price must be less than max_price', userId, {
       min_price: minPrice,
       max_price: maxPrice,
     });
-    return res.status(400).json({ 
-      success: false, 
-      message: 'Minimum price must be less than maximum price' 
+    return res.status(400).json({
+      success: false,
+      message: 'Minimum price must be less than maximum price'
     });
   }
 
@@ -587,38 +598,38 @@ router.post('/add_user_products/', requireAuth, upload.any(), async (req: Reques
       categoryId = body.category;
     }
   }
-  
+
   // Limit total images to 4 (including primary)
   const MAX_IMAGES = 4;
   if (imageUrls.length > MAX_IMAGES) {
     imageUrls.splice(MAX_IMAGES);
-    await logger.warning('Images limited to maximum of 4', userId, { 
+    await logger.warning('Images limited to maximum of 4', userId, {
       attempted_count: imageUrls.length,
-      limited_to: MAX_IMAGES 
+      limited_to: MAX_IMAGES
     });
   }
-  
+
   // Also check images from body if provided
   let finalImages = imageUrls.length > 0 ? imageUrls : (body.images || []);
   if (finalImages.length > MAX_IMAGES) {
     finalImages = finalImages.slice(0, MAX_IMAGES);
-    await logger.warning('Images from body limited to maximum of 4', userId, { 
-      limited_to: MAX_IMAGES 
+    await logger.warning('Images from body limited to maximum of 4', userId, {
+      limited_to: MAX_IMAGES
     });
   }
 
   // Validate min_price < max_price
   const minPrice = typeof body.min_price === 'string' ? parseFloat(body.min_price) || parseFloat(body.minPrice || '0') : (body.min_price ?? body.minPrice ?? 0);
   const maxPrice = typeof body.max_price === 'string' ? parseFloat(body.max_price) || parseFloat(body.maxPrice || '0') : (body.max_price ?? body.maxPrice ?? 0);
-  
+
   if (minPrice >= maxPrice) {
     await logger.warning('Invalid price range - min_price must be less than max_price', userId, {
       min_price: minPrice,
       max_price: maxPrice,
     });
-    return res.status(400).json({ 
-      success: false, 
-      message: 'Minimum price must be less than maximum price' 
+    return res.status(400).json({
+      success: false,
+      message: 'Minimum price must be less than maximum price'
     });
   }
 
@@ -649,28 +660,28 @@ router.post('/add_user_products/', requireAuth, upload.any(), async (req: Reques
 router.get('/getallproducts/', requireAuth, async (req: Request, res: Response) => {
   const userId = uid(req);
   await logger.info('Fetching user products', userId);
-  
+
   // Return only the authenticated user's products
   const { data: products, error } = await supabase
     .from('products')
     .select('*')
     .eq('user_id', userId)
     .order('id', { ascending: false });
-    
+
   if (error) {
     console.error('Error fetching products:', error);
     return res.json({ success: true, message: 'OK', data: [] });
   }
-  
+
   console.log(`Found ${products?.length || 0} products for user ${userId}`);
-  
+
   // Fetch all categories to map IDs to names
   const { data: categories } = await supabase
     .from('categories')
     .select('id, name');
-  
+
   const categoryMap = new Map((categories || []).map((cat: any) => [Number(cat.id), cat.name]));
-  
+
   // Map the data to include category name as a string and convert prices to strings
   const mappedData = (products || []).map((product: any) => {
     const categoryName = product.category_id ? (categoryMap.get(Number(product.category_id)) || '') : '';
@@ -690,7 +701,7 @@ router.get('/getallproducts/', requireAuth, async (req: Request, res: Response) 
       updated_at: product.updated_at,
     };
   });
-  
+
   console.log(`Returning ${mappedData.length} mapped products`);
   return res.json({ success: true, message: 'OK', data: mappedData });
 });
@@ -700,21 +711,21 @@ router.post('/update_products/', requireAuth, upload.any(), async (req: Request,
     const userId = uid(req);
     const body: any = req.body || {};
     const files = ((req as any).files as MulterFile[]) || [];
-    
+
     await logger.info('Product update request initiated', userId || undefined, {
       product_id: body.product_id || body.id,
       files_count: files.length,
       method: req.method,
       path: req.path,
     });
-    
+
     const productId = Number(body.product_id || body.id || req.query.id || 0);
-    
+
     if (!productId || isNaN(productId)) {
       await logger.error('Invalid product ID in update request', userId || undefined, { product_id: productId });
       return res.status(400).json({ success: false, message: 'product_id is required and must be a valid number' });
     }
-    
+
     // Verify the product belongs to the user
     const { data: existingProduct, error: fetchError } = await supabase
       .from('products')
@@ -722,11 +733,11 @@ router.post('/update_products/', requireAuth, upload.any(), async (req: Request,
       .eq('id', productId)
       .eq('user_id', userId)
       .maybeSingle();
-    
+
     if (fetchError || !existingProduct) {
       return res.status(404).json({ success: false, message: 'Product not found or access denied' });
     }
-    
+
     // Process uploaded files (new images) - upload to Supabase Storage
     let primaryImageUrl = '';
     const imageUrls: string[] = [];
@@ -755,17 +766,17 @@ router.post('/update_products/', requireAuth, upload.any(), async (req: Request,
         error: uploadError.message
       });
     }
-    
+
     // Limit total images to 4 (including primary)
     const MAX_IMAGES = 4;
     if (imageUrls.length > MAX_IMAGES) {
       imageUrls.splice(MAX_IMAGES);
-      await logger.warning('Images limited to maximum of 4', userId || undefined, { 
+      await logger.warning('Images limited to maximum of 4', userId || undefined, {
         attempted_count: imageUrls.length,
-        limited_to: MAX_IMAGES 
+        limited_to: MAX_IMAGES
       });
     }
-    
+
     // Handle existing images from body (if provided as URLs/base64 strings)
     // Multer parses arrays as strings, so we need to parse it
     let existingImagesArray: string[] = [];
@@ -785,19 +796,19 @@ router.post('/update_products/', requireAuth, upload.any(), async (req: Request,
         }
       }
     }
-    
+
     // Add existing images to the array
     for (const imgUrl of existingImagesArray) {
       if (typeof imgUrl === 'string' && imgUrl.trim() && !imageUrls.includes(imgUrl)) {
         imageUrls.push(imgUrl);
       }
     }
-    
+
     // If no new files but existing_images provided, use those
     if (imageUrls.length === 0 && existingImagesArray.length > 0) {
       imageUrls.push(...existingImagesArray.filter((img: any) => typeof img === 'string' && img.trim()));
     }
-    
+
     // If no images provided at all, keep existing images from database
     if (imageUrls.length === 0 && !primaryImageUrl) {
       primaryImageUrl = existingProduct.image || '';
@@ -813,7 +824,7 @@ router.post('/update_products/', requireAuth, upload.any(), async (req: Request,
       // If only additional images provided, use first as primary
       primaryImageUrl = imageUrls[0];
     }
-    
+
     // Handle category - can be ID (number) or name (string)
     let categoryId: number | null = existingProduct.category_id;
     if (body.category_id !== undefined) {
@@ -832,27 +843,27 @@ router.post('/update_products/', requireAuth, upload.any(), async (req: Request,
         categoryId = body.category;
       }
     }
-    
+
     // Validate min_price < max_price
-    const minPrice = body.min_price !== undefined 
+    const minPrice = body.min_price !== undefined
       ? (typeof body.min_price === 'string' ? parseFloat(body.min_price) || parseFloat(body.minPrice || '0') : (body.min_price ?? body.minPrice ?? existingProduct.min_price))
       : existingProduct.min_price;
     const maxPrice = body.max_price !== undefined
       ? (typeof body.max_price === 'string' ? parseFloat(body.max_price) || parseFloat(body.maxPrice || '0') : (body.max_price ?? body.maxPrice ?? existingProduct.max_price))
       : existingProduct.max_price;
-    
+
     if (minPrice >= maxPrice) {
       await logger.warning('Invalid price range - min_price must be less than max_price', userId || undefined, {
         min_price: minPrice,
         max_price: maxPrice,
         product_id: productId,
       });
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Minimum price must be less than maximum price' 
+      return res.status(400).json({
+        success: false,
+        message: 'Minimum price must be less than maximum price'
       });
     }
-    
+
     const updateData: any = {
       category_id: categoryId,
       title: body.title !== undefined ? body.title : existingProduct.title,
@@ -861,14 +872,14 @@ router.post('/update_products/', requireAuth, upload.any(), async (req: Request,
       product_condition: body.product_condition !== undefined ? body.product_condition : existingProduct.product_condition,
       status: body.status !== undefined ? body.status : existingProduct.status,
     };
-    
+
     // Optimize image updates: Only update if images have actually changed
     // This prevents timeouts when re-writing large base64 arrays
     const hasNewFiles = files.length > 0;
-    const existingDbImages = existingProduct.images && Array.isArray(existingProduct.images) 
-      ? existingProduct.images 
+    const existingDbImages = existingProduct.images && Array.isArray(existingProduct.images)
+      ? existingProduct.images
       : (existingProduct.image ? [existingProduct.image] : []);
-    
+
     // Only update images if:
     // 1. We have new files (need to add them)
     // 2. User explicitly provided existing_images AND they're different from DB
@@ -885,12 +896,12 @@ router.post('/update_products/', requireAuth, upload.any(), async (req: Request,
       // User explicitly provided existing_images - check if different from DB
       const existingSet = new Set(existingDbImages.map((img: string) => img.substring(0, 100))); // Compare first 100 chars
       const newSet = new Set(existingImagesArray.map((img: string) => img.substring(0, 100)));
-      const isDifferent = existingSet.size !== newSet.size || 
+      const isDifferent = existingSet.size !== newSet.size ||
         !existingImagesArray.every((img: string) => {
           const prefix = img.substring(0, 100);
           return Array.from(existingSet).some(existing => existing === prefix);
         });
-      
+
       if (isDifferent) {
         updateData.images = existingImagesArray;
         if (existingImagesArray.length > 0 && !primaryImageUrl) {
@@ -905,7 +916,7 @@ router.post('/update_products/', requireAuth, upload.any(), async (req: Request,
         updateData.images = existingDbImages;
       }
     }
-    
+
     // Optimize: Only update fields that have actually changed
     // Remove undefined/null values to avoid unnecessary updates
     Object.keys(updateData).forEach(key => {
@@ -913,17 +924,17 @@ router.post('/update_products/', requireAuth, upload.any(), async (req: Request,
         delete updateData[key];
       }
     });
-    
+
     // If no actual changes, return existing product
     if (Object.keys(updateData).length === 0) {
       await logger.info('No changes detected in product update', userId || undefined, { product_id: productId });
       return res.json({ success: true, message: 'No changes', data: existingProduct });
     }
-    
+
     // Perform the update with timeout handling
     let data: any = null;
     let error: any = null;
-    
+
     try {
       const result = await supabase
         .from('products')
@@ -932,7 +943,7 @@ router.post('/update_products/', requireAuth, upload.any(), async (req: Request,
         .eq('user_id', userId)
         .select('*')
         .maybeSingle();
-      
+
       data = result.data;
       error = result.error;
     } catch (updateError: any) {
@@ -944,19 +955,19 @@ router.post('/update_products/', requireAuth, upload.any(), async (req: Request,
           images_count: imageUrls.length,
           error: errorMessage,
         });
-        return res.status(500).json({ 
-          success: false, 
+        return res.status(500).json({
+          success: false,
           message: 'Update timed out. The images may be too large. Try reducing the number of images or image sizes.',
           error: 'Database operation timeout'
         });
       }
       error = updateError;
     }
-    
+
     if (error) {
-      await logger.error('Failed to update product in database', userId || undefined, { 
-        product_id: productId, 
-        error: error.message 
+      await logger.error('Failed to update product in database', userId || undefined, {
+        product_id: productId,
+        error: error.message
       });
       return res.status(500).json({ success: false, message: 'Failed to update product', error: error.message });
     }
@@ -964,17 +975,17 @@ router.post('/update_products/', requireAuth, upload.any(), async (req: Request,
       await logger.error('Product update returned no data', userId || undefined, { product_id: productId });
       return res.status(500).json({ success: false, message: 'Failed to update product' });
     }
-    
-    await logger.success('Product updated successfully', userId || undefined, { 
-      product_id: data.id, 
-      title: data.title 
+
+    await logger.success('Product updated successfully', userId || undefined, {
+      product_id: data.id,
+      title: data.title
     });
     return res.json({ success: true, message: 'Updated', data });
   } catch (error: any) {
     const userId = uid(req);
-    await logger.error('Unexpected error in update_products', userId || undefined, { 
+    await logger.error('Unexpected error in update_products', userId || undefined, {
       error: error?.message || String(error),
-      stack: error?.stack 
+      stack: error?.stack
     });
     return res.status(500).json({ success: false, message: 'Internal server error', error: error?.message || String(error) });
   }
@@ -1377,6 +1388,39 @@ router.post('/api/trade/create-matchfeedback/', requireAuth, async (req: Request
               }
             };
             console.log('✅ Match data built successfully:', JSON.stringify(mutualMatchData, null, 2));
+
+            // Send push notifications to BOTH users about the match
+            try {
+              // Fetch FCM tokens for both users
+              const { data: usersForNotif } = await supabase
+                .from('users')
+                .select('id, fcm_token')
+                .in('id', [userId, nearbyUserId]);
+
+              const currentUserToken = usersForNotif?.find((u: any) => u.id === userId)?.fcm_token;
+              const otherUserToken = usersForNotif?.find((u: any) => u.id === nearbyUserId)?.fcm_token;
+
+              // Notify current user about their match
+              if (currentUserToken && product2Data) {
+                await sendMatchNotification(
+                  currentUserToken,
+                  product2Data.title || 'a product',
+                  newMatch.id
+                );
+              }
+
+              // Notify the other user about the match
+              if (otherUserToken && product1Data) {
+                await sendMatchNotification(
+                  otherUserToken,
+                  product1Data.title || 'a product',
+                  newMatch.id
+                );
+              }
+              console.log('[Push] Match notifications sent');
+            } catch (notifError) {
+              console.log('[Push] Failed to send match notifications:', notifError);
+            }
           } else if (matchError) {
             console.error('Error creating match record:', matchError);
           }
@@ -1447,16 +1491,38 @@ router.get('/api/trade/matchfeedback/user/', requireAuth, async (req: Request, r
   const userId = uid(req);
 
   // Only return products the user LIKED (not dislikes)
-  const { data, error } = await supabase
+  // First, get the match feedback records
+  const { data: feedbackData, error: feedbackError } = await supabase
     .from('match_feedback')
-    .select('*, user_product:products!user_product_id_fkey(*), other_product:products!other_product_id_fkey(*)')
+    .select('*')
     .eq('user_id', userId)
     .eq('has_like', true);
 
-  if (error) {
-    console.error('Error fetching liked products:', error);
+  if (feedbackError) {
+    console.error('Error fetching liked products:', feedbackError);
     return res.json({ success: true, message: 'OK', data: [] });
   }
+
+  if (!feedbackData || feedbackData.length === 0) {
+    return res.json({ success: true, message: 'OK', data: [] });
+  }
+
+  // Now fetch the products for each feedback item
+  const enrichedData = await Promise.all(feedbackData.map(async (item: any) => {
+    const [userProductResult, otherProductResult] = await Promise.all([
+      supabase.from('products').select('*').eq('id', item.user_product_id).maybeSingle(),
+      supabase.from('products').select('*').eq('id', item.other_product_id).maybeSingle(),
+    ]);
+
+    return {
+      ...item,
+      user_product: userProductResult.data,
+      other_product: otherProductResult.data,
+    };
+  }));
+
+  const data = enrichedData;
+  const error = null;
 
   // Transform data to match the Flutter model expectations
   // Flutter LikeData model expects specific field names and formats
@@ -1508,18 +1574,493 @@ router.get('/api/trade/matchfeedback/user/', requireAuth, async (req: Request, r
   return res.json({ success: true, message: 'OK', data: transformedData });
 });
 
-router.get('/api/trade/trade-requests/', requireAuth, async (_req: Request, res: Response) => {
-  return res.json({ success: true, message: 'OK', data: [] });
+// GET /api/trade/trade-requests/:userId/ - Fetch all trade requests for a user
+router.get('/api/trade/trade-requests/:userId/', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const currentUserId = uid(req);
+
+    await logger.info('Fetching trade requests', currentUserId, { userId });
+
+    // Fetch trade requests where user is either requester or receiver
+    const { data: tradeRequests, error } = await supabase
+      .from('trade_requests')
+      .select('*')
+      .or(`requester_id.eq.${userId},receiver_id.eq.${userId}`)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      await logger.error('Error fetching trade requests', currentUserId, { error: error.message });
+      return res.status(500).json({ success: false, message: 'Failed to fetch trade requests' });
+    }
+
+    if (!tradeRequests || tradeRequests.length === 0) {
+      return res.json({ success: true, message: 'OK', data: [] });
+    }
+
+    // Fetch product and user details for each trade request
+    const enrichedData = await Promise.all(
+      tradeRequests.map(async (trade) => {
+        // Fetch user product
+        const { data: userProduct } = await supabase
+          .from('products')
+          .select('id, title, min_price, max_price, image, product_condition, status, category, user_id')
+          .eq('id', trade.user_product_id)
+          .maybeSingle();
+
+        // Fetch other product
+        const { data: otherProduct } = await supabase
+          .from('products')
+          .select('id, title, min_price, max_price, image, product_condition, status, category, user_id')
+          .eq('id', trade.other_product_id)
+          .maybeSingle();
+
+        return {
+          id: trade.id,
+          requester: trade.requester_id,
+          receiver: trade.receiver_id,
+          user_product: userProduct ? {
+            id: userProduct.id,
+            title: userProduct.title,
+            min_price: userProduct.min_price,
+            max_price: userProduct.max_price,
+            image: userProduct.image,
+            product_condition: userProduct.product_condition,
+            status: userProduct.status,
+            category: userProduct.category,
+            user: userProduct.user_id,
+          } : null,
+          other_product: otherProduct ? {
+            id: otherProduct.id,
+            title: otherProduct.title,
+            min_price: otherProduct.min_price,
+            max_price: otherProduct.max_price,
+            image: otherProduct.image,
+            product_condition: otherProduct.product_condition,
+            status: otherProduct.status,
+            category: otherProduct.category,
+            user: otherProduct.user_id,
+          } : null,
+          status: trade.status,
+          payment_status: trade.payment_status,
+          completed_by_requester: trade.completed_by_requester,
+          completed_by_receiver: trade.completed_by_receiver,
+          requester_completed_at: trade.requester_completed_at,
+          receiver_completed_at: trade.receiver_completed_at,
+          created_at: trade.created_at,
+          type: 'direct',
+        };
+      })
+    );
+
+    await logger.success('Trade requests fetched successfully', currentUserId, { count: enrichedData.length });
+    return res.json({ success: true, message: 'OK', data: enrichedData });
+  } catch (error: any) {
+    await logger.error('Exception in trade requests fetch', uid(req), { error: error.message });
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
 });
 
-router.post('/api/trade/trade-requests/create/', requireAuth, async (_req: Request, res: Response) => {
-  return res.status(201).json({ success: true, message: 'Created' });
+// POST /api/trade/trade-requests/create/ - Create a new trade request
+router.post('/api/trade/trade-requests/create/', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const currentUserId = uid(req);
+    const { user_product_id, other_product_id, receiver_id, requester_id } = req.body;
+
+    await logger.info('Creating trade request', currentUserId, { user_product_id, other_product_id });
+
+    // Validate required fields
+    if (!user_product_id || !other_product_id || !receiver_id || !requester_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: user_product_id, other_product_id, receiver_id, requester_id'
+      });
+    }
+
+    // Verify requester is current user
+    if (requester_id !== currentUserId) {
+      return res.status(403).json({ success: false, message: 'Unauthorized: Cannot create request for another user' });
+    }
+
+    // Check if trade request already exists
+    const { data: existing } = await supabase
+      .from('trade_requests')
+      .select('id')
+      .eq('requester_id', requester_id)
+      .eq('receiver_id', receiver_id)
+      .eq('user_product_id', user_product_id)
+      .eq('other_product_id', other_product_id)
+      .in('status', ['pending', 'accepted', 'in_progress', 'pending_confirmation'])
+      .maybeSingle();
+
+    if (existing) {
+      return res.status(409).json({
+        success: false,
+        message: 'Trade request already exists for these products'
+      });
+    }
+
+    // Create trade request
+    const { data: tradeRequest, error } = await supabase
+      .from('trade_requests')
+      .insert({
+        requester_id,
+        receiver_id,
+        user_product_id,
+        other_product_id,
+        status: 'pending',
+        payment_status: 'unpaid',
+      })
+      .select()
+      .single();
+
+    if (error) {
+      await logger.error('Error creating trade request', currentUserId, { error: error.message });
+      return res.status(500).json({ success: false, message: 'Failed to create trade request' });
+    }
+
+    await logger.success('Trade request created', currentUserId, { tradeRequestId: tradeRequest.id });
+    return res.status(201).json({ success: true, message: 'Trade request created successfully', data: tradeRequest });
+  } catch (error: any) {
+    await logger.error('Exception in trade request creation', uid(req), { error: error.message });
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
 });
 
-router.post('/api/trade/accept-requests/', requireAuth, async (_req: Request, res: Response) => {
-  return res.json({ success: true, message: 'OK' });
+// POST /api/trade/accept-requests/:tradeRequestId/ - Accept a trade request
+router.post('/api/trade/accept-requests/:tradeRequestId/', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const currentUserId = uid(req);
+    const { tradeRequestId } = req.params;
+
+    await logger.info('Accepting trade request', currentUserId, { tradeRequestId });
+
+    // Fetch trade request
+    const { data: tradeRequest, error: fetchError } = await supabase
+      .from('trade_requests')
+      .select('*')
+      .eq('id', tradeRequestId)
+      .maybeSingle();
+
+    if (fetchError || !tradeRequest) {
+      return res.status(404).json({ success: false, message: 'Trade request not found' });
+    }
+
+    // Verify current user is the receiver
+    if (tradeRequest.receiver_id !== currentUserId) {
+      return res.status(403).json({ success: false, message: 'Unauthorized: Only receiver can accept' });
+    }
+
+    // Verify status is pending
+    if (tradeRequest.status !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot accept trade request with status: ${tradeRequest.status}`
+      });
+    }
+
+    // Update status to accepted
+    const { data: updatedTrade, error: updateError } = await supabase
+      .from('trade_requests')
+      .update({ status: 'accepted' })
+      .eq('id', tradeRequestId)
+      .select()
+      .single();
+
+    if (updateError) {
+      await logger.error('Error accepting trade request', currentUserId, { error: updateError.message });
+      return res.status(500).json({ success: false, message: 'Failed to accept trade request' });
+    }
+
+    await logger.success('Trade request accepted', currentUserId, { tradeRequestId });
+    return res.json({ success: true, message: 'Trade request accepted successfully', data: updatedTrade });
+  } catch (error: any) {
+    await logger.error('Exception in trade request acceptance', uid(req), { error: error.message });
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
 });
 
+// POST /api/trade/mark-complete/:tradeRequestId/ - First user marks trade as complete
+router.post('/api/trade/mark-complete/:tradeRequestId/', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const currentUserId = uid(req);
+    const { tradeRequestId } = req.params;
+
+    await logger.info('Marking trade as complete', currentUserId, { tradeRequestId });
+
+    // Fetch trade request
+    const { data: tradeRequest, error: fetchError } = await supabase
+      .from('trade_requests')
+      .select('*')
+      .eq('id', tradeRequestId)
+      .maybeSingle();
+
+    if (fetchError || !tradeRequest) {
+      return res.status(404).json({ success: false, message: 'Trade request not found' });
+    }
+
+    // Verify current user is part of the trade
+    const isRequester = tradeRequest.requester_id === currentUserId;
+    const isReceiver = tradeRequest.receiver_id === currentUserId;
+
+    if (!isRequester && !isReceiver) {
+      return res.status(403).json({ success: false, message: 'Unauthorized: Not part of this trade' });
+    }
+
+    // Verify status is accepted or in_progress
+    if (!['accepted', 'in_progress'].includes(tradeRequest.status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot mark complete. Current status: ${tradeRequest.status}`
+      });
+    }
+
+    // Check if user already marked complete
+    if ((isRequester && tradeRequest.completed_by_requester) || (isReceiver && tradeRequest.completed_by_receiver)) {
+      return res.status(400).json({
+        success: false,
+        message: 'You have already marked this trade as complete'
+      });
+    }
+
+    // Update completion status
+    const updates: any = {
+      status: 'pending_confirmation',
+    };
+
+    if (isRequester) {
+      updates.completed_by_requester = true;
+      updates.requester_completed_at = new Date().toISOString();
+    } else {
+      updates.completed_by_receiver = true;
+      updates.receiver_completed_at = new Date().toISOString();
+    }
+
+    const { data: updatedTrade, error: updateError } = await supabase
+      .from('trade_requests')
+      .update(updates)
+      .eq('id', tradeRequestId)
+      .select()
+      .single();
+
+    if (updateError) {
+      await logger.error('Error marking trade complete', currentUserId, { error: updateError.message });
+      return res.status(500).json({ success: false, message: 'Failed to mark trade as complete' });
+    }
+
+    await logger.success('Trade marked as complete', currentUserId, { tradeRequestId });
+
+    // Notify the other party to confirm
+    try {
+      const otherUserId = isRequester ? tradeRequest.receiver_id : tradeRequest.requester_id;
+      const { data: otherUser } = await supabase
+        .from('users')
+        .select('fcm_token')
+        .eq('id', otherUserId)
+        .maybeSingle();
+
+      // Fetch product info for the notification
+      const productId = isRequester ? tradeRequest.receiver_product_id : tradeRequest.requester_product_id;
+      const { data: product } = await supabase
+        .from('products')
+        .select('title')
+        .eq('id', productId)
+        .maybeSingle();
+
+      if (otherUser?.fcm_token) {
+        await sendTradeConfirmationNeededNotification(
+          otherUser.fcm_token,
+          product?.title || 'a product',
+          parseInt(tradeRequestId)
+        );
+      }
+    } catch (notifError) {
+      console.log('[Push] Failed to send trade confirmation notification:', notifError);
+    }
+
+    return res.json({
+      success: true,
+      message: 'Trade marked as complete. Waiting for other party to confirm.',
+      data: updatedTrade
+    });
+  } catch (error: any) {
+    await logger.error('Exception in marking trade complete', uid(req), { error: error.message });
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// POST /api/trade/confirm-complete/:tradeRequestId/ - Second user confirms completion
+router.post('/api/trade/confirm-complete/:tradeRequestId/', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const currentUserId = uid(req);
+    const { tradeRequestId } = req.params;
+
+    await logger.info('Confirming trade completion', currentUserId, { tradeRequestId });
+
+    // Fetch trade request
+    const { data: tradeRequest, error: fetchError } = await supabase
+      .from('trade_requests')
+      .select('*')
+      .eq('id', tradeRequestId)
+      .maybeSingle();
+
+    if (fetchError || !tradeRequest) {
+      return res.status(404).json({ success: false, message: 'Trade request not found' });
+    }
+
+    // Verify current user is part of the trade
+    const isRequester = tradeRequest.requester_id === currentUserId;
+    const isReceiver = tradeRequest.receiver_id === currentUserId;
+
+    if (!isRequester && !isReceiver) {
+      return res.status(403).json({ success: false, message: 'Unauthorized: Not part of this trade' });
+    }
+
+    // Verify status is pending_confirmation
+    if (tradeRequest.status !== 'pending_confirmation') {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot confirm. Current status: ${tradeRequest.status}`
+      });
+    }
+
+    // Check if user already confirmed
+    if ((isRequester && tradeRequest.completed_by_requester) || (isReceiver && tradeRequest.completed_by_receiver)) {
+      return res.status(400).json({
+        success: false,
+        message: 'You have already confirmed this trade'
+      });
+    }
+
+    // Update completion status
+    const updates: any = {};
+
+    if (isRequester) {
+      updates.completed_by_requester = true;
+      updates.requester_completed_at = new Date().toISOString();
+    } else {
+      updates.completed_by_receiver = true;
+      updates.receiver_completed_at = new Date().toISOString();
+    }
+
+    // Check if both parties have now confirmed
+    const bothConfirmed =
+      (isRequester ? true : tradeRequest.completed_by_requester) &&
+      (isReceiver ? true : tradeRequest.completed_by_receiver);
+
+    if (bothConfirmed) {
+      updates.status = 'completed';
+      updates.payment_status = 'paid'; // For legacy compatibility
+    }
+
+    const { data: updatedTrade, error: updateError } = await supabase
+      .from('trade_requests')
+      .update(updates)
+      .eq('id', tradeRequestId)
+      .select()
+      .single();
+
+    if (updateError) {
+      await logger.error('Error confirming trade completion', currentUserId, { error: updateError.message });
+      return res.status(500).json({ success: false, message: 'Failed to confirm trade completion' });
+    }
+
+    await logger.success('Trade completion confirmed', currentUserId, { tradeRequestId, completed: bothConfirmed });
+
+    if (bothConfirmed) {
+      try {
+        const { data: usersForNotif } = await supabase
+          .from('users')
+          .select('id, fcm_token')
+          .in('id', [tradeRequest.requester_id, tradeRequest.receiver_id]);
+
+        const requesterToken = usersForNotif?.find((u: any) => u.id === tradeRequest.requester_id)?.fcm_token;
+        const receiverToken = usersForNotif?.find((u: any) => u.id === tradeRequest.receiver_id)?.fcm_token;
+
+        // Fetch product title for the notification
+        const { data: product } = await supabase
+          .from('products')
+          .select('title')
+          .eq('id', tradeRequest.requester_product_id)
+          .maybeSingle();
+
+        const productTitle = product?.title || 'a product';
+
+        if (requesterToken) {
+          await sendTradeCompletedNotification(requesterToken, productTitle, parseInt(tradeRequestId));
+        }
+        if (receiverToken) {
+          await sendTradeCompletedNotification(receiverToken, productTitle, parseInt(tradeRequestId));
+        }
+      } catch (notifError) {
+        console.log('[Push] Failed to send trade completion notifications:', notifError);
+      }
+    }
+    return res.json({
+      success: true,
+      message: bothConfirmed ? 'Trade completed successfully!' : 'Confirmation recorded. Waiting for other party.',
+      data: updatedTrade
+    });
+  } catch (error: any) {
+    await logger.error('Exception in confirming trade completion', uid(req), { error: error.message });
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// POST /api/trade/cancel/:tradeRequestId/ - Cancel a trade request
+router.post('/api/trade/cancel/:tradeRequestId/', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const currentUserId = uid(req);
+    const { tradeRequestId } = req.params;
+
+    await logger.info('Cancelling trade request', currentUserId, { tradeRequestId });
+
+    // Fetch trade request
+    const { data: tradeRequest, error: fetchError } = await supabase
+      .from('trade_requests')
+      .select('*')
+      .eq('id', tradeRequestId)
+      .maybeSingle();
+
+    if (fetchError || !tradeRequest) {
+      return res.status(404).json({ success: false, message: 'Trade request not found' });
+    }
+
+    // Verify current user is part of the trade
+    if (tradeRequest.requester_id !== currentUserId && tradeRequest.receiver_id !== currentUserId) {
+      return res.status(403).json({ success: false, message: 'Unauthorized: Not part of this trade' });
+    }
+
+    // Cannot cancel completed trades
+    if (tradeRequest.status === 'completed') {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot cancel a completed trade'
+      });
+    }
+
+    // Update status to cancelled
+    const { data: updatedTrade, error: updateError } = await supabase
+      .from('trade_requests')
+      .update({ status: 'cancelled' })
+      .eq('id', tradeRequestId)
+      .select()
+      .single();
+
+    if (updateError) {
+      await logger.error('Error cancelling trade request', currentUserId, { error: updateError.message });
+      return res.status(500).json({ success: false, message: 'Failed to cancel trade request' });
+    }
+
+    await logger.success('Trade request cancelled', currentUserId, { tradeRequestId });
+    return res.json({ success: true, message: 'Trade request cancelled successfully', data: updatedTrade });
+  } catch (error: any) {
+    await logger.error('Exception in trade cancellation', uid(req), { error: error.message });
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// Legacy endpoint - kept for backward compatibility
 router.post('/api/trade/trade_payment_status/', requireAuth, async (_req: Request, res: Response) => {
   return res.json({ success: true, message: 'OK' });
 });
@@ -1533,17 +2074,17 @@ router.get('/api/user/profile/', async (_req: Request, res: Response) => {
 router.get('/test-logging/', async (req: Request, res: Response) => {
   try {
     console.log('[Test-Logging] Starting test...');
-    
+
     // Test write operations
     const writeResults = [];
     writeResults.push(await logger.info('Test log entry', undefined, { test: true, timestamp: new Date().toISOString() }));
     writeResults.push(await logger.warning('Test warning log', undefined, { test: true }));
     writeResults.push(await logger.error('Test error log', undefined, { test: true }));
     writeResults.push(await logger.success('Test success log', undefined, { test: true }));
-    
+
     // Wait a bit for writes to complete
     await new Promise(resolve => setTimeout(resolve, 500));
-    
+
     // Try to read logs to verify they were written
     console.log('[Test-Logging] Attempting to read logs...');
     const { data: logs, error: readError } = await supabase
@@ -1551,18 +2092,18 @@ router.get('/test-logging/', async (req: Request, res: Response) => {
       .select('*')
       .order('created_at', { ascending: false })
       .limit(10);
-    
+
     // Check table existence
     const { error: tableCheckError } = await supabase
       .from('logs')
       .select('id')
       .limit(1);
-    
+
     if (readError || tableCheckError) {
       const error = readError || tableCheckError;
       console.error('[Test-Logging] Error:', error);
-      return res.status(500).json({ 
-        success: false, 
+      return res.status(500).json({
+        success: false,
         message: 'Failed to access logs table',
         error: error?.message,
         code: error?.code,
@@ -1576,15 +2117,15 @@ router.get('/test-logging/', async (req: Request, res: Response) => {
         }
       });
     }
-    
+
     // Filter test logs
-    const testLogs = (logs || []).filter((log: any) => 
-      log.message?.includes('Test') || 
+    const testLogs = (logs || []).filter((log: any) =>
+      log.message?.includes('Test') ||
       (log.metadata && typeof log.metadata === 'object' && (log.metadata as any).test === true)
     );
-    
-    return res.json({ 
-      success: true, 
+
+    return res.json({
+      success: true,
       message: 'Test logs created',
       logsWritten: 4,
       logsFound: logs?.length || 0,
@@ -1596,8 +2137,8 @@ router.get('/test-logging/', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('[Test-Logging] Exception:', error);
-    return res.status(500).json({ 
-      success: false, 
+    return res.status(500).json({
+      success: false,
       message: 'Error testing logs',
       error: error?.message || String(error),
       stack: error?.stack
@@ -1718,12 +2259,26 @@ router.get('/api/matches/', requireAuth, async (req: Request, res: Response) => 
     }
 
     // Transform matches to include the "other" user's info
-    const transformedMatches = (matches || []).map((match: any) => {
+    const transformedMatches = await Promise.all((matches || []).map(async (match: any) => {
       const isUser1 = match.user1_id === userId;
       const otherUser = isUser1 ? match.user2 : match.user1;
       const myProduct = isUser1 ? match.user1_product : match.user2_product;
       const otherProduct = isUser1 ? match.user2_product : match.user1_product;
       const unreadCount = isUser1 ? match.user1_unread_count : match.user2_unread_count;
+
+      // Fetch the last message for this match
+      let lastMessage = null;
+      const { data: lastMessageData } = await supabase
+        .from('messages')
+        .select('message_text')
+        .eq('match_id', match.id)
+        .order('sent_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (lastMessageData) {
+        lastMessage = lastMessageData.message_text;
+      }
 
       return {
         match_id: match.id,
@@ -1731,6 +2286,7 @@ router.get('/api/matches/', requireAuth, async (req: Request, res: Response) => 
         user2_id: match.user2_id,
         matched_at: match.matched_at,
         last_message_at: match.last_message_at,
+        last_message: lastMessage,
         status: match.status,
         unread_count: unreadCount,
         other_user: {
@@ -1743,7 +2299,7 @@ router.get('/api/matches/', requireAuth, async (req: Request, res: Response) => 
         my_product: myProduct,
         other_product: otherProduct
       };
-    });
+    }));
 
     return res.json({
       success: true,
@@ -1752,6 +2308,100 @@ router.get('/api/matches/', requireAuth, async (req: Request, res: Response) => 
     });
   } catch (error: any) {
     console.error('Error in get matches:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Get a single match by ID
+ * Used for navigation from notifications
+ */
+router.get('/api/matches/:matchId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = uid(req);
+    const { matchId } = req.params;
+
+    // Get the specific match where user is either user1 or user2
+    const { data: match, error } = await supabase
+      .from('matches')
+      .select(`
+        *,
+        user1:user1_id (id, username, first_name, last_name, profile_picture_url),
+        user2:user2_id (id, username, first_name, last_name, profile_picture_url),
+        user1_product:user1_product_id (id, title, image, images),
+        user2_product:user2_product_id (id, title, image, images)
+      `)
+      .eq('id', matchId)
+      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
+      .maybeSingle();
+
+    if (error) {
+      console.error('[Matches] Error fetching match:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch match',
+        error: error.message
+      });
+    }
+
+    if (!match) {
+      return res.status(404).json({
+        success: false,
+        message: 'Match not found'
+      });
+    }
+
+    // Determine other user and unread count
+    const isUser1 = match.user1_id === userId;
+    const otherUser = isUser1 ? match.user2 : match.user1;
+    const otherProduct = isUser1 ? match.user2_product : match.user1_product;
+    const myProduct = isUser1 ? match.user1_product : match.user2_product;
+    const unreadCount = isUser1 ? match.user1_unread_count : match.user2_unread_count;
+
+    // Fetch the last message for this match
+    let lastMessage = null;
+    const { data: lastMessageData } = await supabase
+      .from('messages')
+      .select('message_text')
+      .eq('match_id', match.id)
+      .order('sent_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (lastMessageData) {
+      lastMessage = lastMessageData.message_text;
+    }
+
+    return res.json({
+      success: true,
+      message: 'OK',
+      data: {
+        match_id: match.id,
+        user1_id: match.user1_id,
+        user2_id: match.user2_id,
+        matched_at: match.matched_at,
+        last_message_at: match.last_message_at,
+        last_message: lastMessage,
+        status: match.status,
+        unread_count: unreadCount,
+        other_user: {
+          id: otherUser?.id,
+          username: otherUser?.username,
+          first_name: otherUser?.first_name,
+          last_name: otherUser?.last_name,
+          profile_picture_url: otherUser?.profile_picture_url,
+          full_name: `${otherUser?.first_name || ''} ${otherUser?.last_name || ''}`.trim() || otherUser?.username
+        },
+        my_product: myProduct,
+        other_product: otherProduct
+      }
+    });
+  } catch (error: any) {
+    console.error('[Matches] Unexpected error:', error);
     return res.status(500).json({
       success: false,
       message: 'Internal server error',
@@ -1883,6 +2533,33 @@ router.post('/api/matches/:matchId/messages/', requireAuth, async (req: Request,
       message_id: message.id
     });
 
+    // Send push notification to receiver
+    try {
+      const { data: receiver } = await supabase
+        .from('users')
+        .select('fcm_token')
+        .eq('id', receiverId)
+        .maybeSingle();
+
+      const { data: sender } = await supabase
+        .from('users')
+        .select('username')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (receiver?.fcm_token) {
+        await sendMessageNotification(
+          receiver.fcm_token,
+          sender?.username || 'Someone',
+          message_text.trim(),
+          parseInt(matchId)
+        );
+      }
+    } catch (notifError) {
+      console.log('[Push] Failed to send message notification:', notifError);
+      // Don't fail the request if notification fails
+    }
+
     return res.status(201).json({
       success: true,
       message: 'Message sent successfully',
@@ -1956,6 +2633,86 @@ router.put('/api/matches/:matchId/read/', requireAuth, async (req: Request, res:
     });
   } catch (error: any) {
     console.error('Error in mark read:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * TEST endpoint for notification testing
+ * TODO: Remove this endpoint after testing
+ */
+router.post('/api/test/notification', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = uid(req);
+    const { type } = req.body; // 'match', 'message', 'trade_completed', 'trade_pending'
+
+    if (!type || !['match', 'message', 'trade_completed', 'trade_pending'].includes(type)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid notification type. Must be one of: match, message, trade_completed, trade_pending'
+      });
+    }
+
+    // Get user's FCM token
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('fcm_token, username')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    if (!user.fcm_token) {
+      return res.status(400).json({
+        success: false,
+        message: 'No FCM token found for user. Make sure notifications are enabled.'
+      });
+    }
+
+    // Send test notification based on type
+    let result;
+    const testMatchId = 999;
+    const testTradeRequestId = 888;
+
+    try {
+      if (type === 'match') {
+        result = await sendMatchNotification(user.fcm_token, 'Test Product', testMatchId);
+      } else if (type === 'message') {
+        result = await sendMessageNotification(user.fcm_token, 'Test User', 'This is a test message', testMatchId);
+      } else if (type === 'trade_completed') {
+        result = await sendTradeCompletedNotification(user.fcm_token, 'Test Product', testTradeRequestId);
+      } else if (type === 'trade_pending') {
+        result = await sendTradeConfirmationNeededNotification(user.fcm_token, 'Test Product', testTradeRequestId);
+      }
+
+      return res.json({
+        success: true,
+        message: `Test ${type} notification sent`,
+        data: {
+          fcmToken: user.fcm_token,
+          notificationType: type,
+          result: result
+        }
+      });
+    } catch (notificationError: any) {
+      console.error('[Test] Notification send error:', notificationError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to send notification',
+        error: notificationError.message
+      });
+    }
+  } catch (error: any) {
+    console.error('[Test] Error:', error);
     return res.status(500).json({
       success: false,
       message: 'Internal server error',

@@ -48,8 +48,14 @@ class ApiEndPoint {
   // Match & Chat Endpoints
   static String get createMatch => '${baseUrl}api/matches/create/';
   static String get getMatches => '${baseUrl}api/matches/';
+  static String getMatchById(int matchId) => '${baseUrl}api/matches/$matchId/';
   static String getMatchMessages(int matchId) => '${baseUrl}api/matches/$matchId/messages/';
   static String sendMatchMessage(int matchId) => '${baseUrl}api/matches/$matchId/messages/';
   static String markMatchRead(int matchId) => '${baseUrl}api/matches/$matchId/read/';
+
+  // Bilateral Trade Confirmation Endpoints
+  static String markTradeComplete(int tradeRequestId) => '${baseUrl}api/trade/mark-complete/$tradeRequestId/';
+  static String confirmTradeComplete(int tradeRequestId) => '${baseUrl}api/trade/confirm-complete/$tradeRequestId/';
+  static String cancelTrade(int tradeRequestId) => '${baseUrl}api/trade/cancel/$tradeRequestId/';
 
 }

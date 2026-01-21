@@ -1,8 +1,12 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:taptrade/Const/apiEndPoint.dart';
+import 'package:taptrade/Const/globleKey.dart';
 import 'package:taptrade/Models/ChatModels/matchModel.dart';
 import 'package:taptrade/Models/ChatModels/messageModel.dart';
 import 'package:taptrade/Services/ApiServices/apiServices.dart';
+import 'package:taptrade/Services/SharedPreferenceService/sharePreferenceService.dart';
 import 'package:taptrade/Services/logService.dart';
 
 /// Service for handling match and chat API calls
@@ -140,5 +144,43 @@ class ChatService {
       printLog('ChatService.markMessagesAsRead error: $e');
     }
     return false;
+  }
+
+  /// Get a single match by ID (for navigation from notifications)
+  static Future<MatchModel?> getMatchById(int matchId) async {
+    try {
+      // Get token from shared preferences
+      final token = await SharedPreferencesService().getString(KeyConstants.accessToken);
+
+      if (token == null) {
+        printLog('ChatService.getMatchById error: No auth token found');
+        return null;
+      }
+
+      // Make direct HTTP call since we don't have BuildContext in notification context
+      final response = await http.get(
+        Uri.parse(ApiEndPoint.getMatchById(matchId)),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = json.decode(response.body);
+
+        // Handle the response format from backend (data field contains the match)
+        if (data['success'] == true && data['data'] != null) {
+          return MatchModel.fromJson(data['data']);
+        } else if (data['data'] != null) {
+          return MatchModel.fromJson(data['data']);
+        }
+      } else {
+        printLog('ChatService.getMatchById error: ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      printLog('ChatService.getMatchById error: $e');
+    }
+    return null;
   }
 }

@@ -6,6 +6,9 @@ import 'package:get/get.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:taptrade/Services/IntegrationServices/profileService.dart';
+import 'package:taptrade/Services/IntegrationServices/chatService.dart';
+import 'package:taptrade/Screens/Dashboard/Chat/chatScreen.dart';
 
 import 'package:taptrade/Const/globleKey.dart';
 
@@ -43,7 +46,11 @@ class NotificationService {
 
     // Local notifications init
     const AndroidInitializationSettings androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const DarwinInitializationSettings iosInit = DarwinInitializationSettings(requestAlertPermission: false, requestBadgePermission: false, requestSoundPermission: false);
+    const DarwinInitializationSettings iosInit = DarwinInitializationSettings(
+      requestAlertPermission: false, 
+      requestBadgePermission: false, 
+      requestSoundPermission: false
+    );
     const InitializationSettings initSettings = InitializationSettings(android: androidInit, iOS: iosInit);
     await _local.initialize(
       initSettings,
@@ -89,26 +96,47 @@ class NotificationService {
     bool canFetchFcmToken = true;
     if (!kIsWeb && Platform.isIOS) {
       final String? apnsToken = await FirebaseMessaging.instance.getAPNSToken();
+      print("🍎 APNs Token: $apnsToken");
       if (apnsToken == null) {
+        print("⚠️ APNs Token is NULL - skipping FCM fetch (likely Simulator)");
         canFetchFcmToken = false;
       }
     }
 
     if (canFetchFcmToken) {
+      await fetchAndSaveToken();
+    } else {
+      print("⏭️ Skipped FCM fetch due to missing APNs token");
+    }
+  }
+
+  static Future<String?> fetchAndSaveToken() async {
       try {
         final String? token = await FirebaseMessaging.instance.getToken();
+        print("🔥 FCM Token fetched: $token");
         if (token != null) {
-          final SharedPreferences prefs = await SharedPreferences.getInstance();
+          final prefs = await SharedPreferences.getInstance();
           await prefs.setString(KeyConstants.fcmToken, token);
+          print("💾 FCM Token saved to prefs");
+
+          // Trigger listener manually if needed
+          return token;
         }
+
+        // Listen for token refreshes
         FirebaseMessaging.instance.onTokenRefresh.listen((String token) async {
-          final SharedPreferences prefs = await SharedPreferences.getInstance();
+          print("🔄 FCM Token refreshed: $token");
+          final prefs = await SharedPreferences.getInstance();
           await prefs.setString(KeyConstants.fcmToken, token);
+          // TODO: Trigger profile update here too if possible
         });
-      } catch (_) {
-        // FCM may be unavailable on some emulators or temporarily; continue without token
+        
+        return token;
+
+      } catch (e) {
+        print("❌ Error fetching FCM token: $e");
+        return null;
       }
-    }
   }
 
   static Future<void> requestPermission() async {
@@ -148,8 +176,32 @@ class NotificationService {
       }
     }
 
+    // Show in-app snackbar for messages and trades
+    if (type == 'message') {
+      _showSnackbar(
+        title: notification?.title ?? 'New Message',
+        message: notification?.body ?? 'You have a new message',
+        backgroundColor: const Color(0xFF1976D2), // Blue for messages
+      );
+    } else if (type == 'trade_completed') {
+      _showSnackbar(
+        title: notification?.title ?? 'Trade Completed',
+        message: notification?.body ?? 'A trade has been completed',
+        backgroundColor: const Color(0xFF388E3C), // Green for success
+      );
+    } else if (type == 'trade_pending') {
+      _showSnackbar(
+        title: notification?.title ?? 'Confirmation Needed',
+        message: notification?.body ?? 'Please confirm trade completion',
+        backgroundColor: const Color(0xFFFF6F00), // Orange for pending
+      );
+    }
+
+    // Determine channel based on type
     String channelId = _marketingChannelId;
-    if (type == 'match') channelId = _matchChannelId;
+    if (type == 'match' || type == 'message' || type == 'trade_completed' || type == 'trade_pending') {
+      channelId = _matchChannelId; // Use high-priority channel
+    }
 
     _local.show(
       notification.hashCode,
@@ -223,11 +275,27 @@ class NotificationService {
   static void _handleNavigationFromData(Map<String, dynamic> data) {
     final String? type = data['type'] as String?;
     if (type == null) return;
+
     if (type == 'match') {
       final String? matchId = data['matchId'] as String?;
       // Replace with your actual route/screen
       navigatorKey.currentState?.pushNamed('/match', arguments: {'matchId': matchId});
-    } else if (type == 'marketing') {
+    }
+    else if (type == 'message') {
+      // Navigate to chat screen with specific match
+      final String? matchId = data['matchId'] as String?;
+      if (matchId != null) {
+        _navigateToChat(int.parse(matchId));
+      }
+    }
+    else if (type == 'trade_completed' || type == 'trade_pending') {
+      // Navigate to trades/deals screen
+      final String? tradeRequestId = data['tradeRequestId'] as String?;
+      if (tradeRequestId != null) {
+        _navigateToTrade(int.parse(tradeRequestId));
+      }
+    }
+    else if (type == 'marketing') {
       final String? deeplink = data['deeplink'] as String?;
       if (deeplink != null && deeplink.isNotEmpty) {
         navigatorKey.currentState?.pushNamed(deeplink);
@@ -235,6 +303,35 @@ class NotificationService {
         navigatorKey.currentState?.pushNamed('/deals');
       }
     }
+  }
+
+  /// Navigate to specific chat from notification
+  static Future<void> _navigateToChat(int matchId) async {
+    try {
+      final match = await ChatService.getMatchById(matchId);
+      if (match != null) {
+        navigatorKey.currentState?.push(
+          MaterialPageRoute(
+            builder: (_) => ChatScreen(match: match),
+          ),
+        );
+      } else {
+        // Match not found, navigate to matches list
+        navigatorKey.currentState?.pushNamed('/matches');
+      }
+    } catch (e) {
+      print('Error navigating to chat: $e');
+      navigatorKey.currentState?.pushNamed('/matches');
+    }
+  }
+
+  /// Navigate to specific trade from notification
+  static void _navigateToTrade(int tradeRequestId) {
+    // Navigate to deals screen with trade request highlighted
+    navigatorKey.currentState?.pushNamed(
+      '/deals',
+      arguments: {'highlightTradeId': tradeRequestId},
+    );
   }
 
   // Existing in-app snack helpers kept for convenience

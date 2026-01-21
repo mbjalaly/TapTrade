@@ -15,6 +15,7 @@ import 'package:taptrade/Widgets/customText.dart';
 import 'package:taptrade/Services/SearchFilterService/search_filter_service.dart';
 import 'package:taptrade/Services/NotificationService/notification_service.dart';
 import 'package:taptrade/Services/LocationService/locationService.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'ProductDetails/productDetailsScreen.dart';
 import 'ProfileSetting/TradePreferences/tradePreferences.dart';
 import 'ProfileSetting/SearchFilters/search_filter_screen.dart';
@@ -126,7 +127,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         'address': address,
       };
 
-      print("Updating profile with location...");
+      // PIGGYBACK FCM TOKEN IF AVAILABLE
+      // This ensures we have a backup way to send the token
+      final prefs = await SharedPreferences.getInstance();
+      String? fcmToken = prefs.getString(KeyConstants.fcmToken);
+      if (fcmToken != null && fcmToken.isNotEmpty) {
+        body['fcm_token'] = fcmToken;
+        print("📎 Attached FCM token to location update");
+      }
+
+      print("Updating profile with location & token...");
       await ProfileService.instance.updateProfile(context, body, userId);
       print("Profile location updated successfully");
     } catch (e) {
@@ -136,6 +146,34 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         title: 'Location access',
         message: 'Unable to access your location. Products may not be accurate.',
       );
+    }
+  }
+
+  Future<void> _syncFcmToken() async {
+    try {
+      // DIRECT FETCH FROM SERVICE (Fixes race condition & ensures freshness)
+      final String? token = await NotificationService.fetchAndSaveToken();
+      
+      print("🔍 HomeScreen: Token from Service: '$token'");
+
+      if (token != null && token.isNotEmpty) {
+        final String userId = userController.userProfile.value.data?.id ?? '';
+        if (userId.isNotEmpty) {
+             print("🚀 Syncing FCM token: $token");
+             if (mounted) {
+                final result = await ProfileService.instance.updateProfile(context, {'fcm_token': token}, userId);
+                print("📝 Sync result: ${result?.message ?? 'No response'}");
+                
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setString('last_synced_fcm_token', token);
+                print("✅ FCM Token synced");
+             }
+        } else {
+            print("❌ Cannot sync FCM: User ID is empty");
+        }
+      }
+    } catch (e) {
+      print("Error syncing FCM token: $e");
     }
   }
 
@@ -149,6 +187,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         print("ERROR: User ID is empty, cannot fetch products");
         return;
       }
+
+      // Sync FCM Token
+      _syncFcmToken();
 
       print("=== FETCHING PRODUCTS FOR USER: $id ===");
 

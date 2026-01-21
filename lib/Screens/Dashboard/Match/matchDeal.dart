@@ -42,9 +42,31 @@ class _MatchDealScreenState extends State<MatchDealScreen> {
   String otherProduct = '';
   bool removeBaseUrl = false;
   bool isLoading = false;
+  bool isMarkingComplete = false;
   bool showMatch = false; // New state to control match reveal
   var userController = Get.find<UserController>();
   var productController = Get.find<ProductController>();
+
+  // Helper to get current user id
+  String get currentUserId => userController.userProfile.value.data?.id ?? '';
+
+  // Check if current user has already marked complete
+  bool get hasCurrentUserMarkedComplete {
+    if (widget.tradeRequestData == null) return false;
+    final isRequester = widget.tradeRequestData?.requester == currentUserId;
+    final isReceiver = widget.tradeRequestData?.receiver == currentUserId;
+    if (isRequester) return widget.tradeRequestData?.completedByRequester ?? false;
+    if (isReceiver) return widget.tradeRequestData?.completedByReceiver ?? false;
+    return false;
+  }
+
+  // Check if other user has marked complete
+  bool get hasOtherUserMarkedComplete {
+    if (widget.tradeRequestData == null) return false;
+    final isRequester = widget.tradeRequestData?.requester == currentUserId;
+    if (isRequester) return widget.tradeRequestData?.completedByReceiver ?? false;
+    return widget.tradeRequestData?.completedByRequester ?? false;
+  }
 
 
   @override
@@ -129,6 +151,245 @@ class _MatchDealScreenState extends State<MatchDealScreen> {
     return false;
   }
 
+  /// Mark trade as complete (first user action)
+  Future<void> markTradeAsComplete() async {
+    if (widget.tradeRequestData == null) return;
+    
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Mark Trade as Complete?'),
+        content: const Text(
+          'Have you completed this trade in person? The other party will need to confirm before the trade is finalized.'
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            child: const Text('Yes, Mark Complete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => isMarkingComplete = true);
+    
+    try {
+      final result = await ProductService.instance.markTradeComplete(
+        context,
+        widget.tradeRequestData!.id ?? -1,
+      );
+      
+      if (result.status == Status.COMPLETED) {
+        ShowMessage.notify(context, 'Trade marked as complete. Waiting for other party to confirm.');
+        // Update local state
+        setState(() {
+          widget.tradeRequestData?.completedByRequester = 
+            widget.tradeRequestData?.requester == currentUserId ? true : widget.tradeRequestData?.completedByRequester;
+          widget.tradeRequestData?.completedByReceiver = 
+            widget.tradeRequestData?.receiver == currentUserId ? true : widget.tradeRequestData?.completedByReceiver;
+          widget.tradeRequestData?.status = 'pending_confirmation';
+        });
+      }
+    } finally {
+      setState(() => isMarkingComplete = false);
+    }
+  }
+
+  /// Confirm trade completion (second user action)
+  Future<void> confirmTradeComplete() async {
+    if (widget.tradeRequestData == null) return;
+    
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Trade Completion?'),
+        content: const Text(
+          'The other party has marked this trade as complete. Do you confirm that the trade has been completed successfully?'
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Not Yet'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            child: const Text('Yes, Confirm'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => isMarkingComplete = true);
+    
+    try {
+      final result = await ProductService.instance.confirmTradeComplete(
+        context,
+        widget.tradeRequestData!.id ?? -1,
+      );
+      
+      if (result.status == Status.COMPLETED) {
+        ShowMessage.notify(context, 'Trade completed successfully! 🎉');
+        // Update local state
+        setState(() {
+          widget.tradeRequestData?.completedByRequester = true;
+          widget.tradeRequestData?.completedByReceiver = true;
+          widget.tradeRequestData?.status = 'completed';
+          widget.tradeRequestData?.paymentStatus = 'paid';
+        });
+      }
+    } finally {
+      setState(() => isMarkingComplete = false);
+    }
+  }
+
+  /// Build the appropriate bottom button based on trade status
+  Widget _buildBottomButton() {
+    final status = widget.tradeRequestData?.status ?? '';
+    final isCompleted = status == 'completed';
+    final isPendingConfirmation = status == 'pending_confirmation';
+    final canMarkComplete = status == 'accepted' || status == 'in_progress';
+
+    // For completed trades, show a nice completion message
+    if (isCompleted) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        margin: EdgeInsets.symmetric(horizontal: Get.width / 6, vertical: 20),
+        decoration: BoxDecoration(
+          color: Colors.green,
+          borderRadius: BorderRadius.circular(30),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white),
+            const SizedBox(width: 8),
+            Text(
+              'Trade Completed ✓',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: Get.width * 0.045,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // For pending confirmation - show different button based on who has marked complete
+    if (isPendingConfirmation) {
+      if (hasCurrentUserMarkedComplete && !hasOtherUserMarkedComplete) {
+        // Current user has marked, waiting for other
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          margin: EdgeInsets.symmetric(horizontal: Get.width / 8, vertical: 20),
+          decoration: BoxDecoration(
+            color: Colors.orange.shade400,
+            borderRadius: BorderRadius.circular(30),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Waiting for Confirmation...',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: Get.width * 0.04,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        );
+      } else if (hasOtherUserMarkedComplete && !hasCurrentUserMarkedComplete) {
+        // Other user has marked, current user needs to confirm
+        return AppButton(
+          isLoading: isMarkingComplete,
+          onPressed: confirmTradeComplete,
+          width: Get.width * 0.5,
+          text: "Confirm Completion",
+          fontSize: Get.width * 0.045,
+          margin: EdgeInsets.symmetric(horizontal: Get.width / 6, vertical: 20),
+        );
+      }
+    }
+
+    // For accepted/in_progress trades - show Mark Complete button
+    if (canMarkComplete && widget.tradeRequestData != null) {
+      return AppButton(
+        isLoading: isMarkingComplete,
+        onPressed: markTradeAsComplete,
+        width: Get.width * 0.5,
+        text: "Mark as Completed",
+        fontSize: Get.width * 0.045,
+        margin: EdgeInsets.symmetric(horizontal: Get.width / 6, vertical: 20),
+      );
+    }
+
+    // Default: Reveal Trader button (for new matches/likes)
+    return AppButton(
+      isLoading: isLoading,
+      onPressed: () async {
+        if (!showMatch) {
+          ShowMessage.notify(context, "Please tap on a product to reveal the match first!");
+          return;
+        }
+
+        setState(() {
+          isLoading = true;
+        });
+
+        try {
+          bool? success;
+          if (widget.likeData != null) {
+            success = await createLikeTradeRequest();
+          } else if (widget.matchData != null) {
+            success = await createTradeRequest();
+          } else if (widget.tradeRequestData != null) {
+            success = await acceptTradeRequest();
+          }
+          
+          if (success == true) {
+            ShowMessage.notify(context, "Trader revealed successfully!");
+          } else {
+            ShowMessage.notify(context, "Your request cannot proceed at the moment please try again later");
+          }
+        } catch (error, stackTrace) {
+          debugPrint("Error in reveal trader: $error");
+          debugPrint("Stack trace: $stackTrace");
+          ShowMessage.notify(context, 'An error occurred. Please try again later.');
+        } finally {
+          setState(() {
+            isLoading = false;
+          });
+        }
+      },
+      width: Get.width * 0.45,
+      text: "Reveal Trader",
+      fontSize: Get.width * 0.05,
+      margin: EdgeInsets.symmetric(horizontal: Get.width / 6, vertical: 20),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -144,102 +405,7 @@ class _MatchDealScreenState extends State<MatchDealScreen> {
       ),
       child: Scaffold(
           backgroundColor: Colors.transparent,
-          bottomNavigationBar: AppButton(
-            isLoading: isLoading,
-            onPressed: () async {
-              if (!showMatch) {
-                ShowMessage.notify(context, "Please tap on a product to reveal the match first!");
-                return;
-              }
-
-              setState(() {
-                isLoading = true;
-              });
-
-              try {
-                bool? success;
-                if (widget.likeData != null) {
-                  success = await createLikeTradeRequest();
-                } else if (widget.matchData != null) {
-                  success = await createTradeRequest();
-                } else if (widget.tradeRequestData != null) {
-                  success = await acceptTradeRequest();
-                }
-                
-                if (success == true) {
-                  ShowMessage.notify(context, "Trader revealed successfully!");
-                  // TODO: Navigate to trader contact screen or show trader details
-                } else {
-                  ShowMessage.notify(context, "Your request cannot proceed at the moment please try again later");
-                }
-              } catch (error, stackTrace) {
-                debugPrint("Error in reveal trader: $error");
-                debugPrint("Stack trace: $stackTrace");
-                ShowMessage.notify(context, 'An error occurred. Please try again later.');
-              } finally {
-                setState(() {
-                  isLoading = false;
-                });
-              }
-
-              /* PAYMENT GATEWAY - COMMENTED OUT FOR NOW
-              UserData? userProfile = userController.userProfile.value.data;
-              if (userProfile == null) {
-                ShowMessage.notify(context, "Please restart the application");
-                return;
-              }
-
-              try {
-                Map<String, dynamic> body = {
-                  "customer_first_name": "${userProfile.username}",
-                  "customer_middle_name": "",
-                  "customer_last_name": "${userProfile.username}",
-                  "customer_email": "${userProfile.email}",
-                  "customer_phone_country_code": 965,
-                  "customer_phone_number": "${userProfile.contact}",
-                  "amount": 10,
-                  "customer_initiated": true
-                };
-
-                final result = await ProfileService.instance.paymentRequest(context, body);
-                String url = result.responseData?['transaction']?['url'] ?? '';
-
-                if (result.status == Status.COMPLETED && url.isNotEmpty) {
-                  bool? success;
-                  if (widget.likeData != null) {
-                    success = await createLikeTradeRequest();
-                  } else if (widget.matchData != null) {
-                    success = await createTradeRequest();
-                  } else if (widget.tradeRequestData != null) {
-                    success = await acceptTradeRequest();
-                  }
-                  if(success == null || !success){
-                    ShowMessage.notify(context, "Your request cannot proceed at the moment please try again later");
-                    return;
-                  }
-
-                  TradeData? tradeResponseModel = productController.tradeResponseModel.value.data;
-                  String id = (tradeResponseModel?.tradeRequest ?? '').toString();
-                  Get.to(() => PaymentWebView(
-                    url: url,
-                    isDirect: widget.isDirect,
-                    id: id,
-                  ));
-                } else {
-                  ShowMessage.notify(context, 'Something went wrong');
-                }
-              } catch (error, stackTrace) {
-                debugPrint("Error in payment request: $error");
-                debugPrint("Stack trace: $stackTrace");
-                ShowMessage.notify(context, 'An error occurred. Please try again later.');
-              }
-              */
-            },
-            width: Get.width * 0.45,
-            text: "Reveal Trader",
-            fontSize: Get.width * 0.05,
-            margin: EdgeInsets.symmetric(horizontal: Get.width / 6,vertical: 20),
-          ),
+          bottomNavigationBar: _buildBottomButton(),
           body: Container(
             height: Get.height,
             width: Get.width,

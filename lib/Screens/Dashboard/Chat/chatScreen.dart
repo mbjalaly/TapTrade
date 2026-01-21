@@ -4,6 +4,8 @@ import 'package:taptrade/Const/globleKey.dart';
 import 'package:taptrade/Models/ChatModels/matchModel.dart';
 import 'package:taptrade/Models/ChatModels/messageModel.dart';
 import 'package:taptrade/Services/IntegrationServices/chatService.dart';
+import 'package:taptrade/Services/IntegrationServices/productService.dart';
+import 'package:taptrade/Services/ApiResponse/apiResponse.dart';
 import 'package:taptrade/Services/SharedPreferenceService/sharePreferenceService.dart';
 import 'package:taptrade/Utills/appColors.dart';
 
@@ -199,7 +201,92 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
         ],
       ),
+      actions: [
+        // Mark as Complete button
+        Container(
+          margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+          child: ElevatedButton.icon(
+            onPressed: _showMarkCompleteDialog,
+            icon: const Icon(Icons.check_circle_outline, size: 18),
+            label: const Text('Complete', style: TextStyle(fontSize: 12)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
+  }
+
+  /// Show dialog to mark trade as complete
+  Future<void> _showMarkCompleteDialog() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Mark Trade as Complete?'),
+        content: Text(
+          'Have you completed this trade with ${widget.match.otherUser?.username ?? 'the other user'}? '
+          'They will need to confirm before the trade is finalized.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            child: const Text('Yes, Mark Complete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      // Note: We need the trade request ID. For now, we'll use match ID as they're often linked.
+      // In production, you'd fetch the trade request associated with this match.
+      final result = await ProductService.instance.markTradeComplete(
+        context,
+        widget.match.id ?? 0,
+      );
+
+      if (mounted) Navigator.pop(context); // Close loading
+
+      if (result.status == Status.COMPLETED) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Trade marked as complete! Waiting for confirmation.'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) Navigator.pop(context); // Close loading
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildProductInfoHeader(Size size) {

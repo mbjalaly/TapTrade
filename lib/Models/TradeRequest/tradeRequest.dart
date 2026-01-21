@@ -30,26 +30,39 @@ class TradeRequestResponseModel {
 class TradeRequestData {
   int? id;
   String? requester;
+  String? receiver;
   TradeRequestUserProduct? userProduct;
   TradeRequestUserProduct? otherProduct;
   String? status;
   String? paymentStatus;
   String? createdAt;
   String? type;
+  // Bilateral confirmation fields
+  bool? completedByRequester;
+  bool? completedByReceiver;
+  String? requesterCompletedAt;
+  String? receiverCompletedAt;
 
-  TradeRequestData(
-      {this.id,
-        this.requester,
-        this.userProduct,
-        this.otherProduct,
-        this.status,
-        this.createdAt,
-        this.paymentStatus,
-        this.type});
+  TradeRequestData({
+    this.id,
+    this.requester,
+    this.receiver,
+    this.userProduct,
+    this.otherProduct,
+    this.status,
+    this.createdAt,
+    this.paymentStatus,
+    this.type,
+    this.completedByRequester,
+    this.completedByReceiver,
+    this.requesterCompletedAt,
+    this.receiverCompletedAt,
+  });
 
   TradeRequestData.fromJson(Map<String, dynamic> json) {
     id = json['id'] ?? -1;
     requester = json['requester'] ?? '';
+    receiver = json['receiver'] ?? '';
     userProduct = json['user_product'] != null
         ? TradeRequestUserProduct.fromJson(json['user_product'])
         : null;
@@ -60,12 +73,17 @@ class TradeRequestData {
     paymentStatus = json['payment_status'] ?? '';
     createdAt = json['created_at'] ?? '';
     type = json['type'] ?? '';
+    completedByRequester = json['completed_by_requester'] ?? false;
+    completedByReceiver = json['completed_by_receiver'] ?? false;
+    requesterCompletedAt = json['requester_completed_at'];
+    receiverCompletedAt = json['receiver_completed_at'];
   }
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = <String, dynamic>{};
     data['id'] = id ?? -1;
     data['requester'] = requester ?? '';
+    data['receiver'] = receiver ?? '';
     if (userProduct != null) {
       data['user_product'] = userProduct!.toJson();
     }
@@ -76,8 +94,17 @@ class TradeRequestData {
     data['status'] = status ?? '';
     data['created_at'] = createdAt ?? '';
     data['type'] = type ?? '';
+    data['completed_by_requester'] = completedByRequester ?? false;
+    data['completed_by_receiver'] = completedByReceiver ?? false;
+    data['requester_completed_at'] = requesterCompletedAt;
+    data['receiver_completed_at'] = receiverCompletedAt;
     return data;
   }
+
+  // Helper methods for bilateral confirmation
+  bool get isCompleted => status == 'completed';
+  bool get isPendingConfirmation => status == 'pending_confirmation';
+  bool get canMarkComplete => status == 'accepted' || status == 'in_progress';
 }
 
 class TradeRequestUserProduct {

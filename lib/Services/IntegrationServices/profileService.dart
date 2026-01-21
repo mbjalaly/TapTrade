@@ -62,7 +62,11 @@ class ProfileService {
       String id,
       )
   async {
-    try{
+    try {
+      printLog("🚀 ProfileService.updateProfile CALLED");
+      printLog("URL: ${ApiEndPoint.updateProfile}");
+      printLog("BODY: $body");
+      
       // Backend uses JWT token to identify user, no need to pass user ID in URL
       final result = await ApiService.postRequestWithFile(
         ApiEndPoint.updateProfile, 
@@ -70,6 +74,7 @@ class ProfileService {
         context,
         sendToken: true,  // Send auth token with request
       );
+      printLog("✅ ProfileService.updateProfile SUCCESS: $result");
       return ApiResponse.completed(result);
     }catch (e) {
       printLog("ApiException: ${e}");

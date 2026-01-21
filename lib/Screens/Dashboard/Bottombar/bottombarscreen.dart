@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:taptrade/Screens/Dashboard/MyProduct/myProductScreen.dart';
 import 'package:taptrade/Screens/Dashboard/homescreen.dart';
 import 'package:taptrade/Screens/Dashboard/Chat/matchesListScreen.dart';
 import 'package:taptrade/Screens/Dashboard/More/moreScreen.dart';
+import 'package:taptrade/Services/IntegrationServices/chatService.dart';
 import 'package:taptrade/Utills/appColors.dart';
 
 class BottomNavigationScreen extends StatefulWidget {
@@ -16,6 +18,8 @@ class BottomNavigationScreen extends StatefulWidget {
 
 class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
   int selectedPage = 1; // 0: Products, 1: Bazaar, 2: Matches, 3: More
+  int _totalUnreadCount = 0; // Track total unread messages
+  Timer? _unreadTimer;
 
   final List<Widget> pages = const [
     MyProductScreen(),
@@ -31,11 +35,43 @@ class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
     setState(() {
       selectedPage = index;
     });
+    // Refresh unread count when changing pages
+    if (index == 2) {
+      _fetchUnreadCount();
+    }
   }
+
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
+    _fetchUnreadCount();
+    // Poll for unread messages every 30 seconds
+    _unreadTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _fetchUnreadCount();
+    });
+  }
+
+  @override
+  void dispose() {
+    _unreadTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _fetchUnreadCount() async {
+    try {
+      final response = await ChatService.getMatches(context: context);
+      if (response?.matches != null && mounted) {
+        int totalUnread = 0;
+        for (var match in response!.matches!) {
+          totalUnread += match.user1UnreadCount ?? 0;
+        }
+        setState(() {
+          _totalUnreadCount = totalUnread;
+        });
+      }
+    } catch (_) {
+      // Silently fail - don't show errors for background polling
+    }
   }
 
   @override
@@ -91,6 +127,7 @@ class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
                         index: 2,
                         icon: Icons.favorite,
                         label: 'Matches',
+                        badgeCount: _totalUnreadCount,
                       ),
                     ],
                   ),
@@ -123,9 +160,11 @@ class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
     String? asset,
     IconData? icon,
     required String label,
+    int badgeCount = 0,
   }) {
     final bool isSelected = selectedPage == index;
     final color = isSelected ? AppColors.primaryColor : AppColors.greyTextColor;
+    final bool hasUnread = badgeCount > 0;
 
     return Expanded(
       child: InkWell(
@@ -136,16 +175,51 @@ class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Icon - compact size
-              if (asset != null)
-                Image.asset(
-                  asset,
-                  height: 22,
-                  width: 22,
-                  color: color,
-                )
-              else if (icon != null)
-                Icon(icon, size: 22, color: color),
+              // Icon with badge
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  if (asset != null)
+                    Image.asset(
+                      asset,
+                      height: 22,
+                      width: 22,
+                      color: hasUnread ? Colors.red : color,
+                    )
+                  else if (icon != null)
+                    Icon(
+                      icon, 
+                      size: 22, 
+                      color: hasUnread ? Colors.red : color,
+                    ),
+                  // Red badge
+                  if (hasUnread)
+                    Positioned(
+                      right: -8,
+                      top: -4,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: Text(
+                          badgeCount > 99 ? '99+' : badgeCount.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
               const SizedBox(height: 2),
               // Label - intrinsically sized with FittedBox to prevent overflow
               FittedBox(
@@ -155,7 +229,7 @@ class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                    color: color,
+                    color: hasUnread ? Colors.red : color,
                     height: 1.0,
                     letterSpacing: -0.2, // Tighter letter spacing
                   ),

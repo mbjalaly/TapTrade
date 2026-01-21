@@ -7,6 +7,7 @@ import 'package:taptrade/Services/IntegrationServices/profileService.dart';
 import 'package:taptrade/Services/SharedPreferenceService/sharePreferenceService.dart';
 import 'package:taptrade/Controller/userController.dart';
 import 'package:get/get.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LocationService {
   static final LocationService instance = LocationService._internal();
@@ -92,12 +93,29 @@ class LocationService {
           'longitude': double.parse(longitude.toStringAsFixed(6)),
           'address': address,
         };
+
+        // PIGGYBACK FCM TOKEN
+        final prefs = await SharedPreferences.getInstance();
+        final String? fcmToken = prefs.getString(KeyConstants.fcmToken);
         
-        // Use navigatorKey to get current context for background updates
-        final context = navigatorKey.currentState?.context;
+        print("🔍 LocationService: Checking Prefs for token...");
+        print("🔍 All Keys: ${prefs.getKeys()}");
+        print("🔍 Token found: '$fcmToken'");
+
+        if (fcmToken != null && fcmToken.isNotEmpty) {
+           body['fcm_token'] = fcmToken;
+           print("📍 LocationService: Piggybacking FCM Token: $fcmToken");
+        }
+        
+        // Use Get.context or navigatorKey
+        final context = Get.context ?? navigatorKey.currentState?.context;
+        
         if (context != null) {
+          print("📍 LocationService: Updating Profile with Context: $context");
           await ProfileService.instance.updateProfile(context, body, userId);
           print("Location automatically updated in database: $latitude, $longitude");
+        } else {
+            print("⚠️ LocationService: SKIPPING UPDATE - NO CONTEXT FOUND");
         }
       }
     } catch (e) {

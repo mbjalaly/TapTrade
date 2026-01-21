@@ -50,9 +50,15 @@ class _MatchesListScreenState extends State<MatchesListScreen> {
           );
           print('📁 Grouped into ${_productGroups.length} product groups');
 
-          // Debug: Show what products were found
+          // Auto-expand groups with unread messages so users can see which chats need attention
           for (var group in _productGroups) {
-            print('   • ${group.productTitle}: ${group.matchCount} matches');
+            final totalUnread = group.getTotalUnread(_currentUserId ?? '');
+            if (totalUnread > 0) {
+              group.isExpanded = true;
+              print('   ⚡ Auto-expanded ${group.productTitle} (${totalUnread} unread)');
+            } else {
+              print('   • ${group.productTitle}: ${group.matchCount} matches');
+            }
           }
         }
       });
@@ -249,7 +255,7 @@ class _MatchesListScreenState extends State<MatchesListScreen> {
                 margin: EdgeInsets.only(right: 8),
                 padding: EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: AppColors.primaryColor,
+                  color: Colors.red,
                   shape: BoxShape.circle,
                 ),
                 child: Text(
@@ -362,7 +368,9 @@ class _MatchesListScreenState extends State<MatchesListScreen> {
 
                   // Last message preview
                   Text(
-                    match.lastMessage ?? 'Start chatting!',
+                    match.lastMessage?.isNotEmpty == true 
+                        ? match.lastMessage! 
+                        : 'No messages yet',
                     style: TextStyle(
                       fontSize: size.width * 0.03,
                       color: hasUnread
@@ -388,7 +396,7 @@ class _MatchesListScreenState extends State<MatchesListScreen> {
                   vertical: 2,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.primaryColor,
+                  color: Colors.red,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(

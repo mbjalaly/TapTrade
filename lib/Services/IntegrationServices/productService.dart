@@ -386,7 +386,11 @@ class ProductService {
       )
   async {
     try{
-      final result = await ApiService.getRequestData(ApiEndPoint.tradeRequestProduct+'$id/', context);
+      final result = await ApiService.getRequestData(
+        ApiEndPoint.tradeRequestProduct+'$id/', 
+        context, 
+        useToken: true,
+      );
       TradeRequestResponseModel responseModel = TradeRequestResponseModel.fromJson(result);
       productController.setTradeRequestProduct = responseModel;
       return ApiResponse.completed(result);
@@ -606,6 +610,114 @@ class ProductService {
         ShowMessage.inDialog(context,errorMessage.capitalizeFirst.toString(), true);
 
         return ApiResponse.error(errorMessage);
+      } else {
+        return ApiResponse.error(e.toString());
+      }
+    }
+  }
+
+  /// Mark a trade as complete (first user marks their side as done)
+  Future<ApiResponse<dynamic>> markTradeComplete(
+      BuildContext context,
+      int tradeRequestId,
+      ) async {
+    try {
+      print("=== MARKING TRADE COMPLETE ===");
+      print("Trade Request ID: $tradeRequestId");
+      
+      final result = await ApiService.postRequestData(
+        ApiEndPoint.markTradeComplete(tradeRequestId),
+        {},
+        context,
+        sendToken: true,
+      );
+      
+      print("Mark complete result: $result");
+      return ApiResponse.completed(result);
+    } catch (e) {
+      printLog("ApiException in markTradeComplete: $e");
+      if (e is ApiException) {
+        try {
+          Map<String, dynamic> errorJson = json.decode(e.message);
+          String errorMessage = errorJson['message'] ?? errorJson['error'] ?? 'Failed to mark trade complete';
+          ShowMessage.inDialog(context, errorMessage, true);
+          return ApiResponse.error(errorMessage);
+        } catch (_) {
+          ShowMessage.inDialog(context, e.message, true);
+          return ApiResponse.error(e.message);
+        }
+      } else {
+        return ApiResponse.error(e.toString());
+      }
+    }
+  }
+
+  /// Confirm a trade as complete (second user confirms the trade is done)
+  Future<ApiResponse<dynamic>> confirmTradeComplete(
+      BuildContext context,
+      int tradeRequestId,
+      ) async {
+    try {
+      print("=== CONFIRMING TRADE COMPLETE ===");
+      print("Trade Request ID: $tradeRequestId");
+      
+      final result = await ApiService.postRequestData(
+        ApiEndPoint.confirmTradeComplete(tradeRequestId),
+        {},
+        context,
+        sendToken: true,
+      );
+      
+      print("Confirm complete result: $result");
+      return ApiResponse.completed(result);
+    } catch (e) {
+      printLog("ApiException in confirmTradeComplete: $e");
+      if (e is ApiException) {
+        try {
+          Map<String, dynamic> errorJson = json.decode(e.message);
+          String errorMessage = errorJson['message'] ?? errorJson['error'] ?? 'Failed to confirm trade';
+          ShowMessage.inDialog(context, errorMessage, true);
+          return ApiResponse.error(errorMessage);
+        } catch (_) {
+          ShowMessage.inDialog(context, e.message, true);
+          return ApiResponse.error(e.message);
+        }
+      } else {
+        return ApiResponse.error(e.toString());
+      }
+    }
+  }
+
+  /// Cancel a trade request
+  Future<ApiResponse<dynamic>> cancelTrade(
+      BuildContext context,
+      int tradeRequestId,
+      ) async {
+    try {
+      print("=== CANCELLING TRADE ===");
+      print("Trade Request ID: $tradeRequestId");
+      
+      final result = await ApiService.postRequestData(
+        ApiEndPoint.cancelTrade(tradeRequestId),
+        {},
+        context,
+        sendToken: true,
+      );
+      
+      print("Cancel trade result: $result");
+      return ApiResponse.completed(result);
+    } catch (e) {
+      printLog("ApiException in cancelTrade: $e");
+      if (e is ApiException) {
+        try {
+          Map<String, dynamic> errorJson = json.decode(e.message);
+          String errorMessage = errorJson['message'] ?? errorJson['error'] ?? 'Failed to cancel trade';
+          ShowMessage.inDialog(context, errorMessage, true);
+          return ApiResponse.error(errorMessage);
+        } catch (_) {
+          ShowMessage.inDialog(context, e.message, true);
+          return ApiResponse.error(e.message);
+        }
       } else {
         return ApiResponse.error(e.toString());
       }
