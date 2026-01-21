@@ -64,6 +64,14 @@ yarn.lock
 .env.production
 .env.staging
 .env.*.local
+
+# Firebase credentials (NEVER commit these!)
+**/firebase-service-account.json
+firebase-adminsdk-*.json
+
+# SQL schema files
+*.sql
+!**/migrations/*.sql
 # Temporarily excluded
 /web/
 
