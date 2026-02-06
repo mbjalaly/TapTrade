@@ -1,3 +1,4 @@
+// @ts-ignore - node-cron doesn't have type declarations
 import cron from 'node-cron';
 import supabase from './supabaseClient';
 
