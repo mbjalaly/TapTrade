@@ -651,17 +651,5 @@
   "statusLabel": "الحالة",
   "notSpecified": "غير محدد",
   "unitSingular": "وحدة",
-  "unitPlural": "وحدات",
-  "tagline": "المطلوب لما لا تحتاجه",
-  "signIn": "تسجيل الدخول",
-  "orDivider": "أو",
-  "byContinuingYouAgree": "بالمتابعة، أنت توافق على ",
-  "terms": "الشروط",
-  "andWord": " و ",
-  "enableLocation": "تفعيل الموقع",
-  "locationRequiredDescription": "يحتاج تاب تريد إلى موقعك للعثور على المتداولين القريبين وعرض المنتجات في منطقتك.",
-
-  "activateProduct": "تفعيل",
-  "productInactive": "غير نشط",
-  "productActivatedSuccess": "تم تفعيل المنتج!"
+  "unitPlural": "وحدات"
 }

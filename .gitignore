@@ -18,10 +18,8 @@ migrate_working_dir/
 *.iws
 .idea/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
+# VS Code
+.vscode/
 
 # Flutter/Dart/Pub related
 **/doc/api/
@@ -60,20 +58,37 @@ yarn.lock
 
 # Environment files (NEVER commit these!)
 .env
-.env.local
-.env.production
-.env.staging
-.env.*.local
+.env.*
+!.env.example
 
 # Firebase credentials (NEVER commit these!)
 **/firebase-service-account.json
 firebase-adminsdk-*.json
 
+# Platform Firebase config (contains API keys)
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+
+# Keystore / signing (NEVER commit these!)
+*.jks
+*.keystore
+*.p12
+*.pem
+key.properties
+
 # SQL schema files
 *.sql
 !**/migrations/*.sql
+
 # Temporarily excluded
 /web/
+
+# Backend build output
+backend/dist/
+
+# Archived / dead code
+lib/dummy.dart
+**/_archived_*
 
 # AI and Temporary Documentation
 CLAUDE.md
@@ -90,8 +105,7 @@ README_ENV_SETUP.md
 SETUP_COMPLETE.txt
 SPEACH.md
 SUPABASE_STORAGE_SETUP.md
+MATCH_CHAT_SCHEMA.sql
 task.md
 implementation_plan.md
 walkthrough.md
-backend/dist/
-MATCH_CHAT_SCHEMA.sql

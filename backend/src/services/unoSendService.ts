@@ -28,10 +28,9 @@ export interface VerifyOtpResponse {
 /**
  * Send OTP via UnoSend SMS API
  * @param phone - Phone number in E.164 format (e.g., +14155551234)
- * @param template - Optional custom SMS template (default: verification code message)
  * @returns SendOtpResponse
  */
-export async function sendOtp(phone: string, template?: string): Promise<SendOtpResponse> {
+export async function sendOtp(phone: string): Promise<SendOtpResponse> {
   try {
     // Validate API key
     if (!UNOSEND_API_KEY) {
@@ -59,8 +58,8 @@ export async function sendOtp(phone: string, template?: string): Promise<SendOtp
       `${UNOSEND_BASE_URL}/v1/sms/verify/send`,
       {
         phone: phone,  // UnoSend API uses 'phone' not 'phone_number'
-        template: template || 'Tap Trade verification code is: {code}',  // Custom SMS template or default
-        expiry_minutes: 10  // Code expires in 10 minutes
+        template: 'Tap Trade verification code is: {code}',  // Custom SMS template
+        expiry_minutes: 3  // Code expires in 10 minutes
       },
       {
         headers: {
