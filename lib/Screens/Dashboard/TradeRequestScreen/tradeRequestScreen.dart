@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:taptrade/Const/globleKey.dart';
+import 'package:taptrade/l10n/app_localizations.dart';
 import 'package:taptrade/Controller/productController.dart';
 import 'package:taptrade/Controller/userController.dart';
 import 'package:taptrade/Models/TradeRequest/tradeRequest.dart';
@@ -65,7 +66,7 @@ class _TradeRequestScreenState extends State<TradeRequestScreen> {
     Size size = MediaQuery.of(context).size;
     final tradeList = (productController.tradeRequestProduct.value.data ?? []).where((e) => e.status == 'pending').toList();
     return Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.backgroundColor(context),
         body: Container(
           height: size.height,
           width: size.width,
@@ -80,7 +81,7 @@ class _TradeRequestScreenState extends State<TradeRequestScreen> {
             ),
           ),
           child: SafeArea(
-            child: isLoading ? const Center(child: CircularProgressIndicator(color: AppColors.primaryTextColor,),): SingleChildScrollView(
+            child: isLoading ? Center(child: CircularProgressIndicator(color: AppColors.primaryText(context),),): SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -89,7 +90,7 @@ class _TradeRequestScreenState extends State<TradeRequestScreen> {
                   ),
                   Center(
                     child: AppText(
-                      text: "Match Deals",
+                      text: AppLocalizations.of(context)?.matchDeals ?? "Match Deals",
                       fontSize: size.width * 0.078,
                       textcolor: AppColors.darkBlue,
                       fontWeight: FontWeight.w700,
@@ -231,9 +232,9 @@ class _TradeRequestScreenState extends State<TradeRequestScreen> {
                                     child: Text(
                                       "${(userProduct.title ?? '').capitalize}",
                                       maxLines: 2,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         overflow: TextOverflow.ellipsis,
-                                        color: Colors.black,
+                                        color: AppColors.textOnBg(context),
                                         fontSize: 11,
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -245,9 +246,9 @@ class _TradeRequestScreenState extends State<TradeRequestScreen> {
                                     child: Text(
                                       "${(otherProduct.title ?? '').capitalize}",
                                       maxLines: 2,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         overflow: TextOverflow.ellipsis,
-                                        color: Colors.black,
+                                        color: AppColors.textOnBg(context),
                                         fontSize: 11,
                                         fontWeight: FontWeight.bold,
                                       ),

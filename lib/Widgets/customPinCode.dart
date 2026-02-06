@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:pin_code_text_field/pin_code_text_field.dart';
+import 'package:taptrade/Utills/appColors.dart';
 
 
 class CustomPinCodeInput extends StatelessWidget {
@@ -27,7 +28,7 @@ class CustomPinCodeInput extends StatelessWidget {
               autofocus: true,
               pinTextStyle: TextStyle(
                   fontSize: appSize.width * 0.05,
-                  color: Colors.black,fontWeight: FontWeight.w700),
+                  color: AppColors.textOnBg(context),fontWeight: FontWeight.w700),
               pinBoxBorderWidth: 1.2,
               pinBoxRadius: 4,
               highlight: true,
@@ -36,11 +37,11 @@ class CustomPinCodeInput extends StatelessWidget {
               maxLength: 6,
               // focusNode: _focusNode,
               pinBoxWidth: appSize.width * 0.11,
-              highlightColor: Colors.black,
+              highlightColor: AppColors.textOnBg(context),
               // pinBoxColor: Colors.grey,
-              defaultBorderColor: Colors.black,
+              defaultBorderColor: AppColors.textOnBg(context),
               pinBoxHeight: appSize.height / 15,
-              hasTextBorderColor: Colors.black,
+              hasTextBorderColor: AppColors.textOnBg(context),
               onDone: onDone,
               onTextChanged: onTextChanged),
         ),

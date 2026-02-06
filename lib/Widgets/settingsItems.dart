@@ -28,14 +28,14 @@ class SettingsItem extends StatelessWidget {
         : Theme.of(context).colorScheme.onSurface;
     final Color iconColor = isDestructive
         ? Colors.red
-        : AppColors.primaryTextColor;
+        : AppColors.primaryText(context);
 
     return ListTile(
       onTap: onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
       leading: CircleAvatar(
         radius: 18,
-        backgroundColor: AppColors.surfaceVariant,
+        backgroundColor: AppColors.surfaceVariantColor(context),
         child: Icon(icon, color: iconColor, size: 20),
       ),
       title: Text(
@@ -51,7 +51,7 @@ class SettingsItem extends StatelessWidget {
               subtitle!,
               style: TextStyle(
                 fontSize: 13,
-                color: AppColors.greyTextColor,
+                color: AppColors.greyText(context),
               ),
             )
           : null,
@@ -94,8 +94,8 @@ class SwitchSettingsItem extends StatelessWidget {
         contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
         leading: CircleAvatar(
           radius: 18,
-          backgroundColor: AppColors.surfaceVariant,
-          child: Icon(icon, color: AppColors.primaryTextColor, size: 20),
+          backgroundColor: AppColors.surfaceVariantColor(context),
+          child: Icon(icon, color: AppColors.primaryText(context), size: 20),
         ),
         title: Row(
           children: [
@@ -120,7 +120,7 @@ class SwitchSettingsItem extends StatelessWidget {
                 subtitle!,
                 style: TextStyle(
                   fontSize: 13,
-                  color: AppColors.greyTextColor,
+                  color: AppColors.greyText(context),
                 ),
               )
             : null,
@@ -187,7 +187,7 @@ class SettingsSectionHeader extends StatelessWidget {
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w700,
-          color: AppColors.greyTextColor,
+          color: AppColors.greyText(context),
           letterSpacing: 0.5,
         ),
       ),

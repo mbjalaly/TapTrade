@@ -1,15 +1,11 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:taptrade/Controller/userController.dart';
+import 'package:taptrade/l10n/app_localizations.dart';
 import 'package:taptrade/Models/UserProfile/userProfile.dart';
 import 'package:taptrade/Services/ApiResponse/apiResponse.dart';
-import 'package:taptrade/Services/IntegrationServices/generalService.dart';
 import 'package:taptrade/Services/IntegrationServices/profileService.dart';
 import 'package:taptrade/Services/LocationService/locationService.dart';
 import 'package:taptrade/Utills/appColors.dart';
@@ -17,8 +13,6 @@ import 'package:taptrade/Utills/deviceResolutionType.dart';
 import 'package:taptrade/Utills/showMessages.dart';
 import 'package:taptrade/Widgets/customButtom.dart';
 import 'package:taptrade/Widgets/customText.dart';
-import 'package:taptrade/Screens/Dashboard/ProfileSetting/LocationPicker/location_picker_screen.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class TradePreferences extends StatefulWidget {
   TradePreferences({Key? key, required this.profileData}) : super(key: key);
@@ -28,312 +22,82 @@ class TradePreferences extends StatefulWidget {
 }
 
 class _TradePreferencesState extends State<TradePreferences> {
-  List<String> selectedInterest = [];
   var userController = Get.find<UserController>();
-  List<String> interest = [];
   bool isLoading = false;
   double radius = 0.0;
-  String? selectedCategory;
-  String? selectedCondition;
-  TextEditingController interestController = TextEditingController();
+
+  // NEW PREFERENCE STATE VARIABLE
+  String meetingPreference = 'public_place';
+
+  // LOCATION STATE VARIABLES
   GoogleMapController? _googleMapController;
   LatLng? _currentPosition;
 
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
-    radius = double.parse(
-        (userController.getPreference.value.tradeRadius ?? 0.0).toString());
-    // print("-=-=-=-=-=-=-= ${selectedInterest}");
-    // print("-=-=-=-=-=-=-= ${userController.getPreference.value.interests
-    //     ?.map((e) => e.interestName) // Assuming e.name can be null
-    //     .whereType<String>() // Filter out null values
-    //     .toList() ??
-    //     []}");
-    selectedInterest = userController.getPreference.value.interests
-            ?.map((e) => e.interestName) // Assuming e.name can be null
-            .whereType<String>() // Filter out null values
-            .toList() ??
-        [];
-    // print("-=-=-=-=-=-=-= ${selectedInterest}");
-    if (selectedInterest.isNotEmpty) {
-      interestController.text = selectedInterest.join(', ');
-    }
-    interest = GeneralService.instance.allInterest.value.data
-            ?.map((e) => e.name)
-            .whereType<String>()
-            .toList() ??
-        [];
-    
-    // Try to use existing location from user profile first
-    _initializeLocation();
-    
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await LocationService.instance.checkPermission((){
-        _getCurrentLocation();
-      });
-    });
-  }
-  
-  void _initializeLocation() {
-    // Try to get location from user profile first
-    final userProfile = userController.userProfile.value.data;
-    if (userProfile?.latitude != null && userProfile?.longitude != null) {
-      _currentPosition = LatLng(
-        double.parse(userProfile!.latitude.toString()),
-        double.parse(userProfile.longitude.toString()),
-      );
-      setState(() {});
-    } else {
-      // If no profile location, get current location
-      _getCurrentLocation();
-    }
+    radius = double.tryParse(
+        (userController.getPreference.value.tradeRadius ?? '0').toString()) ?? 0.0;
+
+    // LOAD NEW PREFERENCE FIELD
+    meetingPreference = userController.getPreference.value.meetingPreference ?? 'public_place';
+
+    // GET USER'S CURRENT LOCATION
+    _getCurrentLocation();
   }
 
   Future<void> _getCurrentLocation() async {
     try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        print('Location services are disabled.');
-        _setDefaultLocation();
-        return;
-      }
-
-      LocationPermission permission = await Geolocator.checkPermission();
-
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          print('Location permissions are denied');
-          _setDefaultLocation();
-          return;
-        }
-      }
-
-      if (permission == LocationPermission.deniedForever) {
-        print('Location permissions are permanently denied');
-        _setDefaultLocation();
-        return;
-      }
-      
-      Position position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high);
-      _currentPosition = LatLng(position.latitude, position.longitude);
-      
-      if (mounted) {
-        setState(() {
-          _googleMapController
-              ?.animateCamera(CameraUpdate.newLatLng(_currentPosition!));
-        });
-      }
-      
-      // Automatically update location in database when getting current location
-      await _updateLocationInDatabase(position.latitude, position.longitude);
+      Position position = await LocationService.instance.getCurrentLocation();
+      setState(() {
+        _currentPosition = LatLng(position.latitude, position.longitude);
+      });
     } catch (e) {
-      print('Error getting current location: $e');
-      _setDefaultLocation();
-    }
-  }
-  
-  void _setDefaultLocation() {
-    // Set a default location (you can change this to any default coordinates)
-    _currentPosition = const LatLng(37.7749, -122.4194); // San Francisco coordinates
-    if (mounted) {
-      setState(() {});
-    }
-  }
-  
-  Future<void> _updateLocationInDatabase(double latitude, double longitude) async {
-    try {
-      String address = await LocationService.instance
-          .getAddressFromLatLng(latitude, longitude);
-      final String userId = userController.userProfile.value.data?.id ?? '';
-      if (userId.isEmpty) return;
-      
-      final Map<String, dynamic> body = {
-        'latitude': double.parse(latitude.toStringAsFixed(6)),
-        'longitude': double.parse(longitude.toStringAsFixed(6)),
-        'address': address,
-      };
-      
-      await ProfileService.instance.updateProfile(context, body, userId);
-      print("Location updated in database: $latitude, $longitude");
-    } catch (e) {
-      print("Error updating location in database: $e");
-      // Don't show error to user as this is a background operation
+      print('Error getting location: $e');
     }
   }
 
-  // void showInterestSelectionDialog() async {
-  //   showDialog(
-  //     context: context,
-  //     builder: (context) {
-  //       return AlertDialog(
-  //         title: const Text('Select Interest'),
-  //         content: StatefulBuilder(
-  //             builder: (BuildContext context, StateSetter setState) {
-  //           return SingleChildScrollView(
-  //             child: Column(
-  //               children: interest.map((item) {
-  //                 final isSelected = selectedInterest.contains(item);
-  //                 return CheckboxListTile(
-  //                   value: isSelected,
-  //                   title: Text(item),
-  //                   onChanged: (bool? value) {
-  //                     setState(() {
-  //                       if (value == true) {
-  //                         selectedInterest.add(item);
-  //                       } else {
-  //                         selectedInterest.remove(item);
-  //                       }
-  //                     });
-  //                   },
-  //                 );
-  //               }).toList(),
-  //             ),
-  //           );
-  //         }),
-  //         actions: [
-  //           TextButton(
-  //             onPressed: () {
-  //               Navigator.pop(context); // Cancel selection
-  //             },
-  //             child: const Text('CANCEL'),
-  //           ),
-  //           TextButton(
-  //             onPressed: () {
-  //               Navigator.pop(context); // Confirm selection
-  //             },
-  //             child: const Text('OK'),
-  //           ),
-  //         ],
-  //       );
-  //     },
-  //   );
-  // }
-
-  void showInterestSelectionDialog() async {
-    showDialog(
-      context: context,
-      builder: (context) {
-        Size size = MediaQuery.of(context).size;
-        return Dialog(
-          insetPadding: EdgeInsets.zero,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: StatefulBuilder(
-              builder: (BuildContext context, StateSetter setState) {
-            return Container(
-              width: size.width * 0.9,
-              height: size.height * 0.8,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    AppColors.primaryColor.withOpacity(0.2), // #ecfcff
-                    AppColors.secondaryColor.withOpacity(0.2), // #fff5db
-                  ],
-                ),
-                borderRadius:
-                    BorderRadius.circular(12), // Match the dialog shape
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    height: size.height * 0.0525,
-                    width: size.width,
-                    child: Center(
-                      child: Text(
-                        'Select Interests',
-                        style: TextStyle(
-                          fontSize: size.width * 0.06,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors
-                              .primaryTextColor, // Contrast text with the gradient
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(
-                    width: size.width,
-                    height: size.height * 0.65,
-                    child: SingleChildScrollView(
-                      child: Column(
-                        children: interest.map((item) {
-                          final isSelected = selectedInterest.contains(item);
-                          return CheckboxListTile(
-                            value: isSelected,
-                            title: Text(
-                              "${item.capitalize}",
-                              style: TextStyle(
-                                  color: AppColors.primaryTextColor,
-                                  fontSize: size.width * 0.04,
-                                  fontWeight: FontWeight.w600), // White text
-                            ),
-                            activeColor: AppColors.secondaryColor,
-                            checkColor: AppColors
-                                .primaryTextColor, // Contrast for the checkbox
-                            onChanged: (bool? value) {
-                              setState(() {
-                                if (value == true) {
-                                  selectedInterest.add(item);
-                                } else {
-                                  selectedInterest.remove(item);
-                                }
-                                interestController.text =
-                                    selectedInterest.join(', ');
-                              });
-                            },
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.pop(context);
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 10),
-                      width: size.width * 0.5,
-                      height: size.height * 0.05,
-                      decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12.0),
-                          color: AppColors.primaryTextColor),
-                      child: const Center(
-                        child: Text(
-                          'Done',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
-        );
-      },
-    );
+  // Calculate appropriate zoom level based on radius in KM
+  double _getZoomLevel(double radiusKm) {
+    if (radiusKm <= 0) return 14;
+    if (radiusKm <= 1) return 14;
+    if (radiusKm <= 5) return 12;
+    if (radiusKm <= 10) return 11;
+    if (radiusKm <= 25) return 10;
+    if (radiusKm <= 50) return 9;
+    if (radiusKm <= 100) return 8;
+    if (radiusKm <= 200) return 7;
+    if (radiusKm <= 300) return 6;
+    if (radiusKm <= 500) return 5;
+    return 4;
   }
+
+  void _updateMapCamera() {
+    if (_googleMapController != null && _currentPosition != null) {
+      _googleMapController!.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(
+            target: _currentPosition!,
+            zoom: _getZoomLevel(radius),
+          ),
+        ),
+      );
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
     bool isTab = DeviceTypeHelper.isTablet(context);
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.backgroundColor(context),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.backgroundColor(context),
         automaticallyImplyLeading: true,
         centerTitle: false,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.primaryTextColor),
+          icon: Icon(Icons.arrow_back, color: AppColors.primaryText(context)),
           onPressed: () => Navigator.pop(context),
         ),
         title: Image.asset(
@@ -350,7 +114,7 @@ class _TradePreferencesState extends State<TradePreferences> {
           children: [
             Center(
               child: AppText(
-                text: "Trade Preferences",
+                text: AppLocalizations.of(context)?.tradePreferencesTitle ?? "Trade Preferences",
                 fontSize: size.width * 0.078,
                 textcolor: AppColors.darkBlue,
                 fontWeight: FontWeight.w700,
@@ -370,7 +134,7 @@ class _TradePreferencesState extends State<TradePreferences> {
                   child: Material(
                     elevation: 4.5,
                     borderRadius: BorderRadius.circular(60),
-                    color: Colors.white,
+                    color: AppColors.contentBg(context),
                     child: Container(
                       width: size.width * 0.9,
                       height: size.height * 0.75,
@@ -388,61 +152,85 @@ class _TradePreferencesState extends State<TradePreferences> {
                           ],
                         ),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: [
-                          const Text(
-                            "Select Interests:",
+                      child: SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                          // YOUR LOCATION LABEL
+                          Text(
+                            AppLocalizations.of(context)?.yourLocationLabel ?? "Your Location:",
                             style: TextStyle(
-                                color: AppColors.primaryTextColor,
+                                color: AppColors.primaryText(context),
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold),
                           ),
-                          const SizedBox(
-                            height: 20,
+                          const SizedBox(height: 8),
+                          Text(
+                            AppLocalizations.of(context)?.locationAutomatic ?? "This is your automatic location (cannot be changed)",
+                            style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 12),
                           ),
-                          SizedBox(
-                            width: size.width,
-                            height: isTab ? size.height * 0.08: size.height * 0.07,
-                            child: TextFormField(
-                              onTap: () {
-                                showInterestSelectionDialog();
-                              },
-                              readOnly: true,
-                              controller: interestController,
-                              decoration: InputDecoration(
-                                  labelText: 'Select Category',
-                                  labelStyle:
-                                      const TextStyle(color: Colors.grey),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderSide: const BorderSide(
-                                        color: Colors.grey, width: 1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderSide: const BorderSide(
-                                        color: Colors.grey, width: 1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  suffixIcon: const Icon(
-                                      Icons.arrow_drop_down_outlined)),
+                          const SizedBox(height: 12),
+                          // MAP SHOWING USER'S LOCATION (NON-EDITABLE)
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: SizedBox(
+                              width: size.width,
+                              height: size.height * 0.25,
+                              child: _currentPosition == null
+                                  ? const Center(
+                                      child: CircularProgressIndicator(),
+                                    )
+                                  : GoogleMap(
+                                      initialCameraPosition: CameraPosition(
+                                        target: _currentPosition!,
+                                        zoom: _getZoomLevel(radius),
+                                      ),
+                                      onMapCreated: (controller) {
+                                        _googleMapController = controller;
+                                      },
+                                      markers: {
+                                        Marker(
+                                          markerId: const MarkerId('userLocation'),
+                                          position: _currentPosition!,
+                                          infoWindow: const InfoWindow(title: 'Your Location'),
+                                        ),
+                                      },
+                                      circles: {
+                                        Circle(
+                                          circleId: const CircleId('tradeRadius'),
+                                          center: _currentPosition!,
+                                          radius: radius * 1000, // Convert KM to meters
+                                          fillColor: AppColors.primaryColor.withOpacity(0.2),
+                                          strokeColor: AppColors.primaryColor,
+                                          strokeWidth: 2,
+                                        ),
+                                      },
+                                      zoomControlsEnabled: false,
+                                      scrollGesturesEnabled: false,
+                                      rotateGesturesEnabled: false,
+                                      tiltGesturesEnabled: false,
+                                      zoomGesturesEnabled: false,
+                                      myLocationButtonEnabled: false,
+                                      myLocationEnabled: false,
+                                    ),
                             ),
                           ),
-                          SizedBox(
-                            height: isTab ? 20 : 40,
-                          ),
+                          const SizedBox(height: 20),
                           Text(
-                            "Select Trade Radius: ${radius.toInt()} KM",
+                            "${AppLocalizations.of(context)?.tradeRadius ?? 'Select Trade Radius'}: ${radius.toInt()} KM",
                             style: TextStyle(
-                                color: AppColors.primaryTextColor,
+                                color: AppColors.primaryText(context),
                                 fontSize: isTab ? 16 : 20,
                                 fontWeight: FontWeight.bold),
                           ),
                           Slider(
                             thumbColor: AppColors.secondaryColor,
                             value: radius,
-                            activeColor: AppColors.primaryTextColor,
+                            activeColor: AppColors.primaryText(context),
                             inactiveColor: AppColors.primaryColor,
                             min: 0,
                             max: 500,
@@ -451,6 +239,7 @@ class _TradePreferencesState extends State<TradePreferences> {
                               setState(() {
                                 radius = newValue;
                               });
+                              _updateMapCamera();
                             },
                             label:
                                 '${radius.toInt()}', // Optional: Show current value
@@ -458,99 +247,52 @@ class _TradePreferencesState extends State<TradePreferences> {
                           const SizedBox(
                             height: 10,
                           ),
-                          Center(
-                            child: _currentPosition == null
-                                ? Column(
-                                    children: [
-                                      const CircularProgressIndicator(
-                                        color: AppColors.primaryColor,
-                                      ),
-                                      const SizedBox(height: 10),
-                                      Text(
-                                        'Loading location...',
-                                        style: TextStyle(
-                                          color: AppColors.primaryTextColor,
-                                          fontSize: 16,
-                                        ),
-                                      ),
-                                    ],
-                                  )
-                                : SizedBox(
-                                    height: size.height / 3,
-                                    width: size.height / 3,
-                                    child: GoogleMap(
-                                      scrollGesturesEnabled:
-                                          true, // Enable map dragging with one finger
-                                      zoomGesturesEnabled:
-                                          true, // Enable pinch-to-zoom with two fingers
-                                      rotateGesturesEnabled:
-                                          true, // Enable rotation (optional)
-                                      tiltGesturesEnabled:
-                                          true, // Enable tilting gestures (optional)
-                                      initialCameraPosition: CameraPosition(
-                                        target: _currentPosition!,
-                                        zoom: 8.0, // Set the initial zoom level
-                                      ),
-                                      minMaxZoomPreference: MinMaxZoomPreference(
-                                          2.0,
-                                          18.0), // Custom zoom limits (min: 2, max: 18)
-                                      markers: _currentPosition != null
-                                          ? {
-                                              Marker(
-                                                markerId:
-                                                    MarkerId('currentLocation'),
-                                                position: _currentPosition!,
-                                              ),
-                                            }
-                                          : {},
-                                      circles: _currentPosition != null
-                                          ? {
-                                              Circle(
-                                                circleId: const CircleId(
-                                                    'radiusCircle'),
-                                                center: _currentPosition!,
-                                                radius: radius *
-                                                    1000.0, // Radius in meters
-                                                strokeColor: AppColors
-                                                    .secondaryColor, // Circle border color
-                                                strokeWidth:
-                                                    2, // Circle border width
-                                                fillColor: AppColors
-                                                    .secondaryColor
-                                                    .withOpacity(
-                                                        0.3), // Circle fill color
-                                              ),
-                                            }
-                                          : {},
-                                      onMapCreated: (controller) {
-                                        _googleMapController = controller;
-                                      },
-                                    ),
-                                  ),
-                          ),
-                          const SizedBox(height: 12),
-                          Center(
-                            child: OutlinedButton.icon(
-                              onPressed: () async {
-                                final result = await Get.to(() => LocationPickerScreen(initialPosition: _currentPosition));
-                                if (result != null && result is Map) {
-                                  final double lat = (result['lat'] as num).toDouble();
-                                  final double lng = (result['lng'] as num).toDouble();
-                                  setState(() {
-                                    _currentPosition = LatLng(lat, lng);
-                                  });
-                                  _googleMapController?.animateCamera(CameraUpdate.newLatLng(_currentPosition!));
-                                  
-                                  // Update location in database
-                                  await _updateLocationInDatabase(lat, lng);
-                                }
-                              },
-                              icon: const Icon(Icons.place_outlined),
-                              label: const Text('Change location on map'),
+
+                          // === NEW PREFERENCES UI START ===
+
+                          const SizedBox(height: 25),
+
+                          // 1. MEETING PREFERENCE DROPDOWN
+                          Text(
+                            AppLocalizations.of(context)?.meetingPreferenceLabel ?? "Meeting Preference:",
+                            style: TextStyle(
+                              color: AppColors.primaryText(context),
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold
                             ),
                           ),
+                          const SizedBox(height: 10),
+                          DropdownButtonFormField<String>(
+                            value: meetingPreference,
+                            decoration: InputDecoration(
+                              enabledBorder: OutlineInputBorder(
+                                borderSide: const BorderSide(color: Colors.grey, width: 1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderSide: BorderSide(color: AppColors.primaryColor, width: 1.4),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                            ),
+                            items: [
+                              DropdownMenuItem(value: 'public_place', child: Text(AppLocalizations.of(context)?.publicPlace ?? 'Public Place')),
+                              DropdownMenuItem(value: 'delivery', child: Text(AppLocalizations.of(context)?.deliveryPickup ?? 'Delivery/Pickup')),
+                              DropdownMenuItem(value: 'shipping', child: Text(AppLocalizations.of(context)?.willingToShip ?? 'Willing to Ship')),
+                            ],
+                            onChanged: (val) {
+                              setState(() {
+                                meetingPreference = val ?? 'public_place';
+                              });
+                            },
+                          ),
+
+                          const SizedBox(height: 20),
+
+                          // === NEW PREFERENCES UI END ===
                         ],
                       ),
+                        ),
                     ),
                   ),
                 ),
@@ -562,13 +304,7 @@ class _TradePreferencesState extends State<TradePreferences> {
                     onPressed: () async {
                       String? message;
                       if (radius == 0.0) {
-                        message = "Please select trade radius";
-                      }
-                      if (selectedInterest.length < 5) {
-                        message = "Please select at least 5 interest";
-                      }
-                      if (selectedInterest.isEmpty) {
-                        message = "Please select interest";
+                        message = AppLocalizations.of(context)?.pleaseSelectTradeRadius ?? "Please select trade radius";
                       }
 
                       if (message != null) {
@@ -576,8 +312,8 @@ class _TradePreferencesState extends State<TradePreferences> {
                         return;
                       }
                       Map<String, dynamic> body = {
-                        "interest_names": selectedInterest,
-                        "trade_radius": radius.toInt()
+                        "trade_radius": radius.toInt(),
+                        "meeting_preference": meetingPreference,
                       };
                       String id = widget.profileData.data?.id ?? '';
                       setState(() {
@@ -600,7 +336,7 @@ class _TradePreferencesState extends State<TradePreferences> {
                     },
                     isLoading: isLoading,
                     width: size.width * 0.4,
-                    text: "Done",
+                    text: AppLocalizations.of(context)?.done ?? "Done",
                     fontSize: size.width * 0.045,
                     height: size.height * 0.065,
                     buttonColor: AppColors.primaryColor,

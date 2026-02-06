@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:taptrade/l10n/app_localizations.dart';
 import 'package:taptrade/Utills/appColors.dart';
 import 'package:taptrade/Utills/showMessages.dart';
 import 'package:taptrade/Widgets/customButtom.dart';
@@ -39,11 +40,11 @@ class _ContactUsState extends State<ContactUs> {
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.backgroundColor(context),
         appBar: AppBar(
           automaticallyImplyLeading: true,
           centerTitle: false,
-          title: const Text('Contact us', style: TextStyle(fontWeight: FontWeight.w700)),
+          title: Text(AppLocalizations.of(context)?.contactUs ?? 'Contact us', style: TextStyle(fontWeight: FontWeight.w700)),
         ),
         body: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -63,22 +64,22 @@ class _ContactUsState extends State<ContactUs> {
                     child: Material(
                       elevation: 0,
                       borderRadius: BorderRadius.circular(16),
-                      color: Colors.white,
+                      color: AppColors.contentBg(context),
                       child: Container(
                         width: size.width * 0.9,
                         height: size.height * 0.73,
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(16),
-                          color: AppColors.surface,
-                          border: Border.all(color: AppColors.outline),
+                          color: AppColors.surfaceColor(context),
+                          border: Border.all(color: AppColors.outlineColor(context)),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisAlignment: MainAxisAlignment.start,
                           children: [
                             Text(
-                              "We'd love to hear from you! Please fill out the form below to ask a question or share your thoughts.",
+                              AppLocalizations.of(context)?.weLoveToHear ?? "We'd love to hear from you! Please fill out the form below to ask a question or share your thoughts.",
                               textAlign: TextAlign.left,
                               style: Theme.of(context).textTheme.bodyMedium,
                             ),
@@ -88,10 +89,10 @@ class _ContactUsState extends State<ContactUs> {
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  "Subject",
+                                Text(
+                                  AppLocalizations.of(context)?.subject ?? "Subject",
                                   style: TextStyle(
-                                      color: AppColors.primaryTextColor,
+                                      color: AppColors.primaryText(context),
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold),
                                 ),
@@ -103,16 +104,16 @@ class _ContactUsState extends State<ContactUs> {
                                   readOnly: false,
                                   focusNode: textFieldFocusNode1,
                                   decoration: InputDecoration(
-                                    hintText: 'Your query...',
+                                    hintText: AppLocalizations.of(context)?.yourQuery ?? 'Your query...',
                                     filled: true,
-                                    fillColor: AppColors.fieldColor,
+                                    fillColor: AppColors.fieldBg(context),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12.0),
-                                      borderSide: const BorderSide(color: AppColors.outline),
+                                      borderSide: BorderSide(color: AppColors.outlineColor(context)),
                                     ),
                                     enabledBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12.0),
-                                      borderSide: const BorderSide(color: AppColors.outline),
+                                      borderSide: BorderSide(color: AppColors.outlineColor(context)),
                                     ),
                                     focusedBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12.0),
@@ -129,10 +130,10 @@ class _ContactUsState extends State<ContactUs> {
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  "Message",
+                                Text(
+                                  AppLocalizations.of(context)?.message ?? "Message",
                                   style: TextStyle(
-                                      color: AppColors.primaryTextColor,
+                                      color: AppColors.primaryText(context),
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold),
                                 ),
@@ -146,16 +147,16 @@ class _ContactUsState extends State<ContactUs> {
                                   maxLines: 5,
                                   minLines: 5,
                                   decoration: InputDecoration(
-                                    hintText: 'Your message...',
+                                    hintText: AppLocalizations.of(context)?.yourMessage ?? 'Your message...',
                                     filled: true,
-                                    fillColor: AppColors.fieldColor,
+                                    fillColor: AppColors.fieldBg(context),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12.0),
-                                      borderSide: const BorderSide(color: AppColors.outline),
+                                      borderSide: BorderSide(color: AppColors.outlineColor(context)),
                                     ),
                                     enabledBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12.0),
-                                      borderSide: const BorderSide(color: AppColors.outline),
+                                      borderSide: BorderSide(color: AppColors.outlineColor(context)),
                                     ),
                                     focusedBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12.0),
@@ -192,10 +193,10 @@ class _ContactUsState extends State<ContactUs> {
                                   .join('&')));
                         } else {
                           ShowMessage.notify(
-                              context, "Please fill in all fields");
+                              context, AppLocalizations.of(context)?.pleaseFillAllFields ?? "Please fill in all fields");
                         }
                       },
-                      text: 'Send Message',
+                      text: AppLocalizations.of(context)?.sendMessageAction ?? 'Send Message',
                       width: double.infinity,
                       height: size.height * 0.065,
                       fontSize: size.width * 0.045,

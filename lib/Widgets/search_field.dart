@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:taptrade/Utills/appColors.dart';
 
 
 class TextFieldWithClearIcon extends StatefulWidget {
@@ -42,24 +43,24 @@ class _TextFieldWithClearIconState extends State<TextFieldWithClearIcon> {
       child: TextField(
         controller: _controller,
         style:  TextStyle(
-          color:Colors.black,
+          color: AppColors.textOnBg(context),
         ),
         cursorColor: Colors.grey,
         textInputAction: TextInputAction.search,
 
         decoration: InputDecoration(
-fillColor: Color(0xffEFF3F4),
+fillColor: AppColors.fieldBg(context),
           filled: true,
           border: OutlineInputBorder(
-            borderSide: BorderSide(color: Color(0xffEFF3F4), width: 1.5),
+            borderSide: BorderSide(color: AppColors.outlineColor(context), width: 1.5),
             borderRadius: BorderRadius.circular(7.0),
           ),
           enabledBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: Color(0xffEFF3F4), width: 1.5),
+            borderSide: BorderSide(color: AppColors.outlineColor(context), width: 1.5),
             borderRadius: BorderRadius.circular(7.0),
           ),
           focusedBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: Color(0xffEFF3F4), width: 1.5),
+            borderSide: BorderSide(color: AppColors.outlineColor(context), width: 1.5),
             borderRadius: BorderRadius.circular(7.0),
           ),
           hintText: widget.hintText ?? "Search",
@@ -72,14 +73,14 @@ fillColor: Color(0xffEFF3F4),
                 children: [
                   if (value)
                     IconButton(
-                      icon: Icon(Icons.clear,color: Color(0xffEFF3F4),),
+                      icon: Icon(Icons.clear,color: AppColors.greyText(context),),
                       onPressed: _clearText,
                     ),
                 ],
               );
             },
           ),
-          prefixIcon: Icon(Icons.search,color: Colors.black,size: 23,)
+          prefixIcon: Icon(Icons.search,color: AppColors.textOnBg(context),size: 23,)
 
         ),
       ),

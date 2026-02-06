@@ -87,7 +87,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
     return Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.backgroundColor(context),
         body: Container(
           height: size.height,
           width: size.width,

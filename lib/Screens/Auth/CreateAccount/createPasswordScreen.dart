@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:taptrade/l10n/app_localizations.dart';
 import 'package:taptrade/Models/SignUpRequestModel/signUpRequestModel.dart';
 import 'package:taptrade/Utills/appColors.dart';
 import 'package:taptrade/Widgets/Auth/auth_scaffold.dart';
@@ -54,7 +55,7 @@ class _PasswordScreenState extends State<PasswordScreen> {
   void _validateConfirmPassword(String value) {
     setState(() {
       if (value.isNotEmpty && value != passCon.text) {
-        confirmError = 'Passwords do not match';
+        confirmError = AppLocalizations.of(context)?.passwordsDoNotMatch ?? 'Passwords do not match';
       } else {
         confirmError = null;
       }
@@ -66,19 +67,19 @@ class _PasswordScreenState extends State<PasswordScreen> {
   void _handleContinue() {
     // Check if password meets all criteria
     if (!isPasswordValid) {
-      setState(() => passwordError = 'Please meet all password requirements');
+      setState(() => passwordError = AppLocalizations.of(context)?.pleaseMeetAllRequirements ?? 'Please meet all password requirements');
       return;
     }
 
     // Check if confirmation is empty
     if (confirmPassCon.text.isEmpty) {
-      setState(() => confirmError = 'Please confirm your password');
+      setState(() => confirmError = AppLocalizations.of(context)?.pleaseConfirmPassword ?? 'Please confirm your password');
       return;
     }
 
     // Check if passwords match
     if (passCon.text != confirmPassCon.text) {
-      setState(() => confirmError = 'Passwords do not match');
+      setState(() => confirmError = AppLocalizations.of(context)?.passwordsDoNotMatch ?? 'Passwords do not match');
       return;
     }
 
@@ -95,7 +96,7 @@ class _PasswordScreenState extends State<PasswordScreen> {
           Icon(
             isMet ? Icons.check_circle_rounded : Icons.circle_outlined,
             size: 18,
-            color: isMet ? AppColors.successColor : AppColors.darkBlue.withOpacity(0.3),
+            color: isMet ? AppColors.successColor : AppColors.hintText(context),
           ),
           const SizedBox(width: 10),
           Text(
@@ -103,7 +104,7 @@ class _PasswordScreenState extends State<PasswordScreen> {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: isMet ? AppColors.successColor : AppColors.darkBlue.withOpacity(0.5),
+              color: isMet ? AppColors.successColor : AppColors.secondaryText(context),
             ),
           ),
         ],
@@ -125,21 +126,21 @@ class _PasswordScreenState extends State<PasswordScreen> {
 
           // Title
           Text(
-            'Create a password',
+            AppLocalizations.of(context)?.createPasswordTitle ?? 'Create a password',
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w800,
-              color: AppColors.darkBlue,
+              color: AppColors.primaryText(context),
             ),
           ),
 
           const SizedBox(height: 12),
 
           Text(
-            'Make it strong and secure.',
+            AppLocalizations.of(context)?.makeItStrong ?? 'Make it strong and secure.',
             style: TextStyle(
               fontSize: 15,
-              color: AppColors.darkBlue.withOpacity(0.6),
+              color: AppColors.secondaryText(context),
               height: 1.5,
             ),
           ),
@@ -154,8 +155,8 @@ class _PasswordScreenState extends State<PasswordScreen> {
                 // Password field
                 AuthTextField(
                   controller: passCon,
-                  label: 'Password',
-                  hint: 'Enter your password',
+                  label: AppLocalizations.of(context)?.password ?? 'Password',
+                  hint: AppLocalizations.of(context)?.enterPassword ?? 'Enter your password',
                   obscureText: obscureText,
                   autofocus: true,
                   errorText: passwordError,
@@ -171,25 +172,25 @@ class _PasswordScreenState extends State<PasswordScreen> {
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: AppColors.darkBlue.withOpacity(0.03),
+                    color: AppColors.surfaceVariantColor(context),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Password must contain:',
+                        AppLocalizations.of(context)?.passwordMustContain ?? 'Password must contain:',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.darkBlue.withOpacity(0.7),
+                          color: AppColors.secondaryText(context),
                         ),
                       ),
                       const SizedBox(height: 10),
-                      _buildCriteriaItem('At least 8 characters', hasMinLength),
-                      _buildCriteriaItem('One uppercase letter (A-Z)', hasUppercase),
-                      _buildCriteriaItem('One lowercase letter (a-z)', hasLowercase),
-                      _buildCriteriaItem('One number (0-9)', hasNumber),
+                      _buildCriteriaItem(AppLocalizations.of(context)?.atLeast8Characters ?? 'At least 8 characters', hasMinLength),
+                      _buildCriteriaItem(AppLocalizations.of(context)?.oneUppercaseLetter ?? 'One uppercase letter (A-Z)', hasUppercase),
+                      _buildCriteriaItem(AppLocalizations.of(context)?.oneLowercaseLetter ?? 'One lowercase letter (a-z)', hasLowercase),
+                      _buildCriteriaItem(AppLocalizations.of(context)?.oneNumber ?? 'One number (0-9)', hasNumber),
                     ],
                   ),
                 ),
@@ -199,8 +200,8 @@ class _PasswordScreenState extends State<PasswordScreen> {
                 // Confirm password field
                 AuthTextField(
                   controller: confirmPassCon,
-                  label: 'Confirm Password',
-                  hint: 'Re-enter your password',
+                  label: AppLocalizations.of(context)?.confirmPassword ?? 'Confirm Password',
+                  hint: AppLocalizations.of(context)?.reEnterPassword ?? 'Re-enter your password',
                   obscureText: obscureConfirm,
                   errorText: confirmError,
                   onChanged: _validateConfirmPassword,
@@ -212,7 +213,7 @@ class _PasswordScreenState extends State<PasswordScreen> {
                 const SizedBox(height: 32),
 
                 AuthPrimaryButton(
-                  text: 'Continue',
+                  text: AppLocalizations.of(context)?.continue_ ?? 'Continue',
                   onPressed: _handleContinue,
                 ),
               ],

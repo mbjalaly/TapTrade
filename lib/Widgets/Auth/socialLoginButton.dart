@@ -39,7 +39,7 @@ class SocialLoginButton extends StatelessWidget {
             : Icons.login;
 
     final Color buttonColor = Colors.white;
-    final Color textColor = AppColors.primaryTextColor ?? Colors.black87;
+    final Color textColor = AppColors.primaryText(context);
     final Color iconColor = isGoogle
         ? Color(0xFF4285F4) // Google blue
         : isApple
@@ -59,7 +59,7 @@ class SocialLoginButton extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
             side: BorderSide(
-              color: AppColors.greyTextColor.withOpacity(0.2),
+              color: AppColors.greyText(context).withOpacity(0.2),
               width: 1,
             ),
           ),

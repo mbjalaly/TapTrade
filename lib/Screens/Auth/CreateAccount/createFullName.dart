@@ -75,7 +75,7 @@ class _FullNameScreenState extends State<FullNameScreen> {
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w800,
-              color: AppColors.darkBlue,
+              color: AppColors.primaryText(context),
             ),
           ),
 
@@ -85,7 +85,7 @@ class _FullNameScreenState extends State<FullNameScreen> {
             'Let others know who they\'re trading with.',
             style: TextStyle(
               fontSize: 15,
-              color: AppColors.darkBlue.withOpacity(0.6),
+              color: AppColors.secondaryText(context),
               height: 1.5,
             ),
           ),

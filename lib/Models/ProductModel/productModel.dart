@@ -38,8 +38,10 @@
 class ProductModel {
   String? category;
   String? title;
+  String? description;
   double? minPrice;
   double? maxPrice;
+  int? quantity;
   String? image;
   List<String>? images;
   String? productCondition;
@@ -48,8 +50,10 @@ class ProductModel {
   ProductModel(
       {this.category,
         this.title,
+        this.description,
         this.minPrice,
         this.maxPrice,
+        this.quantity,
         this.image,
         this.images,
         this.productCondition,
@@ -58,11 +62,17 @@ class ProductModel {
   ProductModel.fromJson(Map<String, dynamic> json) {
     category = json['category'] ?? '';
     title = json['title'] ?? '';
+    description = json['description'] ?? '';
     minPrice = double.tryParse((json['min_price'] ?? 0.0).toString());
     maxPrice = double.tryParse((json['max_price'] ?? 0.0).toString());
+    quantity = json['quantity'] is int ? json['quantity'] : (int.tryParse(json['quantity']?.toString() ?? '1') ?? 1);
     image = json['image'] ?? '';
     if (json['images'] is List) {
-      images = (json['images'] as List).map((e) => e.toString()).toList();
+      // Remove duplicates by converting to Set and back to List
+      images = (json['images'] as List)
+          .map((e) => e.toString())
+          .toSet()
+          .toList();
     } else {
       images = [];
     }
@@ -74,8 +84,10 @@ class ProductModel {
     final Map<String, dynamic> data = {};
     data['category'] = category ?? '';
     data['title'] = title ?? '';
+    data['description'] = description ?? '';
     data['min_price'] = double.tryParse((minPrice ?? 0.0).toString());
     data['max_price'] = double.tryParse((maxPrice ?? 0.0).toString());
+    data['quantity'] = quantity ?? 1;
     data['image'] = image ?? '';
     if (images != null) {
       data['images'] = images;

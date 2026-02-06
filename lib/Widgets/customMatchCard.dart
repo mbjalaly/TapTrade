@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:taptrade/Utills/appColors.dart';
 class CustomProductCard extends StatelessWidget {
   final Color color; // Add a color parameter to the card
 
@@ -30,7 +31,7 @@ class CustomProductCard extends StatelessWidget {
               padding: const EdgeInsets.all(8.0),
               child: CircleAvatar(
                 radius: 22,
-                backgroundColor: Colors.white,
+                backgroundColor: AppColors.contentBg(context),
                 child: Icon(
                   Icons.favorite,
                   color: Color(0xfff2b721),
@@ -81,12 +82,12 @@ class CustomProductCard extends StatelessWidget {
                     children: [
                       CircleAvatar(
                         radius: 19,
-                        backgroundColor: Colors.white,
+                        backgroundColor: AppColors.contentBg(context),
                         child: Text(
                           "20%\noff",
                           style: TextStyle(
                             fontSize: 9,
-                            color: Colors.black,
+                            color: AppColors.textOnBg(context),
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -94,12 +95,12 @@ class CustomProductCard extends StatelessWidget {
                       SizedBox(width: Get.width * 0.255),
                       CircleAvatar(
                         radius: 19,
-                        backgroundColor: Colors.white,
+                        backgroundColor: AppColors.contentBg(context),
                         child: Text(
                           "50%\noff",
                           style: TextStyle(
                             fontSize: 9,
-                            color: Colors.black,
+                            color: AppColors.textOnBg(context),
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -115,7 +116,7 @@ class CustomProductCard extends StatelessWidget {
           Text(
             "Products \nDescription",
             style: TextStyle(
-              color: Colors.black,
+              color: AppColors.textOnBg(context),
               fontSize: 11,
               fontWeight: FontWeight.bold,
             ),

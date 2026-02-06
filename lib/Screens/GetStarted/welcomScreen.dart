@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lottie/lottie.dart';
+import 'package:taptrade/l10n/app_localizations.dart';
 import 'package:taptrade/Screens/Dashboard/Bottombar/bottombarscreen.dart';
 import 'package:taptrade/Utills/appColors.dart';
 import 'package:taptrade/Widgets/customButtom.dart';
@@ -44,7 +45,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 Get.to(() => const InstructionOverLay());
                 // Get.to(() => const BottomNavigationScreen());
               },
-              text: "Next",
+              text: AppLocalizations.of(context)?.next ?? "Next",
               fontSize: Get.width*0.043,
               width: Get.width*0.45,
             ),
@@ -59,7 +60,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
             decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    AppColors.whiteTextColor.withOpacity(0.1),
+                    AppColors.backgroundColor(context).withOpacity(0.1),
                     AppColors.primaryColor.withOpacity(0.5)
                   ], // Define your gradient colors
                   begin: Alignment.topCenter, // Starting point of the gradient
@@ -79,15 +80,15 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   SizedBox(height: Get.height*0.1,),
                   Image.asset("assets/images/logo2.png",),
                   SizedBox(height: Get.height*0.08,),
-                  AppText(text: "Congratulations!",
+                  AppText(text: AppLocalizations.of(context)?.congratulations ?? "Congratulations!",
                     fontSize: Get.width*0.078,
-                    textcolor: AppColors.darkBlue,
+                    textcolor: AppColors.primaryText(context),
                     fontWeight: FontWeight.w900,
                   ),
                   SizedBox(height: Get.height*0.02,),
-                  AppText(text: "You are good to trade!",
+                  AppText(text: AppLocalizations.of(context)?.youAreGoodToTrade ?? "You are good to trade!",
                     fontSize: Get.width*0.042,
-                    textcolor: AppColors.darkBlue,
+                    textcolor: AppColors.primaryText(context),
                     fontWeight: FontWeight.w500,
                   ),
                   SizedBox(height: Get.height*0.36,),

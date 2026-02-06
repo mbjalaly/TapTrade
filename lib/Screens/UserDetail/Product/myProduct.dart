@@ -7,6 +7,8 @@ import 'package:taptrade/Utills/appColors.dart';
 import 'package:taptrade/Widgets/customButtom.dart';
 import 'package:taptrade/Widgets/customText.dart';
 
+import 'package:taptrade/l10n/app_localizations.dart';
+
 class MyProduct extends StatefulWidget {
   MyProduct({Key? key,required this.productList}) : super(key: key);
   List<ProductModel> productList;
@@ -32,7 +34,7 @@ class _MyProductState extends State<MyProduct> {
       //     color: Colors.white,
       //   ),
       // ),
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.backgroundColor(context),
       bottomNavigationBar: Container(
         color: AppColors.secondaryColor.withOpacity(0.1),
         padding: EdgeInsets.symmetric(horizontal: size.width * 0.225,vertical: 20),
@@ -57,7 +59,7 @@ class _MyProductState extends State<MyProduct> {
           },
           isLoading: isLoading,
           width: Get.width * 0.55,
-          text: "Save",
+          text: AppLocalizations.of(context)?.save ?? "Save",
           textColor: Colors.white,
           fontSize: Get.width * 0.04,
         ),
@@ -101,7 +103,7 @@ class _MyProductState extends State<MyProduct> {
               ),
               Center(
                 child: AppText(
-                  text: "Your Products",
+                  text: AppLocalizations.of(context)?.yourProducts ?? "Your Products",
                   fontSize: Get.width * 0.1,
                   textcolor: AppColors.darkBlue,
                   fontWeight: FontWeight.w600,

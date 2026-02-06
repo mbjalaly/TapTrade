@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:taptrade/Const/globleKey.dart';
+import 'package:taptrade/l10n/app_localizations.dart';
 import 'package:taptrade/Models/ChatModels/matchModel.dart';
 import 'package:taptrade/Models/ChatModels/messageModel.dart';
 import 'package:taptrade/Services/IntegrationServices/chatService.dart';
@@ -131,9 +132,10 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.backgroundColor(context),
       appBar: _buildAppBar(size),
       body: Column(
         children: [
@@ -170,22 +172,23 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   PreferredSizeWidget _buildAppBar(Size size) {
+    final l10n = AppLocalizations.of(context)!;
     return AppBar(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.backgroundColor(context),
       elevation: 0,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios, color: AppColors.primaryTextColor),
+        icon: Icon(Icons.arrow_back_ios, color: AppColors.primaryText(context)),
         onPressed: () => Navigator.pop(context),
       ),
       title: Row(
         children: [
           CircleAvatar(
             radius: 18,
-            backgroundColor: AppColors.surfaceVariant,
+            backgroundColor: AppColors.surfaceVariantColor(context),
             child: Text(
               (widget.match.otherUser?.username ?? 'U')[0].toUpperCase(),
-              style: const TextStyle(
-                color: AppColors.primaryTextColor,
+              style: TextStyle(
+                color: AppColors.primaryText(context),
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -194,7 +197,7 @@ class _ChatScreenState extends State<ChatScreen> {
           Text(
             widget.match.otherUser?.username ?? 'User',
             style: TextStyle(
-              color: AppColors.primaryTextColor,
+              color: AppColors.primaryText(context),
               fontSize: size.width * 0.045,
               fontWeight: FontWeight.w600,
             ),
@@ -208,7 +211,7 @@ class _ChatScreenState extends State<ChatScreen> {
           child: ElevatedButton.icon(
             onPressed: _showMarkCompleteDialog,
             icon: const Icon(Icons.check_circle_outline, size: 18),
-            label: const Text('Complete', style: TextStyle(fontSize: 12)),
+            label: Text(l10n.complete, style: const TextStyle(fontSize: 12)),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green,
               foregroundColor: Colors.white,
@@ -225,23 +228,23 @@ class _ChatScreenState extends State<ChatScreen> {
 
   /// Show dialog to mark trade as complete
   Future<void> _showMarkCompleteDialog() async {
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Mark Trade as Complete?'),
+        title: Text(l10n.markTradeComplete),
         content: Text(
-          'Have you completed this trade with ${widget.match.otherUser?.username ?? 'the other user'}? '
-          'They will need to confirm before the trade is finalized.',
+          l10n.haveYouCompletedTrade(widget.match.otherUser?.username ?? 'the other user'),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancel),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-            child: const Text('Yes, Mark Complete'),
+            child: Text(l10n.yesMarkComplete),
           ),
         ],
       ),
@@ -257,11 +260,10 @@ class _ChatScreenState extends State<ChatScreen> {
     );
 
     try {
-      // Note: We need the trade request ID. For now, we'll use match ID as they're often linked.
-      // In production, you'd fetch the trade request associated with this match.
+      // Use the trade request ID from the match model
       final result = await ProductService.instance.markTradeComplete(
         context,
-        widget.match.id ?? 0,
+        widget.match.tradeRequestId ?? 0,
       );
 
       if (mounted) Navigator.pop(context); // Close loading
@@ -269,8 +271,8 @@ class _ChatScreenState extends State<ChatScreen> {
       if (result.status == Status.COMPLETED) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Trade marked as complete! Waiting for confirmation.'),
+            SnackBar(
+              content: Text(l10n.tradeMarkedWaiting),
               backgroundColor: Colors.green,
             ),
           );
@@ -281,7 +283,7 @@ class _ChatScreenState extends State<ChatScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text('${AppLocalizations.of(context)?.errorPrefix ?? "Error: "}$e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -290,12 +292,13 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildProductInfoHeader(Size size) {
+    final l10n = AppLocalizations.of(context)!;
     return Container(
       padding: EdgeInsets.all(size.width * 0.03),
       decoration: BoxDecoration(
-        color: AppColors.surfaceVariant,
+        color: AppColors.surfaceVariantColor(context),
         border: Border(
-          bottom: BorderSide(color: AppColors.outline, width: 1),
+          bottom: BorderSide(color: AppColors.outlineColor(context), width: 1),
         ),
       ),
       child: Row(
@@ -303,7 +306,7 @@ class _ChatScreenState extends State<ChatScreen> {
           // My product
           _buildMiniProductCard(
             widget.match.myProduct?.image ?? '',
-            widget.match.myProduct?.title ?? 'Your product',
+            widget.match.myProduct?.title ?? l10n.yourProduct,
             size,
           ),
 
@@ -320,7 +323,7 @@ class _ChatScreenState extends State<ChatScreen> {
           // Their product
           _buildMiniProductCard(
             widget.match.theirProduct?.image ?? '',
-            widget.match.theirProduct?.title ?? 'Their product',
+            widget.match.theirProduct?.title ?? l10n.theirProduct,
             size,
           ),
         ],
@@ -333,9 +336,9 @@ class _ChatScreenState extends State<ChatScreen> {
       child: Container(
         padding: EdgeInsets.all(size.width * 0.02),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.contentBg(context),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.outline),
+          border: Border.all(color: AppColors.outlineColor(context)),
         ),
         child: Row(
           children: [
@@ -349,19 +352,19 @@ class _ChatScreenState extends State<ChatScreen> {
                         imageUrl,
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => Container(
-                          color: AppColors.surfaceVariant,
+                          color: AppColors.surfaceVariantColor(context),
                           child: Icon(
                             Icons.image,
-                            color: AppColors.greyTextColor,
+                            color: AppColors.greyText(context),
                             size: size.width * 0.06,
                           ),
                         ),
                       )
                     : Container(
-                        color: AppColors.surfaceVariant,
+                        color: AppColors.surfaceVariantColor(context),
                         child: Icon(
                           Icons.shopping_bag,
-                          color: AppColors.greyTextColor,
+                          color: AppColors.greyText(context),
                           size: size.width * 0.06,
                         ),
                       ),
@@ -386,6 +389,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildEmptyState(Size size) {
+    final l10n = AppLocalizations.of(context)!;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -393,23 +397,23 @@ class _ChatScreenState extends State<ChatScreen> {
           Icon(
             Icons.chat_bubble_outline,
             size: size.width * 0.15,
-            color: AppColors.greyTextColor,
+            color: AppColors.greyText(context),
           ),
           SizedBox(height: size.height * 0.02),
           Text(
-            'Start the conversation!',
+            l10n.startTheConversation,
             style: TextStyle(
               fontSize: size.width * 0.045,
-              color: AppColors.greyTextColor,
+              color: AppColors.greyText(context),
               fontWeight: FontWeight.w500,
             ),
           ),
           SizedBox(height: size.height * 0.01),
           Text(
-            'Say hello and discuss your trade.',
+            l10n.sayHelloAndDiscuss,
             style: TextStyle(
               fontSize: size.width * 0.035,
-              color: AppColors.greyTextColor,
+              color: AppColors.greyText(context),
             ),
           ),
         ],
@@ -433,7 +437,7 @@ class _ChatScreenState extends State<ChatScreen> {
           vertical: size.height * 0.012,
         ),
         decoration: BoxDecoration(
-          color: isMe ? AppColors.primaryColor : AppColors.surfaceVariant,
+          color: isMe ? AppColors.primaryColor : AppColors.surfaceVariantColor(context),
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(16),
             topRight: const Radius.circular(16),
@@ -448,7 +452,7 @@ class _ChatScreenState extends State<ChatScreen> {
             Text(
               message.messageText ?? '',
               style: TextStyle(
-                color: isMe ? Colors.white : AppColors.blackTextColor,
+                color: isMe ? Colors.white : AppColors.textOnBg(context),
                 fontSize: size.width * 0.038,
               ),
             ),
@@ -458,7 +462,7 @@ class _ChatScreenState extends State<ChatScreen> {
               style: TextStyle(
                 color: isMe
                     ? Colors.white.withOpacity(0.7)
-                    : AppColors.greyTextColor,
+                    : AppColors.greyText(context),
                 fontSize: size.width * 0.028,
               ),
             ),
@@ -469,12 +473,13 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildMessageInput(Size size) {
+    final l10n = AppLocalizations.of(context)!;
     return Container(
       padding: EdgeInsets.all(size.width * 0.04),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.contentBg(context),
         border: Border(
-          top: BorderSide(color: AppColors.outline, width: 1),
+          top: BorderSide(color: AppColors.outlineColor(context), width: 1),
         ),
       ),
       child: SafeArea(
@@ -484,21 +489,36 @@ class _ChatScreenState extends State<ChatScreen> {
               child: Container(
                 padding: EdgeInsets.symmetric(horizontal: size.width * 0.04),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceVariant,
+                  color: AppColors.surfaceVariantColor(context),
                   borderRadius: BorderRadius.circular(24),
                 ),
                 child: TextField(
                   controller: _messageController,
                   decoration: InputDecoration(
-                    hintText: 'Type a message...',
+                    hintText: l10n.typeMessage,
                     hintStyle: TextStyle(
-                      color: AppColors.greyTextColor,
+                      color: AppColors.greyText(context),
                       fontSize: size.width * 0.038,
                     ),
                     border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    errorBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      vertical: 14,
+                      horizontal: 0,
+                    ),
+                    isDense: true,
                   ),
                   textCapitalization: TextCapitalization.sentences,
                   onSubmitted: (_) => _sendMessage(),
+                  minLines: 1,
+                  maxLines: 5,
+                  style: TextStyle(
+                    fontSize: size.width * 0.038,
+                    height: 1.4,
+                  ),
                 ),
               ),
             ),

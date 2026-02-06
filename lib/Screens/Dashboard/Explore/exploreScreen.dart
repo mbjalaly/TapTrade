@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:taptrade/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
@@ -10,6 +11,7 @@ import 'package:taptrade/Utills/appColors.dart';
 
 import '../../../Widgets/customText.dart';
 import 'LikedDeals/likedDeals.dart';
+import 'DislikedDeals/dislikedDeals.dart';
 
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
@@ -22,7 +24,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.backgroundColor(context),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -74,7 +76,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                 bottomLeft: Radius.circular(12),
                                 bottomRight: Radius.circular(12))),
                         child: AppText(
-                          text: "Liked Deals",
+                          text: AppLocalizations.of(context)?.likedDeals ?? "Liked Deals",
                           textcolor: Colors.white,
                           fontWeight: FontWeight.bold,
                           fontSize: Get.width * 0.045,
@@ -88,7 +90,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
             Padding(
               padding: EdgeInsets.only(left: Get.width * 0.06),
               child: AppText(
-                text: "Welcome to Deals",
+                text: AppLocalizations.of(context)?.welcomeToDeals ?? "Welcome to Deals",
                 fontSize: Get.width * 0.05,
                 textcolor: AppColors.darkBlue,
                 fontWeight: FontWeight.w700,
@@ -97,7 +99,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
             Padding(
               padding: EdgeInsets.only(left: Get.width * 0.06),
               child: AppText(
-                text: "My Vibes Matching",
+                text: AppLocalizations.of(context)?.myVibesMatching ?? "My Vibes Matching",
                 fontSize: Get.width * 0.036,
                 textcolor: Colors.grey,
                 fontWeight: FontWeight.w400,
@@ -146,7 +148,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                   bottomLeft: Radius.circular(12),
                                   bottomRight: Radius.circular(12))),
                           child: AppText(
-                            text: "Matched Deals",
+                            text: AppLocalizations.of(context)?.matchedDeals ?? "Matched Deals",
                             textcolor: Colors.white,
                             fontWeight: FontWeight.bold,
                             fontSize: Get.width * 0.045,
@@ -193,7 +195,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                   bottomLeft: Radius.circular(12),
                                   bottomRight: Radius.circular(12))),
                           child: AppText(
-                            text: "Completed Deals",
+                            text: AppLocalizations.of(context)?.completedDeals ?? "Completed Deals",
                             textcolor: Colors.white,
                             fontWeight: FontWeight.bold,
                             fontSize: Get.width * 0.045,
@@ -204,7 +206,63 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   ),
                 ),
               ],
-            )
+            ),
+            SizedBox(
+              height: Get.height * 0.025,
+            ),
+            // Refused Matches Card
+            Center(
+              child: GestureDetector(
+                onTap: (){
+                  Get.to(() => const DislikedDealsScreen());
+                },
+                child: Container(
+                  height: Get.height * 0.28,
+                  width: Get.width * 0.9,
+                  alignment: Alignment.bottomLeft,
+                  decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      image: const DecorationImage(
+                          image: AssetImage("assets/images/img_1.png"),
+                          fit: BoxFit.fill,
+                          colorFilter: ColorFilter.mode(
+                            Colors.redAccent,
+                            BlendMode.modulate,
+                          ))),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.only(bottom: 7, left: 5),
+                        height: Get.height * 0.06,
+                        width: Get.width,
+                        decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.40),
+                            borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(12),
+                                topRight: Radius.circular(12))),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.only(bottom: 7, left: 5),
+                        height: Get.height * 0.06,
+                        width: Get.width,
+                        decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.40),
+                            borderRadius: const BorderRadius.only(
+                                bottomLeft: Radius.circular(12),
+                                bottomRight: Radius.circular(12))),
+                        child: AppText(
+                          text: AppLocalizations.of(context)?.refusedMatches ?? "Refused Matches",
+                          textcolor: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: Get.width * 0.045,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),

@@ -8,6 +8,7 @@ import 'package:taptrade/Services/IntegrationServices/profileService.dart';
 import 'package:taptrade/Utills/appColors.dart';
 import 'package:taptrade/Utills/showMessages.dart';
 import 'package:taptrade/Widgets/customText.dart';
+import 'package:taptrade/l10n/app_localizations.dart';
 
 class AddInterestScreen extends StatefulWidget {
   const AddInterestScreen({super.key});
@@ -58,7 +59,7 @@ class _AddInterestScreenState extends State<AddInterestScreen> {
     Size size = MediaQuery.of(context).size;
     print("${GeneralService.instance.allInterest.value.data}");
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.backgroundColor(context),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
@@ -84,7 +85,7 @@ class _AddInterestScreenState extends State<AddInterestScreen> {
               Padding(
                 padding: EdgeInsets.only(top: Get.height * 0.02),
                 child: AppText(
-                  text: "Interests",
+                  text: AppLocalizations.of(context)?.interestsTitle ?? "Interests",
                   fontSize: Get.width * 0.1,
                   textcolor: AppColors.darkBlue,
                   fontWeight: FontWeight.w600,
@@ -126,7 +127,7 @@ class _AddInterestScreenState extends State<AddInterestScreen> {
                       ),
                       SizedBox(height: 16),
                       AppText(
-                        text: "Failed to load interests",
+                        text: AppLocalizations.of(context)?.failedToLoadInterests ?? "Failed to load interests",
                         fontSize: 16,
                         textcolor: Colors.grey,
                       ),
@@ -139,8 +140,8 @@ class _AddInterestScreenState extends State<AddInterestScreen> {
                             color: AppColors.themeColor,
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: AppText(
-                            text: "Retry",
+                        child: AppText(
+                            text: AppLocalizations.of(context)?.retry ?? "Retry",
                             textcolor: Colors.white,
                             fontWeight: FontWeight.w600,
                           ),
@@ -151,53 +152,50 @@ class _AddInterestScreenState extends State<AddInterestScreen> {
                 )
               else
                 Container(
-                  height: Get.height * 0.56, // Adjust the height as needed
-                  child: GridView.builder(
-                    padding: EdgeInsets.all(0),
-                    physics: const NeverScrollableScrollPhysics(),
-                    shrinkWrap: true,
-                    itemCount: GeneralService.instance.allInterest.value.data?.length ?? 0,
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3,
-                        mainAxisSpacing: 15,
-                        crossAxisSpacing: 15,
-                        childAspectRatio: 2.6),
-                    itemBuilder: (context, index) {
-                      String name = GeneralService.instance.allInterest.value.data?[index].name ?? '';
-                      bool isSelected = selectedIndices.contains(name);
+                  constraints: BoxConstraints(
+                    minHeight: Get.height * 0.56,
+                  ),
+                  child: Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: GeneralService.instance.allInterest.value.data!.map((interest) {
+                      final name = interest.name ?? '';
+                      final isSelected = selectedIndices.contains(name);
                       return GestureDetector(
                         onTap: () {
                           setState(() {
-                            if (selectedIndices.contains(name)) {
+                            if (isSelected) {
                               selectedIndices.remove(name);
                             } else {
-                                selectedIndices.add(name);
+                              selectedIndices.add(name);
                             }
                           });
                         },
                         child: Container(
-                          alignment: Alignment.center,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                           decoration: BoxDecoration(
+                            color: isSelected
+                                ? AppColors.darkBlue
+                                : Colors.grey.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(25),
+                            border: Border.all(
                               color: isSelected
-                                  ? AppColors.darkYellow.withOpacity(0.1)
-                                  : Colors.transparent,
-                              border: Border.all(color: isSelected
-                                  ? AppColors.darkYellow
-                                  : AppColors.greyTextColor,width: isSelected ? 2.0 : 1.0),
-                              borderRadius: BorderRadius.circular(
-                                30,
-                              )),
-                          child: AppText(
-                            text: name,
-                            textAlign: TextAlign.center,
-                            textcolor:
-                                isSelected ? AppColors.secondaryColor : AppColors.greyTextColor,
-                            fontSize: 12,
-                            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                                  ? AppColors.darkBlue
+                                  : AppColors.greyText(context).withOpacity(0.3),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Text(
+                            name,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                              color: isSelected ? Colors.white : AppColors.darkBlue,
+                            ),
                           ),
                         ),
                       );
-                    },
+                    }).toList(),
                   ),
                 ),
               SizedBox(
@@ -205,65 +203,52 @@ class _AddInterestScreenState extends State<AddInterestScreen> {
               ),
               Center(
                 child: GestureDetector(
-                  onTap: () async{
-                    if(selectedIndices.length >= 5){
-                      Map<String,dynamic> body = {
-                        "interest_names": selectedIndices
-                      };
-                      String id = userController.userProfile.value.data?.id ?? '';
-                      setState(() {
-                        isLoading = true;
-                      });
-                      final result = await ProfileService.instance.addUserInterest(context, body, id);
-                      setState(() {
-                        isLoading = false;
-                      });
-                      if(result.status == Status.COMPLETED){
-                        ShowMessage.notify(context, "${result.responseData['message']}");
-                        ProfileService.instance.getUserInterests(context, id);
-                        // Profile is marked as completed in the backend after adding interests
-                        Get.to(() =>  AddProductWizardScreen());
-                      }else{
-                        ShowMessage.notify(context, "${result.message}");
-                      }
+                  onTap: selectedIndices.length >= 5 && !isLoading ? () async{
+                    Map<String,dynamic> body = {
+                      "interest_names": selectedIndices
+                    };
+                    String id = userController.userProfile.value.data?.id ?? '';
+                    setState(() {
+                      isLoading = true;
+                    });
+                    final result = await ProfileService.instance.addUserInterest(context, body, id);
+                    setState(() {
+                      isLoading = false;
+                    });
+                    if(result.status == Status.COMPLETED){
+                      ShowMessage.notify(context, "${result.responseData['message']}");
+                      ProfileService.instance.getUserInterests(context, id);
+                      // Profile is marked as completed in the backend after adding interests
+                      Get.to(() =>  AddProductWizardScreen());
                     }else{
-                      ShowMessage.notify(context, "Please Select At Least 5 Interest");
+                      ShowMessage.notify(context, "${result.message}");
                     }
-
-
-                        },
+                  } : null,
                   child: Container(
                       height: Get.height * 0.065,
                       width: Get.width * 0.85,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(25),
-                        gradient: selectedIndices.length >= 5
-                            ? const LinearGradient(
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
-                                colors: [
-                                  Color(0xFF00E3DF), // Start color
-                                  Color(0xFFF2B721), // End color
-                                ],
-                                stops: [0.0, 1.0], // Gradient stops
-                              )
-                            : LinearGradient(
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
-                                colors: [
-                                  Colors.grey.withOpacity(.40), // Start color
-                                  Colors.grey.withOpacity(.40), // End color
-                                ],
-                                stops: [0.0, 1.0], // Gradient stops
-                              ),
+                        color: selectedIndices.length >= 5
+                            ? AppColors.darkBlue
+                            : Colors.grey.withOpacity(0.3),
                       ),
-                      child: isLoading ? const Center(child: CircularProgressIndicator(color: AppColors.primaryTextColor,)) : AppText(
-                        text: "Continue ${selectedIndices.length}/$maxSelectionCount ",
-                        fontWeight: FontWeight.w600,
-                        textcolor: Colors.white,
-                        fontSize: Get.width * 0.042,
-                      )),
+                      child: isLoading
+                          ? const SizedBox(
+                              height: 24,
+                              width: 24,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2.5,
+                              ),
+                            )
+                          : AppText(
+                              text: (AppLocalizations.of(context)?.continueWithCount ?? "Continue ({count}/{max})").toString().replaceAll('{count}', '${selectedIndices.length}').replaceAll('{max}', '$maxSelectionCount'),
+                              fontWeight: FontWeight.w700,
+                              textcolor: Colors.white,
+                              fontSize: Get.width * 0.042,
+                            )),
                 ),
               )
               ],

@@ -1,0 +1,794 @@
+{
+  "@@locale": "en",
+  
+  "appName": "TapTrade",
+  
+  "login": "Login",
+  "signUp": "Sign Up",
+  "email": "Email",
+  "password": "Password",
+  "forgotPassword": "Forgot Password?",
+  "createAccount": "Create Account",
+  "continueWithGoogle": "Continue with Google",
+  "continueWithApple": "Continue with Apple",
+  "verifyPhone": "Verify Phone",
+  "sendCode": "Send Code",
+  "enterOtp": "Enter OTP",
+  "resendCode": "Resend Code",
+  "resendCodeIn": "Resend code in {seconds}s",
+  "@resendCodeIn": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "phoneNumber": "Phone Number",
+  "welcomeBack": "Welcome Back",
+  "signInToContinue": "Sign in to continue",
+  "dontHaveAccount": "Don't have an account?",
+  "alreadyHaveAccount": "Already have an account?",
+  "orContinueWith": "Or continue with",
+  "enterPhoneNumber": "Enter your phone number",
+  "enterEmail": "Enter your email",
+  "enterPassword": "Enter your password",
+  "confirmPassword": "Confirm Password",
+  "fullName": "Full Name",
+  "enterFullName": "Enter your full name",
+  "resetPassword": "Reset Password",
+  "sendResetLink": "Send Reset Link",
+  "verificationCode": "Verification Code",
+  "enterVerificationCode": "Enter the verification code sent to",
+  "didntReceiveCode": "Didn't receive the code?",
+  "verify": "Verify",
+  "createNewPassword": "Create New Password",
+  "newPassword": "New Password",
+  "confirmNewPassword": "Confirm New Password",
+  "username": "Username",
+  "chooseUsername": "Choose a username",
+  "usernameHint": "This will be your unique identifier",
+  "createPassword": "Create Password",
+  "passwordRequirements": "Password must be at least 8 characters",
+  
+  "home": "Home",
+  "explore": "Explore",
+  "matches": "Matches",
+  "chat": "Chat",
+  "profile": "Profile",
+  "more": "More",
+  "products": "Products",
+  "bazaar": "BAZAAR",
+  "noProductsFound": "No products found",
+  "swipeLeftToSkip": "Swipe left to skip",
+  "swipeRightToLike": "Swipe right to like",
+  "itsAMatch": "It's a Match!",
+  "youAndUserLikedEachOther": "You and {username} liked each other's products",
+  "@youAndUserLikedEachOther": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "sendMessage": "Send Message",
+  "keepSwiping": "Keep Swiping",
+  "noMoreProducts": "No more products to show",
+  "tryAgainLater": "Try again later",
+  "pullToRefresh": "Pull to refresh",
+  "loading": "Loading...",
+  "selectProductsToTrade": "Select Products to Trade",
+  "noProductsAvailable": "No products available",
+  "selectAll": "Select All",
+  "clearAll": "Clear All",
+  "closeProductSelector": "Close product selector",
+  "selectProducts": "Select products",
+  "searchFiltersTooltip": "Search filters",
+  "noProductDataAvailable": "No product data available",
+  "dealsNearYou": "Deals near you",
+  "swipeToExploreItems": "Swipe to explore {count} items",
+  "@swipeToExploreItems": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noNewProductsNearby": "No new products nearby",
+  "showingAlreadyLikedProducts": "Showing {count} products you already liked",
+  "@showingAlreadyLikedProducts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "addYourFirstProductShort": "Add your first product",
+  "listProductsToStartTrading": "List products to start trading with others nearby",
+  "noNearbyTrades": "No nearby trades",
+  "tryIncreasingSearchRadius": "Try increasing your search radius in preferences",
+  "allProductsFiltered": "All products filtered",
+  "tryAdjustingFilters": "Try adjusting your filters to see more trades",
+  "noMatchesYetShort": "No matches yet",
+  "checkBackSoon": "Check back soon for new trading opportunities",
+  "locationAccess": "Location access",
+  "unableToAccessLocation": "Unable to access your location. Products may not be accurate.",
+  "errorLoadingProducts": "Error loading products",
+  "checkInternetConnection": "Please check your internet connection and try again",
+  
+  "addProduct": "Add Product",
+  "editProduct": "Edit Product",
+  "productTitle": "Product Title",
+  "description": "Description",
+  "minPrice": "Min Price",
+  "maxPrice": "Max Price",
+  "category": "Category",
+  "condition": "Condition",
+  "quantity": "Quantity",
+  "quantityAvailable": "Quantity Available",
+  "productDetails": "Product Details",
+  "priceRange": "Price Range",
+  "status": "Status",
+  "selectCategory": "Select Category",
+  "selectCondition": "Select Condition",
+  "productImages": "Product Images",
+  "addImages": "Add Images",
+  "editImages": "Edit Images",
+  "myProducts": "My Products",
+  "deleteProduct": "Delete Product",
+  "confirmDeleteProduct": "Are you sure you want to delete this product?",
+  "productNew": "New",
+  "productUsed": "Used",
+  "productLikeNew": "Like New",
+  "productGood": "Good",
+  "productFair": "Fair",
+  "backToSwipe": "Back to Swipe",
+  "noProductsYet": "No products yet",
+  "addYourFirstProductToGetStarted": "Add your first product to get started",
+  "noActiveProducts": "No active products",
+  "youHaveProductsButNoneActive": "You have {count} product(s) but none are active",
+  "@youHaveProductsButNoneActive": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "completedDeals": "Completed deals",
+  "thisActionCannotBeUndone": "This action cannot be undone.",
+  "areYouSureDeleteProduct": "Are you sure you want to delete:",
+  "productDeletedSuccessfully": "Product deleted successfully",
+  "failedToDeleteProduct": "Failed to delete product",
+  "errorOccurred": "An error occurred. Please try again.",
+  
+  "settings": "Settings",
+  "language": "Language",
+  "notifications": "Notifications",
+  "privacy": "Privacy",
+  "helpSupport": "Help & Support",
+  "logout": "Logout",
+  "logOut": "Log out",
+  "logoutSuccessful": "Logout successful",
+  "deleteAccount": "Delete Account",
+  "confirmLogout": "Are you sure you want to logout?",
+  "confirmDeleteAccount": "Are you sure you want to delete your account? This action cannot be undone.",
+  "editProfile": "Edit Profile",
+  "bio": "Bio",
+  "addBio": "Add Bio",
+  "changeProfilePhoto": "Change Profile Photo",
+  "contactUs": "Contact Us",
+  "termsOfService": "Terms of Service",
+  "privacyPolicy": "Privacy Policy",
+  "appVersion": "App Version",
+  "tradePreferences": "Trade preferences",
+  "tradeRadius": "Trade Radius",
+  "meetingPreference": "Meeting Preference",
+  "publicPlace": "Public Place",
+  "doorstep": "Doorstep",
+  "locationPicker": "Location Picker",
+  "setYourLocation": "Set Your Location",
+  "searchFilters": "Search Filters",
+  "notificationSettings": "Notification settings",
+  "pushNotifications": "Push Notifications",
+  "emailNotifications": "Email Notifications",
+  "matchNotifications": "Match Notifications",
+  "messageNotifications": "Message Notifications",
+  "english": "English",
+  "arabic": "العربية",
+  "selectLanguage": "Select Language",
+  "verifyPhoneNumber": "Verify Phone Number",
+  "profileInformation": "Profile information",
+  "matchesAndChat": "Matches & Chat",
+  "faqQuestions": "FAQ questions",
+  "termsAndPolicies": "Terms and policies",
+  "viewTutorial": "View tutorial",
+  "comingSoon": "Coming soon",
+  "faqComingSoon": "FAQ page is coming soon",
+  "account": "Account",
+  
+  "likedProducts": "Liked Products",
+  "dislikedProducts": "Disliked Products",
+  "tradeHistory": "Trade History",
+  "pendingTrades": "Pending Trades",
+  "completedTrades": "Completed Trades",
+  "tradeRequest": "Trade Request",
+  "sendTradeRequest": "Send Trade Request",
+  "acceptTrade": "Accept Trade",
+  "rejectTrade": "Reject Trade",
+  "tradeSent": "Trade request sent",
+  "tradeAccepted": "Trade accepted",
+  "tradeRejected": "Trade rejected",
+  "tradeCompleted": "Trade completed",
+  "deals": "Deals",
+  "noDeals": "No deals yet",
+  "contactTrader": "Contact Trader",
+  
+  "messages": "Messages",
+  "noMessages": "No messages yet",
+  "noMessagesYet": "No messages yet",
+  "typeMessage": "Type a message...",
+  "send": "Send",
+  "today": "Today",
+  "yesterday": "Yesterday",
+  "online": "Online",
+  "offline": "Offline",
+  "typing": "typing...",
+  "noMatchesYet": "No matches yet",
+  "keepSwipingToFindMatches": "Keep swiping to find people who want to trade with you!",
+  "matchWord": "match",
+  "matchesWord": "matches",
+  "product": "Product",
+  "user": "User",
+  
+  "save": "Save",
+  "cancel": "Cancel",
+  "done": "Done",
+  "next": "Next",
+  "back": "Back",
+  "skip": "Skip",
+  "continue_": "Continue",
+  "error": "Error",
+  "success": "Success",
+  "retry": "Retry",
+  "ok": "OK",
+  "yes": "Yes",
+  "no": "No",
+  "confirm": "Confirm",
+  "close": "Close",
+  "delete": "Delete",
+  "edit": "Edit",
+  "view": "View",
+  "search": "Search",
+  "filter": "Filter",
+  "sort": "Sort",
+  "refresh": "Refresh",
+  "noResults": "No results found",
+  "somethingWentWrong": "Something went wrong",
+  "pleaseTryAgain": "Please try again",
+  "noInternetConnection": "No internet connection",
+  "checkYourConnection": "Please check your internet connection",
+  
+  "getStarted": "Get Started",
+  "welcomeToTapTrade": "Welcome to TapTrade",
+  "tutorialSwipe": "Swipe through products",
+  "tutorialMatch": "Match with traders",
+  "tutorialChat": "Chat and trade",
+  "tutorialComplete": "Start Trading",
+  "letsGetStarted": "Let's Get Started",
+  "setupProfile": "Setup Your Profile",
+  "addYourFirstProduct": "Add Your First Product",
+  "setYourTradePreferences": "Set Your Trade Preferences",
+  
+  "unit": "unit",
+  "units": "units",
+  "km": "km",
+  "miles": "miles",
+  "notSpecified": "Not specified",
+  "active": "Active",
+  "inactive": "Inactive",
+  "pending": "Pending",
+  "approved": "Approved",
+  "rejected": "Rejected",
+  "away": "away",
+  "distanceAway": "{distance} {unit} away",
+  "@distanceAway": {
+    "placeholders": {
+      "distance": {
+        "type": "String"
+      },
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  
+  "addLocation": "Add Location",
+  "yourLocation": "Your Location",
+  "addInterests": "Add Interests",
+  "selectInterests": "Select your interests",
+  "addProfilePhoto": "Add Profile Photo",
+  "takePhoto": "Take Photo",
+  "chooseFromGallery": "Choose from Gallery",
+  "removePhoto": "Remove Photo",
+  
+  "tradingWith": "Trading with",
+  "yourProduct": "Your Product",
+  "theirProduct": "Their Product",
+  "viewProfile": "View Profile",
+  "startChat": "Start Chat",
+  "mutualMatches": "Mutual Matches",
+  "noMutualMatchesYet": "No mutual matches yet",
+  
+  "welcomeToTapTradeExclaim": "Welcome to TapTrade!",
+  "swipeToDiscover": "Swipe to Discover",
+  "swipeToDiscoverDesc": "Swipe right on items you want to trade for. Swipe left to pass. Match with users who want your items!",
+  "listYourItems": "List Your Items",
+  "listYourItemsDesc": "Add photos and details of items you want to trade. More listings mean more matches!",
+  "chatAndTrade": "Chat & Trade",
+  "chatAndTradeDesc": "When you match, chat with traders to arrange your swap. Safe, local trading made easy!",
+  "youreAllSet": "You're All Set!",
+  "youreAllSetDesc": "Start swiping, listing items, and connecting with traders near you. Happy trading!",
+  "pass": "PASS",
+  "like": "LIKE",
+  
+  "subject": "Subject",
+  "message": "Message",
+  "yourQuery": "Your query...",
+  "yourMessage": "Your message...",
+  "sendMessageAction": "Send Message",
+  "pleaseFillAllFields": "Please fill in all fields",
+  "weLoveToHear": "We'd love to hear from you! Please fill out the form below to ask a question or share your thoughts.",
+  
+  "name": "Name",
+  "userName": "User Name",
+  "gender": "Gender",
+  "contact": "Contact #",
+  "male": "Male",
+  "female": "Female",
+  "other": "Other",
+  "alreadyVerified": "Already Verified",
+  "needVerification": "Need Verification",
+  "pleaseAddName": "Please add Name",
+  "pleaseAddUserName": "Please add userName",
+  "pleaseSelectGender": "Please select gender",
+  "pleaseAddContact": "Please add contact number",
+  "phoneNumberMustBe9Digits": "Phone number must be exactly 9 digits",
+  "pleaseAddEmail": "Please add email",
+  "pleaseEnterValidEmail": "Please enter a valid email address",
+  
+  "tradePreferencesTitle": "Trade Preferences",
+  "yourLocationLabel": "Your Location:",
+  "locationAutomatic": "This is your automatic location (cannot be changed)",
+  "selectTradeRadius": "Select Trade Radius: {radius} KM",
+  "@selectTradeRadius": {
+    "placeholders": {
+      "radius": {
+        "type": "int"
+      }
+    }
+  },
+  "meetingPreferenceLabel": "Meeting Preference:",
+  "deliveryPickup": "Delivery/Pickup",
+  "willingToShip": "Willing to Ship",
+  "pleaseSelectTradeRadius": "Please select trade radius",
+  
+  "notificationSettingsTitle": "Notification Settings",
+  "chooseNotifications": "Choose which notifications you want to receive",
+  "marketingPromotions": "Marketing & Promotions",
+  "promotionalOffers": "Promotional Offers",
+  "soundHaptics": "Sound & Haptics",
+  "soundEffects": "Sound Effects",
+  "tradeUpdates": "Trade Updates",
+  "canChangeAnytime": "You can change these settings at any time",
+  
+  "cover": "Cover",
+  "tapToSetCover": "Tap to set cover",
+  "noImages": "No images",
+  "atLeastOneImageRequired": "At least 1 image is required",
+  "maximumImagesAllowed": "Maximum {count} images allowed",
+  "@maximumImagesAllowed": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "saveChanges": "Save changes",
+  "title": "Title",
+  "descriptionRequired": "Description *",
+  "describeYourProduct": "Describe your product in detail",
+  "productUpdated": "Product updated",
+  "updateFailed": "Update failed",
+  "productIdMissing": "Product ID is missing",
+  "minPriceMustBeLess": "Minimum price must be less than maximum price",
+  "quantityMustBeBetween": "Quantity must be between 1 and 99",
+  "descriptionTooLong": "Description is too long (max 500 characters)",
+  "productDescriptionRequired": "Product description is required",
+  "pleaseEnterTitle": "Please enter title",
+  
+  "createPasswordTitle": "Create a password",
+  "makeItStrong": "Make it strong and secure.",
+  "passwordMustContain": "Password must contain:",
+  "atLeast8Characters": "At least 8 characters",
+  "oneUppercaseLetter": "One uppercase letter (A-Z)",
+  "oneLowercaseLetter": "One lowercase letter (a-z)",
+  "oneNumber": "One number (0-9)",
+  "reEnterPassword": "Re-enter your password",
+  "passwordsDoNotMatch": "Passwords do not match",
+  "pleaseConfirmPassword": "Please confirm your password",
+  "pleaseEnterPhoneFirst": "Please enter your phone number first",
+  "pleaseMeetAllRequirements": "Please meet all password requirements",
+  
+  "createYourUsername": "Create your username",
+  "enterUsername": "Enter your username",
+  
+  "congratulations": "Congratulations!",
+  "youAreGoodToTrade": "You are good to trade!",
+  
+  "easiestWayToSwap": "The easiest way to swap items with people nearby. Trade what you have for what you want!",
+  
+  "currencySymbol": "SAR",
+  "priceRangeFormat": "{minPrice} - {maxPrice} SAR",
+  "@priceRangeFormat": {
+    "placeholders": {
+      "minPrice": {
+        "type": "String"
+      },
+      "maxPrice": {
+        "type": "String"
+      }
+    }
+  },
+  
+  "profileInformation": "Profile information",
+  "alreadyVerified": "Already Verified",
+  "needVerification": "Need Verification",
+  "pleaseAddName": "Please add Name",
+  "pleaseAddUsername": "Please add userName",
+  "pleaseSelectGender": "Please select gender",
+  "pleaseAddContact": "Please add contact number",
+  "phoneMust9Digits": "Phone number must be exactly 9 digits",
+  "pleaseAddEmail": "Please add email",
+  "pleaseEnterValidEmail": "Please enter a valid email address",
+  
+  "pleaseEnterEmail": "Please enter your email",
+  "pleaseEnterPassword": "Please enter your password",
+  "loginFailed": "Login failed. Please try again.",
+  "errorCheckingUsername": "Error checking username. Please try again.",
+  "usernameAlreadyTaken": "This username is already taken",
+  "createYourUsername": "Create your username",
+  "usernameAppearance": "This is how you'll appear in TapTrade. Choose wisely – you can't change it later!",
+  "usernameHelper": "Letters, numbers, and underscores only",
+  "enterUsername": "Enter your username",
+  "allProductsFiltered": "All products filtered",
+  "tryAdjustingFilters": "Try adjusting your filters to see more trades",
+  "checkBackSoon": "Check back soon for new trading opportunities",
+  "selectProductsToTrade": "Select Products to Trade",
+  "selectAll": "Select All",
+  "clearAll": "Clear All",
+  "noProductDataAvailable": "No product data available",
+  "pleaseEnterPhoneFirst": "Please enter your phone number first",
+
+  "addAtLeastOnePhoto": "Please add at least 1 photo (maximum {max})",
+  "@addAtLeastOnePhoto": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "pleaseEnterTitleAndCategory": "Please enter title and category",
+  "pleaseEnterDescription": "Please enter product description",
+  "userNotFound": "User not found",
+  "pleaseAddPhotos": "Please add photos",
+  "productSubmitted": "Product submitted",
+  "failedToSubmitProduct": "Failed to submit product",
+  "describeProductShort": "Describe your product in five words",
+  "productAddedSuccessfully": "Product Added Successfully",
+
+  "markTradeComplete": "Mark Trade as Complete?",
+  "haveYouCompletedTrade": "Have you completed this trade with {username}? They will need to confirm before the trade is finalized.",
+  "@haveYouCompletedTrade": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "theyWillNeedToConfirm": "The other party will need to confirm before the trade is finalized.",
+  "yesMarkComplete": "Yes, Mark Complete",
+  "complete": "Complete",
+  "tradeMarkedComplete": "Trade marked as complete!",
+
+  "tradeMarkedWaiting": "Trade marked as complete. Waiting for other party to confirm.",
+  "tradeCompletedSuccess": "Trade completed successfully!",
+  "tapProductToReveal": "Please tap on a product to reveal the match first!",
+  "traderRevealedSuccess": "Trader revealed successfully!",
+  "requestCannotProceed": "Your request cannot proceed at the moment please try again later",
+  "errorTryAgainLater": "An error occurred. Please try again later.",
+  "markAsCompleted": "Mark as Completed",
+  "confirmTradeCompletion": "Confirm Trade Completion?",
+  "confirmTradeCompletionMessage": "The other party has marked this trade as complete. Do you confirm that the trade has been completed successfully?",
+  "notYet": "Not Yet",
+  "yesConfirm": "Yes, Confirm",
+  "confirmCompletion": "Confirm Completion",
+  "waitingForConfirmation": "Waiting for Confirmation...",
+  "tradeCompletedCheck": "Trade Completed",
+  "revealTrader": "Reveal Trader",
+  "matchedDeal": "Matched Deal",
+
+  "termsComingSoon": "Coming soon",
+  "privacyComingSoon": "Coming soon",
+  "avatar": "Avatar",
+  "camera": "Camera",
+  "gallery": "Gallery",
+
+  "pleaseEnterOtp": "Please enter the OTP code",
+  "pleaseEnterValid6DigitOtp": "Please enter a valid 6-digit OTP",
+  "otpResentSuccess": "OTP resent successfully!",
+  "pleaseAddPhoneNumber": "Please Add Your Phone Number",
+  "otpSentTo": "OTP sent to {phone}",
+  "@otpSentTo": {
+    "placeholders": {
+      "phone": {
+        "type": "String"
+      }
+    }
+  },
+  "phoneVerifiedAuto": "Phone verified automatically!",
+  "startTypingToSearch": "Start typing to search",
+  "searchCountry": "Search country",
+  "verificationCodeSentTo": "Code sent to {phone}",
+  "@verificationCodeSentTo": {
+    "placeholders": {
+      "phone": {
+        "type": "String"
+      }
+    }
+  },
+  "enterNewPassword": "Enter new password",
+  "confirmNewPasswordHint": "Confirm new password",
+  "passwordResetSuccess": "Password reset successfully!",
+
+  "photos": "Photos",
+  "details": "Details",
+  "conditionAndPrice": "Condition & Price",
+  "review": "Review",
+  "preview": "Preview",
+  "submit": "Submit",
+  "tapToSetCoverPhoto": "Tap to set cover photo, long-press to view",
+  "enterShortTitle": "Enter a short title",
+  "loadingCategories": "Loading categories...",
+  "selectACategory": "Select a category",
+  "describeProductDetail": "Describe your product in detail (required, max 500 characters)",
+  "pressSubmitToUpload": "Press Submit to upload all items",
+  "tapImagesToView": "Tap images to view",
+  "noPhotosSelected": "No photos selected",
+  "photosSelected": "{count} photos selected",
+  "@photosSelected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "addProducts": "Add Products",
+  "productConditionLabel": "PRODUCT CONDITION",
+  "productTitleLabel": "PRODUCT TITLE",
+  "productDescriptionLabel": "PRODUCT DESCRIPTION *",
+  "describeProductDetailRequired": "Describe your product in detail (required)",
+  "pleaseAddProductImage": "Please Add Product Image",
+  "pleaseSelectProductCategory": "Please Select Product Category",
+  "pleaseAddProductTitle": "Please Add Product Title",
+  "pleaseAddProductDescription": "Please Add Product Description",
+  "pleaseAddProductQuantity": "Please Add Product Quantity",
+  "pleaseEnterValidQuantity": "Please Enter a Valid Quantity",
+  "pleaseAddMinPrice": "Please Add Product Minimum Price",
+  "pleaseAddMaxPrice": "Please Add Product Maximum Price",
+  "productAddedCount": "Product Added {current}/3",
+  "@productAddedCount": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      }
+    }
+  },
+  "pleaseAddThreeProducts": "Please Add At Least Three Product {current}/3",
+  "@pleaseAddThreeProducts": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      }
+    }
+  },
+  "noCategoriesAvailable": "No categories available",
+  "imagesCount": "{count} images",
+  "@imagesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "poor": "Poor",
+  "minMustBeLessThanMax": "Min must be less than max",
+  "maxCannotExceed1000": "Max cannot exceed 1000",
+  "maxMustBeGreaterThanMin": "Max must be greater than min",
+
+  "startTheConversation": "Start the conversation!",
+  "sayHelloAndDiscuss": "Say hello and discuss your trade.",
+
+  "matchDeals": "Match Deals",
+  "refusedMatches": "Refused Matches",
+  "failedToLoadRefusedMatches": "Failed to load refused matches",
+  "noRefusedMatches": "No Refused Matches",
+  "swipeLeftAppearHere": "Products you swipe left on will appear here",
+  "removeDislike": "Remove Dislike?",
+  "removeDislikeMessage": "This product will be available for swiping again. You can like or dislike it in the future.",
+  "remove": "Remove",
+  "reEnable": "Re-enable",
+  "unknown": "Unknown",
+
+  "likedDeals": "Liked Deals",
+
+  "productsYouLiked": "Products You Liked ({count})",
+  "@productsYouLiked": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noLikesYet": "No likes yet",
+  "swipeProductsToLike": "Swipe on products to like them",
+
+  "almostThere": "Almost there!",
+  "addPhoneRecoveryNotifications": "Add your phone number for account recovery and notifications.",
+
+  "verifyYourPhone": "Verify your phone",
+  "sendVerificationCodeMessage": "We'll send you a verification code to confirm your phone number.",
+  "country": "Country",
+  "smsAgreement": "By continuing, you agree to receive SMS messages for verification purposes. Standard messaging rates may apply.",
+  "sendVerificationCode": "Send Verification Code",
+  "backToSignIn": "Back to Sign In",
+  "enterPhoneResetPassword": "Enter your phone number and we'll send you a verification code to reset your password.",
+
+  "createNewPasswordTitle": "Create new password",
+  "passwordDifferentFromPrevious": "Your new password must be different from previously used passwords.",
+  "passwordMin6Chars": "Password must be at least 6 characters",
+  "pleaseEnterNewPassword": "Please enter a new password",
+  "atLeast6Characters": "At least 6 characters",
+  "uppercaseLetterRecommended": "Uppercase letter (recommended)",
+  "numberSpecialCharRecommended": "Number or special character (recommended)",
+  "tooWeak": "Too weak",
+  "weak": "Weak",
+  "good": "Good",
+  "strong": "Strong",
+
+  "images1to4": "Images (1-4)",
+  "add": "Add",
+  "processingPleaseWait": "Processing Please Wait",
+  "viewTutorial": "View tutorial",
+  "chooseFromPhotos": "Choose from Photos",
+  "galleryMultiple": "Gallery (multiple)",
+
+  "nameLabel": "NAME:",
+  "userNameLabel": "USER NAME:",
+  "genderLabel": "GENDER:",
+  "contactLabel": "CONTACT#:",
+  "emailLabel": "EMAIL:",
+
+  "continueButton": "CONTINUE",
+  "otpError": "OTP Error",
+  "addYourPhoneNumber": "Add your phone number for account recovery and notifications.",
+  "fair": "Fair",
+  "weSentCodeTo": "We sent a code to",
+  "enterVerificationCode": "Enter verification code",
+  "save": "Save",
+  "yourProducts": "Your Products",
+  "haveYouCompletedTradeInPerson": "Have you completed this trade in person?",
+  "markAsComplete" : "Mark as Complete",
+  "errorPrefix": "Error: ",
+  "traders": "Traders",
+  "all": "All",
+  "favourites": "Favourites",
+  "archives": "Archives",
+  "pickLocation": "Pick Location",
+  "use": "Use",
+  "publicPlace": "Public Place",
+  "deliveryPickup": "Delivery/Pickup",
+  "willingToShip": "Willing to Ship",
+  "selectOneOfMyProducts": "Select one of my products (optional)",
+  "allMyProducts": "All my products",
+  "clearFilters": "Clear filters",
+  "apply": "Apply",
+  "refresh": "Refresh",
+  "defaultText": "Default",
+  "filterByMyProducts": "Filter by My Products (multiple)",
+  "onlyShowMatchesForOne": "Only show matches for one product",
+  "categories": "Categories",
+  "interests": "Interests",
+  "radiusKm": "Radius (km)",
+  "searchFilters": "Search Filters",
+  "productNumber": "Product #{id}",
+  "interestsTitle": "Interests",
+  "interestsDescription": "Let everyone know what you're interested in\nby adding it to your profile.",
+  "failedToLoadInterests": "Failed to load interests",
+  "retry": "Retry",
+  "continueWithCount": "Continue ({count}/{max})",
+  "pleaseEnterNewPassword": "Please enter a new password",
+  "passwordMinLength": "Password must be at least 6 characters",
+  "pleaseConfirmPassword": "Please confirm your password",
+  "passwordsDoNotMatch": "Passwords do not match",
+  "passwordResetSuccessfully": "Password reset successfully!",
+  "failedToResetPassword": "Failed to reset password. Please try again.",
+  "errorOccurredTryAgain": "An error occurred. Please try again.",
+  "pleaseEnterPhoneNumber": "Please enter your phone number",
+  "phoneNumber9Digits": "Phone number must be exactly 9 digits",
+  "failedToSendVerificationCode": "Failed to send verification code",
+  "pleaseEnterUsername": "Please enter a username",
+  "usernameMinLength": "Username must be at least 3 characters",
+  "usernameMaxLength": "Username must be less than 20 characters",
+  "usernameInvalidChars": "Username can only contain letters, numbers, and underscores",
+  "smartWatch": "Smart Watch",
+  "headphones": "Headphones",
+  "camera": "Camera",
+  "bazaar": "BAZAAR",
+  "letsTrade": "Let's Trade?",
+  "kmAway": "{distance} km away",
+  "noMatchesNearby": "No matches found nearby",
+  "noMatchesNearbyMessage": "Try increasing your search radius or adding more interests to discover more products.",
+  "adjustSearchPreferences": "Adjust search preferences",
+  "noProductsToTrade": "No products to trade",
+  "noProductsToTradeMessage": "Add your first product to start trading with others nearby.",
+  "addAProduct": "Add a product",
+  "next": "Next",
+  "congratulations": "Congratulations!",
+  "youAreGoodToTrade": "You are good to trade!",
+  "likedDeals": "Liked Deals",
+  "welcomeToDeals": "Welcome to Deals",
+  "myVibesMatching": "My Vibes Matching",
+  "matchedDeals": "Matched Deals",
+  "completedDeals": "Completed Deals",
+  "refusedMatches": "Refused Matches",
+  "backToHome": "Back To Home",
+  "contactNow": "Contact {name} now",
+  "revealTrader": "Reveal Trader",
+  "didntReceiveCode": "Didn't receive the code?",
+  "addProfilePhotoOptional": "Add a profile photo (optional)",
+  "learnWhatHappens": "Learn what happens when your number changes.",
+  "closeProductSelector": "Close product selector",
+  "selectProducts": "Select products",
+  "productFallback": "Product {id}",
+  "noNewProductsNearby": "No new products nearby",
+  "showingProductsYouLiked": "Showing {count} products you already liked",
+  "dealsNearYou": "Deals near you",
+  "swipeToExploreItems": "Swipe to explore {count} items",
+  "addYourFirstProduct": "Add your first product",
+  "listProductsToStartTrading": "List products to start trading with others nearby",
+  "noNearbyTrades": "No nearby trades",
+  "tryIncreasingSearchRadius": "Try increasing your search radius in preferences",
+  "addButton": "+ Add",
+  "saveButton": "Save",
+  "minMustBeLessThanMax": "Min must be less than max",
+  "maxCannotExceed": "Max cannot exceed 1000",
+  "maxMustBeGreaterThanMin": "Max must be greater than min",
+  "productDetails": "Product Details",
+  "noTitle": "No title",
+  "sar": "SAR",
+  "descriptionLabel": "Description",
+  "backToSwipe": "Back to Swipe",
+  "priceRangeFormat": "{min} - {max} SAR",
+  "tagline": "The Wanted for the Unwanted",
+  "signIn": "Sign in",
+  "orDivider": "or",
+  "byContinuingYouAgree": "By continuing, you agree to our ",
+  "terms": "Terms",
+  "andWord": " and ",
+  "enableLocation": "Enable Location",
+  "locationRequiredDescription": "TapTrade needs your location to find nearby traders and show you products in your area.",
+
+  "activateProduct": "Activate",
+  "productInactive": "Inactive",
+  "productActivatedSuccess": "Product activated!"
+}
+

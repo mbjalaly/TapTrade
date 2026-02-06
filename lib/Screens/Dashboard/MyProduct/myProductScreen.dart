@@ -6,6 +6,8 @@ import 'package:get/get.dart';
 import 'package:taptrade/Const/globleKey.dart';
 import 'package:taptrade/Controller/productController.dart';
 import 'package:taptrade/Controller/userController.dart';
+import 'package:taptrade/l10n/app_localizations.dart';
+import 'package:taptrade/Widgets/saudi_riyal_symbol.dart';
 import 'package:taptrade/Models/LikedProduct/likedProduct.dart';
 import 'package:taptrade/Models/MatchProduct/matchProduct.dart';
 import 'package:taptrade/Screens/Dashboard/Match/matchDeal.dart';
@@ -45,8 +47,8 @@ class _MyProductScreenState extends State<MyProductScreen> {
           return Container(
             width: w,
             height: h,
-            color: Colors.grey[300],
-            child: const Icon(Icons.image_not_supported, color: Colors.grey),
+            color: AppColors.surfaceVariantColor(context),
+            child: Icon(Icons.image_not_supported, color: AppColors.greyText(context)),
           );
         },
       );
@@ -103,11 +105,11 @@ class _MyProductScreenState extends State<MyProductScreen> {
   }
   
   String _getCategoryName(int? categoryId) {
-    if (categoryId == null) return 'Not specified';
+    if (categoryId == null) return AppLocalizations.of(navigatorKey.currentContext!)?.notSpecified ?? 'Not specified';
     
     final categories = GeneralService.instance.allCategory.value.data ?? [];
     final category = categories.firstWhereOrNull((cat) => cat.id == categoryId);
-    return category?.name ?? 'Not specified';
+    return category?.name ?? (AppLocalizations.of(navigatorKey.currentContext!)?.notSpecified ?? 'Not specified');
   }
   
   MatchData _convertLikeDataToMatchData(LikeData likeData) {
@@ -164,6 +166,39 @@ class _MyProductScreenState extends State<MyProductScreen> {
     final v = (value ?? '').trim();
     if (v.isEmpty) return '';
     return v[0].toUpperCase() + v.substring(1);
+  }
+
+  String _translateValue(String? value) {
+    if (value == null || value.isEmpty) return '';
+    final lowerValue = value.toLowerCase().trim();
+
+    // Translate status values
+    if (lowerValue == 'active') {
+      return AppLocalizations.of(navigatorKey.currentContext!)?.active ?? 'Active';
+    }
+    if (lowerValue == 'inactive') {
+      return AppLocalizations.of(navigatorKey.currentContext!)?.inactive ?? 'Inactive';
+    }
+
+    // Translate condition values
+    if (lowerValue == 'new') {
+      return AppLocalizations.of(navigatorKey.currentContext!)?.productNew ?? 'New';
+    }
+    if (lowerValue == 'used') {
+      return AppLocalizations.of(navigatorKey.currentContext!)?.productUsed ?? 'Used';
+    }
+    if (lowerValue == 'like new' || lowerValue == 'likenew') {
+      return AppLocalizations.of(navigatorKey.currentContext!)?.productLikeNew ?? 'Like New';
+    }
+    if (lowerValue == 'good') {
+      return AppLocalizations.of(navigatorKey.currentContext!)?.productGood ?? 'Good';
+    }
+    if (lowerValue == 'fair') {
+      return AppLocalizations.of(navigatorKey.currentContext!)?.productFair ?? 'Fair';
+    }
+
+    // Return capitalized value if no translation found
+    return _cap(value);
   }
 
   // Extract mutual match logic into reusable helper
@@ -248,7 +283,7 @@ class _MyProductScreenState extends State<MyProductScreen> {
       print("Stack trace: ${StackTrace.current}");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading products: ${e.toString()}')),
+          SnackBar(content: Text('${AppLocalizations.of(context)?.errorLoadingProducts ?? 'Error loading products'}: ${e.toString()}')),
         );
       }
     } finally {
@@ -274,7 +309,7 @@ class _MyProductScreenState extends State<MyProductScreen> {
       barrierDismissible: false,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.backgroundColor(context),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Row(
             children: [
@@ -287,8 +322,8 @@ class _MyProductScreenState extends State<MyProductScreen> {
                 child: Icon(Icons.delete_outline, color: Colors.red.shade400, size: 24),
               ),
               const SizedBox(width: 12),
-              const Text(
-                'Delete Product',
+              Text(
+                AppLocalizations.of(context)!.deleteProduct,
                 style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
               ),
             ],
@@ -298,7 +333,7 @@ class _MyProductScreenState extends State<MyProductScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Are you sure you want to delete:',
+                AppLocalizations.of(context)!.areYouSureDeleteProduct,
                 style: TextStyle(color: Colors.grey.shade700),
               ),
               const SizedBox(height: 8),
@@ -308,7 +343,7 @@ class _MyProductScreenState extends State<MyProductScreen> {
               ),
               const SizedBox(height: 12),
               Text(
-                'This action cannot be undone.',
+                AppLocalizations.of(context)!.thisActionCannotBeUndone,
                 style: TextStyle(color: Colors.red.shade400, fontSize: 13),
               ),
             ],
@@ -317,7 +352,7 @@ class _MyProductScreenState extends State<MyProductScreen> {
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
               child: Text(
-                'Cancel',
+                AppLocalizations.of(context)!.cancel,
                 style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w600),
               ),
             ),
@@ -329,7 +364,7 @@ class _MyProductScreenState extends State<MyProductScreen> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               ),
-              child: const Text('Delete', style: TextStyle(fontWeight: FontWeight.w600)),
+              child: Text(AppLocalizations.of(context)!.delete, style: TextStyle(fontWeight: FontWeight.w600)),
             ),
           ],
         );
@@ -357,6 +392,7 @@ class _MyProductScreenState extends State<MyProductScreen> {
 
       // Handle multiple possible success response formats
       final isSuccess = result.status == Status.COMPLETED &&
+          result.responseData != null &&
           (result.responseData['success'] == true ||
            result.responseData['status'] == 'success' ||
            result.responseData['status'] == true ||
@@ -364,13 +400,13 @@ class _MyProductScreenState extends State<MyProductScreen> {
            result.responseData['message']?.toString().toLowerCase().contains('success') == true);
 
       if (isSuccess) {
-        ShowMessage.success(context, result.responseData['message'] ?? 'Product deleted successfully');
+        ShowMessage.success(context, result.responseData?['message'] ?? AppLocalizations.of(context)!.productDeletedSuccessfully);
         // Reload products to ensure list is up to date
         await getData();
       } else {
-        final errorMsg = result.responseData['message'] 
-            ?? result.responseData['error']
-            ?? 'Failed to delete product';
+        final errorMsg = result.responseData?['message']
+            ?? result.responseData?['error']
+            ?? (AppLocalizations.of(context)?.failedToDeleteProduct ?? 'Failed to delete product');
         ShowMessage.error(context, errorMsg.toString());
       }
     } catch (e) {
@@ -378,7 +414,7 @@ class _MyProductScreenState extends State<MyProductScreen> {
         isDeleting = false;
         selectedIndex = -1;
       });
-      ShowMessage.error(context, 'An error occurred. Please try again.');
+      ShowMessage.error(context, AppLocalizations.of(context)?.errorTryAgainLater ?? 'An error occurred. Please try again.');
       debugPrint('Delete error: $e');
     }
   }
@@ -388,23 +424,23 @@ class _MyProductScreenState extends State<MyProductScreen> {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.backgroundColor(context),
         body: Column(
           children: [
             const SizedBox(height: 70),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: TabBar(
-                labelColor: AppColors.primaryTextColor,
-                unselectedLabelColor: AppColors.greyTextColor,
+                labelColor: AppColors.primaryText(context),
+                unselectedLabelColor: AppColors.greyText(context),
                 labelStyle: const TextStyle(fontWeight: FontWeight.w700),
                 indicator: const UnderlineTabIndicator(
                   borderSide: BorderSide(color: AppColors.primaryColor, width: 3),
                   insets: EdgeInsets.symmetric(horizontal: 16),
                 ),
-                tabs: const [
-                  Tab(text: 'My products'),
-                  Tab(text: 'Completed deals'),
+                tabs: [
+                  Tab(text: AppLocalizations.of(context)?.myProducts ?? 'My products'),
+                  Tab(text: AppLocalizations.of(context)?.completedDeals ?? 'Completed deals'),
                 ],
               ),
             ),
@@ -427,31 +463,30 @@ class _MyProductScreenState extends State<MyProductScreen> {
   Widget _buildMyProductsTab(BuildContext context) {
     Size size = MediaQuery.of(context).size;
     if (isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.primaryTextColor),
+      return Center(
+        child: CircularProgressIndicator(color: AppColors.primaryText(context)),
       );
     }
     return Obx(() {
       final myProductList = productController.myProduct.value.data ?? [];
-      final activeProducts = myProductList.where((p) => (p.status ?? '') == 'active').toList();
-      print("Obx rebuild - Total products: ${myProductList.length}, Active products: ${activeProducts.length}");
+      print("Obx rebuild - Total products: ${myProductList.length}");
       if (myProductList.isEmpty) {
         return Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.inventory_2_outlined, size: 48, color: AppColors.greyTextColor),
+              Icon(Icons.inventory_2_outlined, size: 48, color: AppColors.greyText(context)),
               const SizedBox(height: 12),
-              const Text('No products yet', style: TextStyle(fontWeight: FontWeight.w700)),
+              Text(AppLocalizations.of(context)?.noProductsYet ?? 'No products yet', style: const TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 6),
-              const Text('Add your first product to get started'),
+              Text(AppLocalizations.of(context)?.addYourFirstProductToGetStarted ?? 'Add your first product to get started'),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () async {
                   await Get.to(() => AddProductWizardScreen());
                   getData();
                 },
-                child: const Text('Add product'),
+                child: Text(AppLocalizations.of(context)?.addProduct ?? 'Add product'),
               ),
             ],
           ),
@@ -463,49 +498,13 @@ class _MyProductScreenState extends State<MyProductScreen> {
           onRefresh: () async {
             await getData(showLoader: false);
           },
-          child: activeProducts.isEmpty
-              ? ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.inventory_2_outlined, size: 48, color: AppColors.greyTextColor),
-                          const SizedBox(height: 12),
-                          Text(
-                            myProductList.isEmpty 
-                                ? 'No products yet' 
-                                : 'No active products',
-                            style: const TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            myProductList.isEmpty
-                                ? 'Add your first product to get started'
-                                : 'You have ${myProductList.length} product(s) but none are active',
-                          ),
-                          if (myProductList.isEmpty) ...[
-                            const SizedBox(height: 16),
-                            ElevatedButton(
-                              onPressed: () async {
-                                await Get.to(() => AddProductWizardScreen());
-                                getData();
-                              },
-                              child: const Text('Add product'),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                )
-              : ListView.separated(
+          child: ListView.separated(
                   padding: const EdgeInsets.fromLTRB(12, 0, 12, 140),
-                  itemCount: activeProducts.length,
+                  itemCount: myProductList.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 10),
                   itemBuilder: (context, index) {
-                    final p = activeProducts[index];
+                    final p = myProductList[index];
+                    final bool isActive = (p.status ?? '') == 'active';
                     final image = p.image ?? '';
                     final category = p.category ?? '';
                     final title = p.title ?? '';
@@ -513,10 +512,23 @@ class _MyProductScreenState extends State<MyProductScreen> {
                     final maxPrice = p.maxPrice ?? '';
                     final status = p.status ?? '';
                     final id = p.id ?? -1;
-              return CustomShimmer(
+              return Opacity(
+                opacity: isActive ? 1.0 : 0.45,
+                child: ColorFiltered(
+                  colorFilter: isActive
+                      ? const ColorFilter.mode(Colors.transparent, BlendMode.multiply)
+                      : const ColorFilter.matrix(<double>[
+                          0.2126, 0.7152, 0.0722, 0, 0,
+                          0.2126, 0.7152, 0.0722, 0, 0,
+                          0.2126, 0.7152, 0.0722, 0, 0,
+                          0,      0,      0,      1, 0,
+                        ]),
+                  child: CustomShimmer(
                 isOn: isDeleting && selectedIndex == index,
-                child: Card(
-                  color: AppColors.surfaceVariant,
+                child: Stack(
+                  children: [
+                  Card(
+                  color: AppColors.surfaceVariantColor(context),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                     side: const BorderSide(color: Color(0xFFB3E5FC)), // light blue border
@@ -526,7 +538,7 @@ class _MyProductScreenState extends State<MyProductScreen> {
                     onTap: () {
                       showModalBottomSheet(
                         context: context,
-                        backgroundColor: Colors.white,
+                        backgroundColor: AppColors.backgroundColor(context),
                         isScrollControlled: true,
                         shape: const RoundedRectangleBorder(
                           borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -565,19 +577,12 @@ class _MyProductScreenState extends State<MyProductScreen> {
                               // Price range display
                               Row(
                                 children: [
-                                  Icon(Icons.attach_money, size: 14, color: AppColors.primaryTextColor.withOpacity(0.6)),
-                                  const SizedBox(width: 2),
-                                  Expanded(
-                                    child: Text(
-                                      '$minPrice - $maxPrice',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppColors.primaryTextColor.withOpacity(0.7),
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
+                                  SaudiRiyalFormatter.formatRange(
+                                    minPrice,
+                                    maxPrice,
+                                    fontSize: 16,
+                                    color: AppColors.primaryText(context).withOpacity(0.7),
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ],
                               ),
@@ -587,7 +592,7 @@ class _MyProductScreenState extends State<MyProductScreen> {
                           ),
                         ),
                         IconButton(
-                          tooltip: 'Delete',
+                          tooltip: AppLocalizations.of(context)?.delete ?? 'Delete',
                           onPressed: () => _showDeleteConfirmation(
                             context: context,
                             productTitle: title,
@@ -600,6 +605,26 @@ class _MyProductScreenState extends State<MyProductScreen> {
                     ),
                   ),
                 ),
+              ),
+              if (!isActive)
+                Positioned(
+                  top: 8,
+                  left: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade700,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      AppLocalizations.of(context)?.productInactive ?? 'INACTIVE',
+                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ),
+              ],
+              ),
+              ),
               ),
               );
             },
@@ -631,11 +656,11 @@ class _MyProductScreenState extends State<MyProductScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: AppColors.surfaceVariant,
+        color: AppColors.surfaceVariantColor(context),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: AppColors.outline),
+        border: Border.all(color: AppColors.outlineColor(context)),
       ),
-      child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primaryTextColor)),
+      child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primaryText(context))),
     );
   }
 
@@ -722,14 +747,14 @@ class _MyProductScreenState extends State<MyProductScreen> {
                         subtitle!,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: AppColors.greyTextColor, fontSize: 12),
+                        style: TextStyle(color: AppColors.greyText(context), fontSize: 12),
                       ),
                     ),
                 ],
               ),
             ),
             if (onTap != null)
-              const Icon(Icons.chevron_right, color: AppColors.greyTextColor),
+              Icon(Icons.chevron_right, color: AppColors.greyText(context)),
           ],
         ),
       ),
@@ -803,11 +828,12 @@ class _MyProductScreenState extends State<MyProductScreen> {
                                     spacing: 8,
                                     runSpacing: 6,
                                     children: [
-                                      _chip(_cap(category)),
-                                      _chip('Min: $minPrice'),
-                                      _chip('Max: $maxPrice'),
-                                      _chip('Status: ${_cap(status)}'),
-                                      if ((condition).toString().isNotEmpty) _chip('Condition: ${_cap(condition)}'),
+                                      _chip(_cap(category)), // Category is already localized from backend
+                                      _chip('${AppLocalizations.of(context)?.minPrice ?? 'Min Price'}: $minPrice'),
+                                      _chip('${AppLocalizations.of(context)?.maxPrice ?? 'Max Price'}: $maxPrice'),
+                                      if ((p.quantity ?? 0) > 0) _chip('${AppLocalizations.of(context)?.quantity ?? 'Quantity'}: ${p.quantity}'),
+                                      _chip('${AppLocalizations.of(context)?.status ?? 'Status'}: ${_translateValue(status)}'),
+                                      if ((condition).toString().isNotEmpty) _chip('${AppLocalizations.of(context)?.condition ?? 'Condition'}: ${_translateValue(condition)}'),
                                     ],
                                   ),
                                 ],
@@ -816,22 +842,69 @@ class _MyProductScreenState extends State<MyProductScreen> {
                           ],
                         ),
                       ),
-                      TextButton.icon(
-                        onPressed: () async {
-                          Navigator.pop(context);
-                          final result = await Get.to(() => EditProductScreen(product: p));
-                          // Refresh products if product was updated
-                          if (result == true) {
-                            getData();
-                          }
-                        },
-                        icon: const Icon(Icons.edit_outlined),
-                        label: const Text('Edit'),
-                      )
+                      if ((p.status ?? '') == 'active')
+                        TextButton.icon(
+                          onPressed: () async {
+                            Navigator.pop(context);
+                            final result = await Get.to(() => EditProductScreen(product: p));
+                            // Refresh products if product was updated
+                            if (result == true) {
+                              getData();
+                            }
+                          },
+                          icon: const Icon(Icons.edit_outlined),
+                          label: Text(AppLocalizations.of(context)?.edit ?? 'Edit'),
+                        )
+                      else
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primaryColor,
+                            foregroundColor: Colors.white,
+                          ),
+                          onPressed: () async {
+                            final productService = ProductService();
+                            final result = await productService.activateProduct(context, p.id ?? 0);
+                            if (result.status == Status.COMPLETED) {
+                              Navigator.pop(context);
+                              ShowMessage.inDialog(context, AppLocalizations.of(context)?.productActivatedSuccess ?? 'Product activated!', false);
+                              getData();
+                            }
+                          },
+                          icon: const Icon(Icons.check_circle_outline),
+                          label: Text(AppLocalizations.of(context)?.activateProduct ?? 'Activate'),
+                        )
                     ],
                   ),
                 ),
                 _productGallery(p),
+                // Product Description
+                if ((p.description ?? '').toString().trim().isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          AppLocalizations.of(context)?.description ?? 'Description',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                            color: AppColors.primaryText(context),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          p.description.toString(),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppColors.secondaryText(context),
+                            height: 1.5,
+                          ),
+                        ),
+                        const Divider(height: 24),
+                      ],
+                    ),
+                  ),
                 // Section header for liked products
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -840,11 +913,11 @@ class _MyProductScreenState extends State<MyProductScreen> {
                       Icon(Icons.favorite, color: Colors.red.shade400, size: 20),
                       const SizedBox(width: 8),
                       Text(
-                        'Products You Liked (${likedForThis.length})',
-                        style: const TextStyle(
+                        AppLocalizations.of(context)?.productsYouLiked(likedForThis.length) ?? 'Products You Liked (${likedForThis.length})',
+                        style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 16,
-                          color: AppColors.primaryTextColor,
+                          color: AppColors.primaryText(context),
                         ),
                       ),
                     ],
@@ -862,22 +935,22 @@ class _MyProductScreenState extends State<MyProductScreen> {
                           Icon(
                             Icons.favorite_outline,
                             size: 48,
-                            color: AppColors.greyTextColor.withOpacity(0.5),
+                            color: AppColors.greyText(context).withOpacity(0.5),
                           ),
                           const SizedBox(height: 12),
-                          const Text(
-                            'No likes yet',
+                          Text(
+                            AppLocalizations.of(context)?.noLikesYet ?? 'No likes yet',
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
-                              color: AppColors.greyTextColor,
+                              color: AppColors.greyText(context),
                             ),
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Swipe on products to like them',
+                            AppLocalizations.of(context)?.swipeProductsToLike ?? 'Swipe on products to like them',
                             style: TextStyle(
                               fontSize: 13,
-                              color: AppColors.greyTextColor.withOpacity(0.7),
+                              color: AppColors.greyText(context).withOpacity(0.7),
                             ),
                           ),
                         ],
@@ -920,10 +993,11 @@ class _MyProductScreenState extends State<MyProductScreen> {
   Widget _productGallery(dynamic p) {
     final List<String> raw = (p.images as List<String>?) ?? <String>[];
     final String cover = (p.image ?? '').toString();
-    final List<String> sources = <String>{
-      ...raw,
-      if (cover.isNotEmpty) cover,
-    }.toList();
+
+    // Remove duplicates using Set to prevent showing same image multiple times
+    final baseList = raw.isNotEmpty ? raw : (cover.isNotEmpty ? [cover] : <String>[]);
+    final List<String> sources = List<String>.from(baseList.toSet());
+
     if (sources.isEmpty) return const SizedBox.shrink();
     return SizedBox(
       height: 140,
@@ -953,7 +1027,7 @@ class _MyProductScreenState extends State<MyProductScreen> {
           text: TextSpan(
             text: key,
             style: TextStyle(
-                color: AppColors.primaryTextColor,
+                color: AppColors.primaryText(context),
                 fontWeight: FontWeight.bold,
                 fontSize: size.width * 0.035),
             children: [
@@ -967,4 +1041,5 @@ class _MyProductScreenState extends State<MyProductScreen> {
           )),
     );
   }
+
 }

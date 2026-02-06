@@ -4,13 +4,25 @@ class GetTradePreferenceResponseModel {
   String? tradeRadius;
   List<Interests>? interests;
 
-  GetTradePreferenceResponseModel(
-      {this.success, this.message, this.tradeRadius, this.interests});
+  // NEW FIELD
+  String? meetingPreference;
+
+  GetTradePreferenceResponseModel({
+    this.success,
+    this.message,
+    this.tradeRadius,
+    this.interests,
+    this.meetingPreference,
+  });
 
   GetTradePreferenceResponseModel.fromJson(Map<String, dynamic> json) {
     success = json['success'] ?? false;
     message = json['message'] ?? '';
     tradeRadius = json['trade_radius'] ?? '';
+
+    // NEW FIELD PARSING
+    meetingPreference = json['meeting_preference'] ?? 'public_place';
+
     if (json['interests'] != null) {
       interests = <Interests>[];
       json['interests'].forEach((v) {
@@ -26,6 +38,10 @@ class GetTradePreferenceResponseModel {
     data['success'] = success ?? false;
     data['message'] = message ?? '';
     data['trade_radius'] = tradeRadius ?? '';
+
+    // NEW FIELD IN JSON
+    data['meeting_preference'] = meetingPreference ?? 'public_place';
+
     data['interests'] = interests != null
         ? interests!.map((v) => v.toJson()).toList()
         : [];

@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:taptrade/Widgets/saudi_riyal_symbol.dart';
+import 'package:taptrade/l10n/app_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
@@ -36,13 +38,19 @@ class _AddProductScreenState extends State<AddProductScreen> {
   File? _imageFile;
   final List<File> _images = [];
   TextEditingController productTitle = TextEditingController();
+  TextEditingController productDescription = TextEditingController();
   TextEditingController minPrice = TextEditingController(text: '0');
   TextEditingController maxPrice = TextEditingController(text: '500');
+  TextEditingController quantityController = TextEditingController(text: '1');
   String? selectedCategory;
+  String _selectedCondition = 'New';  // Default to New
+  String? _minPriceError;
+  String? _maxPriceError;
   RangeValues _currentRangeValues = const RangeValues(0, 500);
   Future<void> _showImagePickerOptions() async {
+    final l10n = AppLocalizations.of(context)!;
     showModalBottomSheet(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.contentBg(context),
       context: context,
       builder: (BuildContext context) {
         return SafeArea(
@@ -51,7 +59,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
             children: <Widget>[
               ListTile(
                 leading: Icon(Icons.camera_alt),
-                title: Text('Camera'),
+                title: Text(l10n.camera),
                 onTap: () {
                   _pickImage(ImageSource.camera);
                   Navigator.pop(context);
@@ -59,7 +67,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
               ),
               ListTile(
                 leading: Icon(Icons.photo_album),
-                title: Text('Gallery (multiple)'),
+                title: Text(l10n.galleryMultiple),
                 onTap: () {
                   _pickMultipleImages();
                   Navigator.pop(context);
@@ -134,21 +142,25 @@ class _AddProductScreenState extends State<AddProductScreen> {
     selectProduct = ProductModel();
     _imageFile = null;
     productTitle.clear();
+    productDescription.clear();
     minPrice.text = '0';
     maxPrice.text = '500';
+    quantityController.text = '1';
     selectedCategory = null;
+    _selectedCondition = 'New';
     _currentRangeValues = RangeValues(0, 500);
     setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     Size size = MediaQuery.of(context).size;
 
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.contentBg(context),
         bottomNavigationBar: Container(
           color: AppColors.secondaryColor.withOpacity(0.1),
           padding: EdgeInsets.symmetric(horizontal: size.width * 0.225,vertical: 20),
@@ -157,15 +169,25 @@ class _AddProductScreenState extends State<AddProductScreen> {
               String? message;
               if (productList.length < 3) {
                 if (_imageFile == null) {
-                  message = "Please Add Product Image";
+                  message = l10n.pleaseAddProductImage;
                 } else if (selectedCategory == null) {
-                  message = "Please Select Product Category";
+                  message = l10n.pleaseSelectProductCategory;
                 } else if (productTitle.text.trim().isEmpty) {
-                  message = "Please Add Product Description";
+                  message = l10n.pleaseAddProductTitle;
+                } else if (productDescription.text.trim().isEmpty) {
+                  message = l10n.pleaseAddProductDescription;
+                } else if (productDescription.text.trim().length > 500) {
+                  message = l10n.descriptionTooLong;
+                } else if (quantityController.text.trim().isEmpty) {
+                  message = l10n.pleaseAddProductQuantity;
+                } else if (int.tryParse(quantityController.text.trim()) == null) {
+                  message = l10n.pleaseEnterValidQuantity;
+                } else if ((int.tryParse(quantityController.text.trim()) ?? 0) < 1 || (int.tryParse(quantityController.text.trim()) ?? 0) > 99) {
+                  message = l10n.quantityMustBeBetween;
                 } else if (minPrice.text.trim().isEmpty) {
-                  message = "Please Add Product Minimum Price";
+                  message = l10n.pleaseAddMinPrice;
                 } else if (maxPrice.text.trim().isEmpty) {
-                  message = "Please Add Product Maximum Price";
+                  message = l10n.pleaseAddMaxPrice;
                 }
               }
 
@@ -180,7 +202,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                   String id = userController.userProfile.value.data?.id ?? '';
                   // Send category as name per backend expectation
                   if ((selectedCategory ?? '').isEmpty) {
-                    ShowMessage.notify(context, 'Please select a category');
+                    ShowMessage.notify(context, l10n.selectACategory);
                     return;
                   }
                   // Prepare single image to send: if multiple selected, merge into one PNG
@@ -188,13 +210,13 @@ class _AddProductScreenState extends State<AddProductScreen> {
                   if (_images.length > 1) {
                     imageToSend = await mergeImagesToSinglePng(_images, columns: 2, tileSize: 300, padding: 8, quality: 85);
                   }
-                  
+
                   // Validate prices
                   final minPriceValue = double.tryParse(minPrice.text) ?? 0;
                   final maxPriceValue = double.tryParse(maxPrice.text) ?? 0;
-                  
+
                   if (minPriceValue >= maxPriceValue) {
-                    ShowMessage.notify(context, 'Minimum price must be less than maximum price');
+                    ShowMessage.notify(context, l10n.minPriceMustBeLess);
                     setState(() {
                       isLoading = false;
                     });
@@ -204,11 +226,13 @@ class _AddProductScreenState extends State<AddProductScreen> {
                   Map<String, dynamic> body = {
                     "category": selectedCategory,
                     "title": productTitle.text,
+                    "description": productDescription.text.trim(),
                     "min_price": minPriceValue,
                     "max_price": maxPriceValue,
+                    "quantity": int.tryParse(quantityController.text.trim()) ?? 1,
                     // Send the prepared PNG image
                     "image": imageToSend,
-                    "product_condition": "New",
+                    "product_condition": _selectedCondition,  // Changed from hardcoded "New"
                   };
                   setState(() {
                     isLoading = true;
@@ -225,14 +249,14 @@ class _AddProductScreenState extends State<AddProductScreen> {
                         productList.add(selectProduct);
                         setState(() {});
                         ShowMessage.notify(
-                            context, 'Product Added ${productList.length}/3');
+                            context, l10n.productAddedCount(productList.length));
                         clearFields();
                       } else {
                         ShowMessage.notify(context,
-                            'Please Add At Least Three Product ${productList.length}/3');
+                            l10n.pleaseAddThreeProducts(productList.length));
                       }
                     }else{
-                      ShowMessage.notify(context, 'Product Added Successfully');
+                      ShowMessage.notify(context, l10n.productAddedSuccessfully);
                       // Navigate to home screen after adding product
                       Get.offAll(() => const BottomNavigationScreen());
                     }
@@ -245,7 +269,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
             },
             isLoading: isLoading,
             width: Get.width * 0.55,
-            text: widget.isDirect ? "+ Add" : productList.length >= 3 ? "Save" : "+ Add",
+            text: widget.isDirect ? (AppLocalizations.of(context)?.addButton ?? "+ Add") : productList.length >= 3 ? (AppLocalizations.of(context)?.saveButton ?? "Save") : (AppLocalizations.of(context)?.addButton ?? "+ Add"),
             textColor: Colors.white,
             fontSize: Get.width * 0.04,
           ),
@@ -290,7 +314,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                   ),
                   Center(
                     child: AppText(
-                      text: "Add Products",
+                      text: l10n.addProducts,
                       fontSize: Get.width * 0.09,
                       textcolor: AppColors.darkBlue,
                       fontWeight: FontWeight.w600,
@@ -310,20 +334,45 @@ class _AddProductScreenState extends State<AddProductScreen> {
                               color: _imageFile == null ? AppColors.themeColor : null,
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: Container(
-                              height: Get.height * 0.32,
-                              width: Get.width * 0.55,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(10),
-                                image: DecorationImage(
-                                  image: _imageFile != null
-                                      ? FileImage(
-                                          _imageFile!) // Display selected image
-                                      : const NetworkImage(KeyConstants.imagePlaceHolder)
-                                          as ImageProvider, // Default asset image
-                                  fit: _imageFile != null ? BoxFit.cover : BoxFit.cover,
+                            child: Stack(
+                              children: [
+                                Container(
+                                  height: Get.height * 0.32,
+                                  width: Get.width * 0.55,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(10),
+                                    image: DecorationImage(
+                                      image: _imageFile != null
+                                          ? FileImage(
+                                              _imageFile!) // Display selected image
+                                          : const NetworkImage(KeyConstants.imagePlaceHolder)
+                                              as ImageProvider, // Default asset image
+                                      fit: _imageFile != null ? BoxFit.cover : BoxFit.cover,
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                // NEW: Image count badge
+                                if (_images.length > 1)
+                                  Positioned(
+                                    top: 8,
+                                    right: 8,
+                                    child: Container(
+                                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withOpacity(0.7),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        l10n.imagesCount(_images.length),
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                           Positioned(
@@ -384,7 +433,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                         return DropdownButtonFormField<String>(
                           isExpanded: true,
                           decoration: InputDecoration(
-                            labelText: items.isEmpty ? 'No categories available' : 'Select Category',
+                            labelText: items.isEmpty ? l10n.noCategoriesAvailable : l10n.selectCategory,
                             labelStyle: TextStyle(color: Colors.grey),
                             enabledBorder: OutlineInputBorder(
                               borderSide: BorderSide(color: Colors.grey, width: 1),
@@ -396,9 +445,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
                             ),
                           ),
                           value: selectedCategory,
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 16,
-                              color: Colors.black,
+                              color: AppColors.textOnBg(context),
                               fontWeight: FontWeight.w600),
                           items: items,
                           onChanged: items.isEmpty
@@ -417,7 +466,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                   ),
                   Center(
                     child: AppText(
-                      text: "PRODUCT TITLE",
+                      text: l10n.productTitleLabel,
                       fontSize: Get.width * 0.04,
                       textcolor: AppColors.darkBlue,
                       fontWeight: FontWeight.w600,
@@ -438,7 +487,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                         decoration: InputDecoration(
                             contentPadding: const EdgeInsets.only(left: 10),
                             filled: true,
-                            fillColor: Colors.white, // White fill color
+                            fillColor: AppColors.fieldBg(context),
                             enabledBorder: OutlineInputBorder(
                               borderSide: const BorderSide(
                                   color: Colors.grey), // Grey border color
@@ -452,7 +501,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                               borderRadius: BorderRadius.circular(
                                   7), // Border radius 1.2 when focused
                             ),
-                            hintText: 'Describe your product in five words ',
+                            hintText: l10n.describeProductShort,
                             hintStyle: TextStyle(
                                 color: Colors.grey.withOpacity(.60),
                                 fontSize: 14)),
@@ -460,11 +509,203 @@ class _AddProductScreenState extends State<AddProductScreen> {
                     ),
                   ),
                   SizedBox(
-                    height: 10,
+                    height: 15,
                   ),
+                  // PRODUCT DESCRIPTION (REQUIRED)
                   Center(
                     child: AppText(
-                      text: "Price Range",
+                      text: l10n.productDescriptionLabel,
+                      fontSize: Get.width * 0.04,
+                      textcolor: AppColors.darkBlue,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  SizedBox(height: 15),
+                  Center(
+                    child: SizedBox(
+                      width: Get.width * 0.7,
+                      child: TextFormField(
+                        controller: productDescription,
+                        maxLines: 5,
+                        minLines: 3,
+                        inputFormatters: [
+                          LengthLimitingTextInputFormatter(500),
+                        ],
+                        decoration: InputDecoration(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                          filled: true,
+                          fillColor: AppColors.fieldBg(context),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: const BorderSide(color: Colors.grey),
+                            borderRadius: BorderRadius.circular(7),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: const BorderSide(color: AppColors.primaryColor, width: 2),
+                            borderRadius: BorderRadius.circular(7),
+                          ),
+                          errorBorder: OutlineInputBorder(
+                            borderSide: const BorderSide(color: Colors.red),
+                            borderRadius: BorderRadius.circular(7),
+                          ),
+                          hintText: l10n.describeProductDetailRequired,
+                          hintStyle: TextStyle(
+                            color: Colors.grey.withOpacity(.60),
+                            fontSize: 14,
+                          ),
+                          counterText: '${productDescription.text.length}/500',
+                        ),
+                        onChanged: (value) {
+                          setState(() {}); // Update character counter
+                        },
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 15),
+                  // QUANTITY AVAILABLE
+                  Center(
+                    child: AppText(
+                      text: l10n.quantityAvailable,
+                      fontSize: Get.width * 0.04,
+                      textcolor: AppColors.darkBlue,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  SizedBox(height: 15),
+                  Center(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.remove_circle_outline, color: AppColors.darkBlue, size: 32),
+                          onPressed: () {
+                            final current = int.tryParse(quantityController.text) ?? 1;
+                            if (current > 1) {
+                              quantityController.text = (current - 1).toString();
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 12),
+                        SizedBox(
+                          width: Get.width * 0.25,
+                          child: TextFormField(
+                            controller: quantityController,
+                            keyboardType: TextInputType.number,
+                            textAlign: TextAlign.center,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(2),
+                            ],
+                            decoration: InputDecoration(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 16),
+                              filled: true,
+                              fillColor: AppColors.fieldBg(context),
+                              enabledBorder: OutlineInputBorder(
+                                borderSide: const BorderSide(color: Colors.grey),
+                                borderRadius: BorderRadius.circular(7),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderSide: const BorderSide(color: AppColors.primaryColor, width: 2),
+                                borderRadius: BorderRadius.circular(7),
+                              ),
+                              hintText: '1',
+                              hintStyle: TextStyle(
+                                color: Colors.grey.withOpacity(.60),
+                                fontSize: 16,
+                              ),
+                            ),
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            onChanged: (value) {
+                              if (value.isEmpty) {
+                                // Auto-fill with 1 if user deletes all text
+                                quantityController.text = '1';
+                                quantityController.selection = TextSelection.fromPosition(
+                                  TextPosition(offset: 1),
+                                );
+                              } else if (value.isNotEmpty) {
+                                final qty = int.tryParse(value) ?? 1;
+                                if (qty > 99) {
+                                  quantityController.text = '99';
+                                  quantityController.selection = TextSelection.fromPosition(
+                                    TextPosition(offset: quantityController.text.length),
+                                  );
+                                } else if (qty < 1) {
+                                  quantityController.text = '1';
+                                  quantityController.selection = TextSelection.fromPosition(
+                                    TextPosition(offset: quantityController.text.length),
+                                  );
+                                }
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        IconButton(
+                          icon: const Icon(Icons.add_circle_outline, color: AppColors.darkBlue, size: 32),
+                          onPressed: () {
+                            final current = int.tryParse(quantityController.text) ?? 1;
+                            if (current < 99) {
+                              quantityController.text = (current + 1).toString();
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 15),
+                  Center(
+                    child: AppText(
+                      text: l10n.productConditionLabel,
+                      fontSize: Get.width * 0.04,
+                      textcolor: AppColors.darkBlue,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  SizedBox(height: 15),
+                  Center(
+                    child: SizedBox(
+                      width: Get.width * 0.7,
+                      child: DropdownButtonFormField<String>(
+                        value: _selectedCondition,
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: AppColors.fieldBg(context),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.grey),
+                            borderRadius: BorderRadius.circular(7),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: AppColors.primaryColor, width: 2),
+                            borderRadius: BorderRadius.circular(7),
+                          ),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                        ),
+                        items: {
+                          'New': l10n.productNew,
+                          'Like New': l10n.productLikeNew,
+                          'Good': l10n.productGood,
+                          'Fair': l10n.productFair,
+                          'Poor': l10n.poor,
+                        }.entries
+                            .map((entry) => DropdownMenuItem(
+                                  value: entry.key,
+                                  child: Text(entry.value),
+                                ))
+                            .toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedCondition = value ?? 'New';
+                          });
+                        },
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 15),
+                  Center(
+                    child: AppText(
+                      text: l10n.priceRange,
                       fontSize: Get.width * 0.05,
                       textcolor: AppColors.darkBlue,
                       fontWeight: FontWeight.w600,
@@ -534,39 +775,56 @@ class _AddProductScreenState extends State<AddProductScreen> {
                               FilteringTextInputFormatter.digitsOnly,
                             ],
                             onChanged: (value){
+                              setState(() {
+                                _minPriceError = null;  // Clear error
+                              });
+
                               if(value.isNotEmpty){
-                                if(double.parse(value.trim())<double.parse(maxPrice.text.trim())){
-                                  _currentRangeValues =  RangeValues(double.parse(value), double.parse(maxPrice.text.trim()));
-                                }else{
-                                  ShowMessage.notify(context, "Minimum value must be smaller then maximum value");
-                                  minPrice.text = '0';
-                                  _currentRangeValues =  RangeValues(0, double.parse(maxPrice.text.trim()));
+                                final minVal = double.tryParse(value.trim());
+                                final maxVal = double.tryParse(maxPrice.text.trim());
+
+                                if (minVal != null && maxVal != null) {
+                                  if(minVal >= maxVal){
+                                    setState(() {
+                                      _minPriceError = AppLocalizations.of(context)?.minMustBeLessThanMax ?? "Min must be less than max";
+                                    });
+                                    return;
+                                  }
+                                  _currentRangeValues = RangeValues(minVal, maxVal);
                                 }
                               }else{
-                                _currentRangeValues =  RangeValues(0, double.parse(maxPrice.text.trim()));
+                                _currentRangeValues = RangeValues(0, double.parse(maxPrice.text.trim()));
                               }
-                              setState(() {
-
-                              });
+                              setState(() {});
                             },
                             decoration: InputDecoration(
                                 filled: true,
                                 fillColor: Colors.transparent,
                                 enabledBorder: OutlineInputBorder(
-                                  borderSide: const BorderSide(
-                                      color: Colors.grey), // Grey border color
-                                  borderRadius: BorderRadius.circular(
-                                      30), // Border radius 1.2
+                                  borderSide: BorderSide(
+                                      color: _minPriceError != null ? Colors.red : Colors.grey),
+                                  borderRadius: BorderRadius.circular(30),
                                 ),
                                 focusedBorder: OutlineInputBorder(
-                                  borderSide: const BorderSide(
-                                      color: Colors
-                                          .grey), // Grey border color when focused
-                                  borderRadius: BorderRadius.circular(
-                                      30), // Border radius 1.2 when focused
+                                  borderSide: BorderSide(
+                                      color: _minPriceError != null ? Colors.red : Colors.grey),
+                                  borderRadius: BorderRadius.circular(30),
                                 ),
-                                hintText: '0 SAR ',
-                                suffixText: "SAR",
+                                errorBorder: OutlineInputBorder(
+                                  borderSide: BorderSide(color: Colors.red),
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                                focusedErrorBorder: OutlineInputBorder(
+                                  borderSide: BorderSide(color: Colors.red, width: 2),
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                                hintText: '0 ',
+                                suffixIcon: const Padding(
+                                  padding: EdgeInsets.all(14.0),
+                                  child: SaudiRiyalSymbol(color: Colors.grey, size: 16),
+                                ),
+                                errorText: _minPriceError,  // NEW: Show inline error
+                                errorStyle: TextStyle(fontSize: 10),
                                 hintStyle: TextStyle(
                                     color: Colors.grey.withOpacity(.50),
                                     fontSize: 14)),
@@ -594,43 +852,62 @@ class _AddProductScreenState extends State<AddProductScreen> {
                               FilteringTextInputFormatter.digitsOnly,
                             ],
                             onChanged: (value){
+                              setState(() {
+                                _maxPriceError = null;  // Clear error
+                              });
+
                               if(value.isNotEmpty){
-                                if(double.parse(value.trim())>double.parse(minPrice.text.trim()) && double.parse(value.trim()) <= 1000){
-                                  _currentRangeValues =  RangeValues(double.parse(minPrice.text.trim()),double.parse(value));
-                                }else{
-                                  if(double.parse(value.trim()) > 1000){
-                                    maxPrice.text = '1000';
-                                    ShowMessage.notify(context, "Maximum value allowed is 1000.");
-                                  }else{
-                                    ShowMessage.notify(context, "Maximum value must be greater then minimum value");
-                                    _currentRangeValues =  RangeValues(double.parse(minPrice.text.trim()),500);
+                                final minVal = double.tryParse(minPrice.text.trim());
+                                final maxVal = double.tryParse(value.trim());
+
+                                if (minVal != null && maxVal != null) {
+                                  if(maxVal > 1000){
+                                    setState(() {
+                                      _maxPriceError = AppLocalizations.of(context)?.maxCannotExceed ?? "Max cannot exceed 1000";
+                                    });
+                                    return;
                                   }
+                                  if(maxVal <= minVal){
+                                    setState(() {
+                                      _maxPriceError = AppLocalizations.of(context)?.maxMustBeGreaterThanMin ?? "Max must be greater than min";
+                                    });
+                                    return;
+                                  }
+                                  _currentRangeValues = RangeValues(minVal, maxVal);
                                 }
                               }else{
-                                _currentRangeValues =   RangeValues(double.parse(minPrice.text.trim()),500);
+                                _currentRangeValues = RangeValues(double.parse(minPrice.text.trim()),500);
                               }
-                              setState(() {
-
-                              });
+                              setState(() {});
                             },
                             decoration: InputDecoration(
                                 filled: true,
-                                fillColor: Colors.transparent, // White fill color
+                                fillColor: Colors.transparent,
                                 enabledBorder: OutlineInputBorder(
-                                  borderSide: const BorderSide(
-                                      color: Colors.grey), // Grey border color
-                                  borderRadius: BorderRadius.circular(
-                                      30), // Border radius 1.2
+                                  borderSide: BorderSide(
+                                      color: _maxPriceError != null ? Colors.red : Colors.grey),
+                                  borderRadius: BorderRadius.circular(30),
                                 ),
                                 focusedBorder: OutlineInputBorder(
-                                  borderSide: const BorderSide(
-                                      color: Colors
-                                          .grey), // Grey border color when focused
-                                  borderRadius: BorderRadius.circular(
-                                      30), // Border radius 1.2 when focused
+                                  borderSide: BorderSide(
+                                      color: _maxPriceError != null ? Colors.red : Colors.grey),
+                                  borderRadius: BorderRadius.circular(30),
                                 ),
-                                hintText: '300 SAR ',
-                                suffixText: "SAR",
+                                errorBorder: OutlineInputBorder(
+                                  borderSide: BorderSide(color: Colors.red),
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                                focusedErrorBorder: OutlineInputBorder(
+                                  borderSide: BorderSide(color: Colors.red, width: 2),
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                                hintText: '300 ',
+                                suffixIcon: const Padding(
+                                  padding: EdgeInsets.all(14.0),
+                                  child: SaudiRiyalSymbol(color: Colors.grey, size: 16),
+                                ),
+                                errorText: _maxPriceError,  // NEW: Show inline error
+                                errorStyle: TextStyle(fontSize: 10),
                                 hintStyle: TextStyle(
                                     color: Colors.grey.withOpacity(.50),
                                     fontSize: 14)),

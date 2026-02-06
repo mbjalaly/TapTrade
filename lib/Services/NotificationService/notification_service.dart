@@ -165,14 +165,32 @@ class NotificationService {
     final AndroidNotification? android = notification?.android;
     final String type = message.data['type'] ?? 'generic';
 
-    // Check match notification preference (from SettingsController)
-    if (type == 'match') {
-      final prefs = await SharedPreferences.getInstance();
-      final matchNotificationsEnabled = prefs.getBool('PREF_MATCH_NOTIFICATIONS') ?? true;
+    final prefs = await SharedPreferences.getInstance();
 
+    // Check match notification preference
+    if (type == 'match') {
+      final matchNotificationsEnabled = prefs.getBool('PREF_MATCH_NOTIFICATIONS') ?? true;
       if (!matchNotificationsEnabled) {
         print('🔕 Match notification silenced by user preference');
-        return; // Silently ignore match notifications if disabled
+        return;
+      }
+    }
+
+    // Check message notification preference
+    if (type == 'message') {
+      final messageNotificationsEnabled = prefs.getBool('PREF_MESSAGE_NOTIFICATIONS') ?? true;
+      if (!messageNotificationsEnabled) {
+        print('🔕 Message notification silenced by user preference');
+        return;
+      }
+    }
+
+    // Check trade notification preference
+    if (type == 'trade_completed' || type == 'trade_pending') {
+      final tradeUpdatesEnabled = prefs.getBool('PREF_TRADE_UPDATES') ?? true;
+      if (!tradeUpdatesEnabled) {
+        print('🔕 Trade notification silenced by user preference');
+        return;
       }
     }
 

@@ -6,6 +6,7 @@ import 'package:taptrade/Services/IntegrationServices/generalService.dart';
 import 'package:taptrade/Services/SearchFilterService/search_filter_service.dart';
 import 'package:taptrade/Utills/appColors.dart';
 import 'package:taptrade/Widgets/customText.dart';
+import 'package:taptrade/l10n/app_localizations.dart';
 
 class SearchFilterScreen extends StatefulWidget {
   const SearchFilterScreen({Key? key}) : super(key: key);
@@ -71,64 +72,87 @@ class _SearchFilterScreenState extends State<SearchFilterScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.backgroundColor(context),
         elevation: 0,
         title: AppText(
-          text: 'Search Filters',
-          textcolor: AppColors.primaryTextColor,
+          text: AppLocalizations.of(context)?.searchFilters ?? 'Search Filters',
+          textcolor: AppColors.primaryText(context),
           fontWeight: FontWeight.w700,
           fontSize: 18,
         ),
         leading: IconButton(
-          icon: const Icon(Icons.close_rounded, color: AppColors.primaryTextColor),
+          icon: Icon(Icons.close_rounded, color: AppColors.primaryText(context)),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
           TextButton(
             onPressed: _loading ? null : _saveAndClose,
-            child: const Text('Save', style: TextStyle(color: AppColors.primaryTextColor, fontWeight: FontWeight.w700)),
+            child: Text(AppLocalizations.of(context)?.save ?? 'Save', style: TextStyle(color: AppColors.primaryText(context), fontWeight: FontWeight.w700)),
           ),
         ],
       ),
       body: _loading
-          ? Center(child: CircularProgressIndicator(color: AppColors.primaryTextColor))
+          ? Center(child: CircularProgressIndicator(color: AppColors.primaryText(context)))
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   AppText(
-                    text: 'Filter by My Products (multiple)',
-                    textcolor: AppColors.primaryTextColor,
+                    text: AppLocalizations.of(context)?.filterByMyProducts ?? 'Filter by My Products (multiple)',
+                    textcolor: AppColors.primaryText(context),
                     fontWeight: FontWeight.w700,
                     fontSize: 16,
                   ),
                   const SizedBox(height: 8),
                   Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                    spacing: 10,
+                    runSpacing: 10,
                     children: myProducts.map((p) {
                       final id = p.id ?? 0;
                       final selected = _selectedMyProductIds.contains(id);
-                      return FilterChip(
-                        label: Text((p.title ?? '').isEmpty ? 'Product #$id' : p.title!),
-                        selected: selected,
-                        onSelected: (v) {
+                      final productLabel = (AppLocalizations.of(context)?.productNumber ?? 'Product #').toString();
+                      final title = (p.title ?? '').isEmpty ? productLabel.replaceAll('{id}', '$id') : p.title!;
+                      return GestureDetector(
+                        onTap: () {
                           setState(() {
-                            if (v) {
-                              _selectedMyProductIds.add(id);
-                            } else {
+                            if (selected) {
                               _selectedMyProductIds.remove(id);
+                            } else {
+                              _selectedMyProductIds.add(id);
                             }
                           });
                         },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: selected
+                                ? AppColors.darkBlue
+                                : Colors.grey.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(25),
+                            border: Border.all(
+                              color: selected
+                                  ? AppColors.darkBlue
+                                  : AppColors.greyText(context).withOpacity(0.3),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Text(
+                            title,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                              color: selected ? Colors.white : AppColors.darkBlue,
+                            ),
+                          ),
+                        ),
                       );
                     }).toList(),
                   ),
                   const SizedBox(height: 20),
                   AppText(
-                    text: 'Only show matches for one product',
-                    textcolor: AppColors.primaryTextColor,
+                    text: AppLocalizations.of(context)?.onlyShowMatchesForOne ?? 'Only show matches for one product',
+                    textcolor: AppColors.primaryText(context),
                     fontWeight: FontWeight.w700,
                     fontSize: 16,
                   ),
@@ -136,16 +160,20 @@ class _SearchFilterScreenState extends State<SearchFilterScreen> {
                   DropdownButtonFormField<int?> (
                     value: _singleSelectedProductId,
                     decoration: const InputDecoration(border: OutlineInputBorder()),
-                    hint: const Text('Select one of my products (optional)'),
+                    hint: Text(AppLocalizations.of(context)?.selectOneOfMyProducts ?? 'Select one of my products (optional)'),
                     items: [
-                      const DropdownMenuItem<int?>(
+                      DropdownMenuItem<int?>(
                         value: null,
-                        child: Text('All my products'),
+                        child: Text(AppLocalizations.of(context)?.allMyProducts ?? 'All my products'),
                       ),
-                      ...myProducts.map((p) => DropdownMenuItem<int?>(
-                        value: p.id ?? 0,
-                        child: Text((p.title ?? '').isEmpty ? 'Product #${p.id}' : p.title!),
-                      )),
+                      ...myProducts.map((p) {
+                        final label = (AppLocalizations.of(context)?.productNumber ?? 'Product #').toString();
+                        final displayTitle = (p.title ?? '').isEmpty ? label.replaceAll('{id}', '${p.id}') : p.title!;
+                        return DropdownMenuItem<int?>(
+                          value: p.id ?? 0,
+                          child: Text(displayTitle),
+                        );
+                      }),
                     ],
                     onChanged: (val) {
                       setState(() {
@@ -155,59 +183,102 @@ class _SearchFilterScreenState extends State<SearchFilterScreen> {
                   ),
                   const SizedBox(height: 20),
                   AppText(
-                    text: 'Categories',
-                    textcolor: AppColors.primaryTextColor,
+                    text: AppLocalizations.of(context)?.categories ?? 'Categories',
+                    textcolor: AppColors.primaryText(context),
                     fontWeight: FontWeight.w700,
                     fontSize: 16,
                   ),
                   const SizedBox(height: 8),
                   Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                    spacing: 10,
+                    runSpacing: 10,
                     children: categories.map((c) {
                       final id = c.id ?? 0;
                       final selected = _selectedCategoryIds.contains(id);
-                      return FilterChip(
-                        label: Text((c.name ?? '').toString().capitalize ?? ''),
-                        selected: selected,
-                        onSelected: (v) {
+                      final name = (c.name ?? '').toString().capitalize ?? '';
+                      return GestureDetector(
+                        onTap: () {
                           setState(() {
-                            if (v) {
-                              _selectedCategoryIds.add(id);
-                            } else {
+                            if (selected) {
                               _selectedCategoryIds.remove(id);
+                            } else {
+                              _selectedCategoryIds.add(id);
                             }
                           });
                         },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: selected
+                                ? AppColors.darkBlue
+                                : Colors.grey.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(25),
+                            border: Border.all(
+                              color: selected
+                                  ? AppColors.darkBlue
+                                  : AppColors.greyText(context).withOpacity(0.3),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Text(
+                            name,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                              color: selected ? Colors.white : AppColors.darkBlue,
+                            ),
+                          ),
+                        ),
                       );
                     }).toList(),
                   ),
                   const SizedBox(height: 20),
                   AppText(
-                    text: 'Interests',
-                    textcolor: AppColors.primaryTextColor,
+                    text: AppLocalizations.of(context)?.interests ?? 'Interests',
+                    textcolor: AppColors.primaryText(context),
                     fontWeight: FontWeight.w700,
                     fontSize: 16,
                   ),
                   const SizedBox(height: 8),
                   Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                    spacing: 10,
+                    runSpacing: 10,
                     children: interests.map((i) {
                       final name = (i.name ?? '').toString();
                       final selected = _selectedInterests.contains(name);
-                      return FilterChip(
-                        label: Text(name.capitalize ?? ''),
-                        selected: selected,
-                        onSelected: (v) {
+                      return GestureDetector(
+                        onTap: () {
                           setState(() {
-                            if (v) {
-                              _selectedInterests.add(name);
-                            } else {
+                            if (selected) {
                               _selectedInterests.remove(name);
+                            } else {
+                              _selectedInterests.add(name);
                             }
                           });
                         },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: selected
+                                ? AppColors.darkBlue
+                                : Colors.grey.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(25),
+                            border: Border.all(
+                              color: selected
+                                  ? AppColors.darkBlue
+                                  : AppColors.greyText(context).withOpacity(0.3),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Text(
+                            name.capitalize ?? '',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                              color: selected ? Colors.white : AppColors.darkBlue,
+                            ),
+                          ),
+                        ),
                       );
                     }).toList(),
                   ),
@@ -216,12 +287,12 @@ class _SearchFilterScreenState extends State<SearchFilterScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       AppText(
-                        text: 'Radius (km)',
-                        textcolor: AppColors.primaryTextColor,
+                        text: AppLocalizations.of(context)?.radiusKm ?? 'Radius (km)',
+                        textcolor: AppColors.primaryText(context),
                         fontWeight: FontWeight.w700,
                         fontSize: 16,
                       ),
-                      Text(_radiusKm?.toStringAsFixed(0) ?? 'Default', style: const TextStyle(color: AppColors.primaryTextColor)),
+                      Text(_radiusKm?.toStringAsFixed(0) ?? (AppLocalizations.of(context)?.defaultText ?? 'Default'), style: TextStyle(color: AppColors.primaryText(context))),
                     ],
                   ),
                   Slider(
@@ -249,15 +320,15 @@ class _SearchFilterScreenState extends State<SearchFilterScreen> {
                               _radiusKm = null;
                             });
                           },
-                          child: const Text('Clear filters'),
+                          child: Text(AppLocalizations.of(context)?.clearFilters ?? 'Clear filters'),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: ElevatedButton(
                           onPressed: _loading ? null : _saveAndClose,
-                          style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryTextColor, foregroundColor: Colors.white),
-                          child: const Text('Apply'),
+                          style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryText(context), foregroundColor: Colors.white),
+                          child: Text(AppLocalizations.of(context)?.apply ?? 'Apply'),
                         ),
                       ),
                     ],

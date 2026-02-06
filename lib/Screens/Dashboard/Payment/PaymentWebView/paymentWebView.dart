@@ -158,19 +158,19 @@ class PaymentWebViewState extends State<PaymentWebView> {
       key: webviewKey,
       onWillPop: onWillPop,
       child: Scaffold(
-        backgroundColor: AppColors.whiteTextColor,
+        backgroundColor: AppColors.backgroundColor(context),
         appBar: AppBar(
           leading: InkWell(
             onTap: () {
               Navigator.pop(context);
             },
             child:
-                const Icon(Icons.arrow_back, color: AppColors.primaryTextColor),
+                Icon(Icons.arrow_back, color: AppColors.primaryText(context)),
           ),
           backgroundColor: AppColors.themeColor,
-          title: const Text("Tap Trade",
+          title: Text("Tap Trade",
               style:
-                  TextStyle(color: AppColors.primaryTextColor, fontSize: 18.0)),
+                  TextStyle(color: AppColors.primaryText(context), fontSize: 18.0)),
           automaticallyImplyLeading: false,
         ),
         bottomNavigationBar: returnButton(size),

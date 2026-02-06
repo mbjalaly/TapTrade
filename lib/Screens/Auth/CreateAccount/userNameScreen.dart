@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:taptrade/l10n/app_localizations.dart';
 import 'package:taptrade/Models/SignUpRequestModel/signUpRequestModel.dart';
 import 'package:taptrade/Screens/Auth/CreateAccount/createPasswordScreen.dart';
 import 'package:taptrade/Services/IntegrationServices/authService.dart';
@@ -33,16 +34,16 @@ class _UserNameScreenState extends State<UserNameScreen> {
 
   String? _validateUsername(String value) {
     if (value.isEmpty) {
-      return 'Please enter a username';
+      return AppLocalizations.of(context)?.pleaseEnterUsername ?? 'Please enter a username';
     }
     if (value.length < 3) {
-      return 'Username must be at least 3 characters';
+      return AppLocalizations.of(context)?.usernameMinLength ?? 'Username must be at least 3 characters';
     }
     if (value.length > 20) {
-      return 'Username must be less than 20 characters';
+      return AppLocalizations.of(context)?.usernameMaxLength ?? 'Username must be less than 20 characters';
     }
     if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(value)) {
-      return 'Username can only contain letters, numbers, and underscores';
+      return AppLocalizations.of(context)?.usernameInvalidChars ?? 'Username can only contain letters, numbers, and underscores';
     }
     return null;
   }
@@ -67,7 +68,7 @@ class _UserNameScreenState extends State<UserNameScreen> {
       setState(() => isLoading = false);
 
       if (result == null) {
-        setState(() => usernameError = 'Error checking username. Please try again.');
+        setState(() => usernameError = AppLocalizations.of(context)?.errorCheckingUsername ?? 'Error checking username. Please try again.');
         return;
       }
 
@@ -78,15 +79,15 @@ class _UserNameScreenState extends State<UserNameScreen> {
           requestModel.username = nameCon.text.trim();
           Get.to(() => PasswordScreen(requestModel: requestModel));
         } else {
-          setState(() => usernameError = 'This username is already taken');
+          setState(() => usernameError = AppLocalizations.of(context)?.usernameAlreadyTaken ?? 'This username is already taken');
         }
       } else {
-        setState(() => usernameError = result['message'] ?? 'Error checking username');
+        setState(() => usernameError = result['message'] ?? AppLocalizations.of(context)?.errorCheckingUsername ?? 'Error checking username');
       }
     } catch (e) {
       setState(() {
         isLoading = false;
-        usernameError = 'Error checking username. Please try again.';
+        usernameError = AppLocalizations.of(context)?.errorCheckingUsername ?? 'Error checking username. Please try again.';
       });
       debugPrint('Error checking username: $e');
     }
@@ -106,21 +107,21 @@ class _UserNameScreenState extends State<UserNameScreen> {
 
           // Title
           Text(
-            'Create your username',
+            AppLocalizations.of(context)?.createYourUsername ?? 'Create your username',
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w800,
-              color: AppColors.darkBlue,
+              color: AppColors.primaryText(context),
             ),
           ),
 
           const SizedBox(height: 12),
 
           Text(
-            'This is how you\'ll appear in TapTrade. Choose wisely – you can\'t change it later!',
+            AppLocalizations.of(context)?.usernameAppearance ?? "This is how you'll appear in TapTrade. Choose wisely – you can't change it later!",
             style: TextStyle(
               fontSize: 15,
-              color: AppColors.darkBlue.withOpacity(0.6),
+              color: AppColors.secondaryText(context),
               height: 1.5,
             ),
           ),
@@ -134,18 +135,18 @@ class _UserNameScreenState extends State<UserNameScreen> {
               children: [
                 AuthTextField(
                   controller: nameCon,
-                  label: 'Username',
-                  hint: 'Enter your username',
+                  label: AppLocalizations.of(context)?.username ?? 'Username',
+                  hint: AppLocalizations.of(context)?.enterUsername ?? 'Enter your username',
                   autofocus: true,
                   errorText: usernameError,
                   onChanged: (_) => _clearError(),
-                  helperText: 'Letters, numbers, and underscores only',
+                  helperText: AppLocalizations.of(context)?.usernameHelper ?? 'Letters, numbers, and underscores only',
                 ),
 
                 const SizedBox(height: 32),
 
                 AuthPrimaryButton(
-                  text: 'Continue',
+                  text: AppLocalizations.of(context)?.continue_ ?? 'Continue',
                   isLoading: isLoading,
                   onPressed: _checkUsernameAndProceed,
                 ),

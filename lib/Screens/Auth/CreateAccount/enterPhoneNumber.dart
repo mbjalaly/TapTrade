@@ -11,6 +11,7 @@ import 'package:taptrade/Services/SharedPreferenceService/sharePreferenceService
 import 'package:taptrade/Utills/appColors.dart';
 import 'package:taptrade/Utills/showMessages.dart';
 import 'package:taptrade/Widgets/Auth/auth_scaffold.dart';
+import 'package:taptrade/l10n/app_localizations.dart';
 
 /// Screen for entering phone number after email verification
 class EnterPhoneNumberScreen extends StatefulWidget {
@@ -109,23 +110,24 @@ class _EnterPhoneNumberScreenState extends State<EnterPhoneNumberScreen> {
   }
 
   void _selectCountry() {
+    final l10n = AppLocalizations.of(context)!;
     showCountryPicker(
       exclude: <String>['IL'],
       context: context,
       countryListTheme: CountryListThemeData(
         flagSize: 25,
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.backgroundColor(context),
         bottomSheetHeight: 500,
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(24.0),
           topRight: Radius.circular(24.0),
         ),
         inputDecoration: InputDecoration(
-          labelText: 'Search',
-          hintText: 'Start typing to search',
+          labelText: l10n.search,
+          hintText: l10n.startTypingToSearch,
           prefixIcon: const Icon(Icons.search),
           filled: true,
-          fillColor: AppColors.darkBlue.withOpacity(0.05),
+          fillColor: AppColors.fieldBg(context),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide.none,
@@ -143,6 +145,7 @@ class _EnterPhoneNumberScreenState extends State<EnterPhoneNumberScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return AuthScaffold(
       showBackButton: true,
       child: Column(
@@ -152,21 +155,21 @@ class _EnterPhoneNumberScreenState extends State<EnterPhoneNumberScreen> {
 
           // Title
           Text(
-            'Almost there!',
+            l10n.almostThere,
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w800,
-              color: AppColors.darkBlue,
+              color: AppColors.primaryText(context),
             ),
           ),
 
           const SizedBox(height: 12),
 
           Text(
-            'Add your phone number for account recovery and notifications.',
+            l10n.addYourPhoneNumber,
             style: TextStyle(
               fontSize: 15,
-              color: AppColors.darkBlue.withOpacity(0.6),
+              color: AppColors.secondaryText(context),
               height: 1.5,
             ),
           ),
@@ -178,10 +181,10 @@ class _EnterPhoneNumberScreenState extends State<EnterPhoneNumberScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Phone Number',
+                Text(
+                  l10n.phoneNumber,
                   style: TextStyle(
-                    color: AppColors.darkBlue,
+                    color: AppColors.primaryText(context),
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -192,7 +195,7 @@ class _EnterPhoneNumberScreenState extends State<EnterPhoneNumberScreen> {
                 // Phone input row
                 Container(
                   decoration: BoxDecoration(
-                    color: AppColors.darkBlue.withOpacity(0.05),
+                    color: AppColors.fieldBg(context),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Row(
@@ -208,7 +211,7 @@ class _EnterPhoneNumberScreenState extends State<EnterPhoneNumberScreen> {
                           decoration: BoxDecoration(
                             border: Border(
                               right: BorderSide(
-                                color: AppColors.darkBlue.withOpacity(0.1),
+                                color: AppColors.outlineColor(context),
                               ),
                             ),
                           ),
@@ -224,14 +227,14 @@ class _EnterPhoneNumberScreenState extends State<EnterPhoneNumberScreen> {
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
-                                  color: AppColors.darkBlue,
+                                  color: AppColors.primaryText(context),
                                 ),
                               ),
                               const SizedBox(width: 4),
                               Icon(
                                 Icons.keyboard_arrow_down,
                                 size: 20,
-                                color: AppColors.darkBlue.withOpacity(0.5),
+                                color: AppColors.secondaryText(context),
                               ),
                             ],
                           ),
@@ -243,14 +246,14 @@ class _EnterPhoneNumberScreenState extends State<EnterPhoneNumberScreen> {
                           controller: phoneCon,
                           keyboardType: TextInputType.phone,
                           cursorColor: AppColors.primaryColor,
-                          style: const TextStyle(
-                            color: AppColors.darkBlue,
+                          style: TextStyle(
+                            color: AppColors.primaryText(context),
                             fontSize: 16,
                           ),
                           decoration: InputDecoration(
                             hintText: '5XXXXXXXX',
                             hintStyle: TextStyle(
-                              color: AppColors.darkBlue.withOpacity(0.4),
+                              color: AppColors.hintText(context),
                             ),
                             border: InputBorder.none,
                             contentPadding: const EdgeInsets.symmetric(
@@ -267,7 +270,7 @@ class _EnterPhoneNumberScreenState extends State<EnterPhoneNumberScreen> {
                 const SizedBox(height: 32),
 
                 AuthPrimaryButton(
-                  text: 'Create Account',
+                  text: l10n.createAccount,
                   isLoading: isLoading,
                   onPressed: _completeRegistration,
                 ),

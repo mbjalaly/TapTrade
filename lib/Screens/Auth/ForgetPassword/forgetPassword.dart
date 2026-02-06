@@ -1,10 +1,44 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:country_picker/country_picker.dart';
+import 'package:taptrade/Screens/Auth/ForgetPassword/verifyResetOtp.dart';
 import 'package:taptrade/Services/ApiResponse/apiResponse.dart';
 import 'package:taptrade/Services/IntegrationServices/authService.dart';
+import 'package:taptrade/Services/logService.dart';
 import 'package:taptrade/Utills/appColors.dart';
 import 'package:taptrade/Utills/showMessages.dart';
 import 'package:taptrade/Widgets/Auth/auth_scaffold.dart';
+import 'package:taptrade/l10n/app_localizations.dart';
+
+// Phone number formatter for Saudi Arabia (9 digits: XX XXX XXXX)
+class PhoneNumberFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    // Remove all non-digit characters
+    final digitsOnly = newValue.text.replaceAll(RegExp(r'\D'), '');
+
+    // Limit to 9 digits
+    final limitedDigits = digitsOnly.substring(0, digitsOnly.length > 9 ? 9 : digitsOnly.length);
+
+    // Format as XX XXX XXXX
+    String formatted = '';
+    for (int i = 0; i < limitedDigits.length; i++) {
+      if (i == 2 || i == 5) {
+        formatted += ' ';
+      }
+      formatted += limitedDigits[i];
+    }
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
 
 class ForgetPasswordScreen extends StatefulWidget {
   const ForgetPasswordScreen({super.key});
@@ -14,75 +48,148 @@ class ForgetPasswordScreen extends StatefulWidget {
 }
 
 class _ForgetPasswordScreenState extends State<ForgetPasswordScreen> {
-  final TextEditingController emailController = TextEditingController();
+  final TextEditingController phoneController = TextEditingController();
   bool isLoading = false;
-  String? emailError;
+  String? phoneError;
+
+  // Default to Saudi Arabia
+  Country selectedCountry = Country(
+    phoneCode: "966",
+    countryCode: "SA",
+    e164Sc: 0,
+    geographic: true,
+    level: 1,
+    name: "Saudi Arabia",
+    example: "55 555 5555",
+    displayName: "Saudi Arabia (SA) [+966]",
+    displayNameNoCountryCode: "Saudi Arabia (SA)",
+    e164Key: "",
+  );
 
   @override
   void dispose() {
-    emailController.dispose();
+    phoneController.dispose();
     super.dispose();
   }
 
   void _clearError() {
-    if (emailError != null) {
-      setState(() => emailError = null);
+    if (phoneError != null) {
+      setState(() => phoneError = null);
     }
   }
 
-  String? _validateEmail(String value) {
-    if (value.isEmpty) {
-      return 'Please enter your email';
+  String? _validatePhone(String value) {
+    // Remove spaces to get digit count
+    final digitsOnly = value.replaceAll(RegExp(r'\D'), '');
+
+    if (digitsOnly.isEmpty) {
+      return 'Please enter your phone number';
     }
-    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-      return 'Please enter a valid email address';
+
+    // Must be exactly 9 digits
+    if (digitsOnly.length != 9) {
+      return 'Phone number must be exactly 9 digits';
     }
+
     return null;
   }
 
-  Future<void> _handleResetPassword() async {
-    final validation = _validateEmail(emailController.text.trim());
+  String _getFullPhoneNumber() {
+    // Remove all spaces before creating full phone number
+    final digitsOnly = phoneController.text.replaceAll(RegExp(r'\D'), '');
+    return '+${selectedCountry.phoneCode}$digitsOnly';
+  }
+
+  void _showCountryPicker() {
+    final l10n = AppLocalizations.of(context)!;
+    showCountryPicker(
+      context: context,
+      showPhoneCode: true,
+      countryListTheme: CountryListThemeData(
+        borderRadius: BorderRadius.circular(16),
+        backgroundColor: AppColors.backgroundColor(context),
+        textStyle: TextStyle(color: AppColors.primaryText(context)),
+        searchTextStyle: TextStyle(color: AppColors.primaryText(context)),
+        inputDecoration: InputDecoration(
+          labelText: l10n.search,
+          hintText: l10n.searchCountry,
+          prefixIcon: Icon(Icons.search, color: AppColors.primaryColor),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: AppColors.primaryColor.withOpacity(0.3)),
+          ),
+        ),
+      ),
+      onSelect: (Country country) {
+        setState(() {
+          selectedCountry = country;
+          _clearError();
+        });
+      },
+    );
+  }
+
+  Future<void> _handleSendOtp() async {
+    final validation = _validatePhone(phoneController.text.trim());
     if (validation != null) {
-      setState(() => emailError = validation);
+      setState(() => phoneError = validation);
       return;
     }
 
     setState(() {
       isLoading = true;
-      emailError = null;
+      phoneError = null;
     });
 
+    final fullPhoneNumber = _getFullPhoneNumber();
+    printLog('[ForgetPassword] Attempting to send OTP to: $fullPhoneNumber');
+
     try {
-      Map<String, dynamic> body = {
-        "email": emailController.text.trim(),
-      };
+      final result = await AuthService.instance.sendPasswordResetOtp(
+        context,
+        fullPhoneNumber,
+      );
 
-      final result = await AuthService.instance.forgetPassword(context, body);
+      setState(() => isLoading = false);
 
-      if (result.status == Status.COMPLETED &&
-          (result.responseData['success'] ?? false)) {
-        ShowMessage.notify(context, result.responseData['message']);
-        setState(() {
-          isLoading = false;
-          emailController.clear();
-        });
+      if (result.status == Status.COMPLETED && result.responseData['success'] == true) {
+        final verificationId = result.responseData['verification_id'];
+        printLog('[ForgetPassword] OTP sent successfully, verification_id: $verificationId');
+
+        // Navigate to OTP verification screen
+        final resetToken = await Get.to(
+          () => VerifyResetOtpScreen(
+            phoneNumber: fullPhoneNumber,
+            verificationId: verificationId,
+          ),
+          transition: Transition.rightToLeft,
+        );
+
+        // If OTP verified successfully and we got a reset token, the VerifyResetOtpScreen
+        // will handle navigation to ResetPasswordScreen. If we return here with success,
+        // go back to login.
+        if (resetToken == true) {
+          // Password was reset successfully
+          Get.back(); // Return to login screen
+          ShowMessage.notify(context, 'Password reset successfully!');
+        }
       } else {
         setState(() {
-          isLoading = false;
-          emailError = result.responseData['message'] ?? 'Email not found';
+          phoneError = result.responseData['message'] ?? 'Failed to send verification code';
         });
       }
     } catch (e) {
       setState(() {
         isLoading = false;
-        emailError = 'An error occurred. Please try again.';
+        phoneError = 'An error occurred. Please try again.';
       });
-      debugPrint("Forgot Password Error: $e");
+      printLog('[ForgetPassword] Error: $e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return AuthScaffold(
       showBackButton: true,
       child: Column(
@@ -108,21 +215,21 @@ class _ForgetPasswordScreenState extends State<ForgetPasswordScreen> {
 
           // Title
           Text(
-            'Forgot password?',
+            l10n.forgotPassword,
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w800,
-              color: AppColors.darkBlue,
+              color: AppColors.primaryText(context),
             ),
           ),
 
           const SizedBox(height: 12),
 
           Text(
-            'No worries! Enter your email and we\'ll send you a reset link.',
+            l10n.enterPhoneResetPassword,
             style: TextStyle(
               fontSize: 15,
-              color: AppColors.darkBlue.withOpacity(0.6),
+              color: AppColors.secondaryText(context),
               height: 1.5,
             ),
             textAlign: TextAlign.center,
@@ -130,27 +237,159 @@ class _ForgetPasswordScreenState extends State<ForgetPasswordScreen> {
 
           const SizedBox(height: 40),
 
-          // Email input card
+          // Phone input card
           AuthCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                AuthTextField(
-                  controller: emailController,
-                  label: 'Email Address',
-                  hint: 'example@gmail.com',
-                  keyboardType: TextInputType.emailAddress,
-                  autofocus: true,
-                  errorText: emailError,
-                  onChanged: (_) => _clearError(),
+                // Phone number label
+                Text(
+                  l10n.phoneNumber,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primaryText(context),
+                  ),
                 ),
+                const SizedBox(height: 12),
+
+                // Country picker and phone input
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Country selector
+                    GestureDetector(
+                      onTap: _showCountryPicker,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        decoration: BoxDecoration(
+                          color: AppColors.fieldBg(context),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: phoneError != null
+                                ? AppColors.errorColor
+                                : AppColors.outlineColor(context),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              selectedCountry.flagEmoji,
+                              style: const TextStyle(fontSize: 24),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '+${selectedCountry.phoneCode}',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primaryText(context),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.arrow_drop_down,
+                              color: AppColors.primaryText(context),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+
+                    // Phone number input
+                    Expanded(
+                      child: TextField(
+                        controller: phoneController,
+                        keyboardType: TextInputType.phone,
+                        autofocus: true,
+                        inputFormatters: [PhoneNumberFormatter()],
+                        onChanged: (_) => _clearError(),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primaryText(context),
+                        ),
+                        decoration: InputDecoration(
+                          hintText: selectedCountry.example,
+                          hintStyle: TextStyle(
+                            fontSize: 16,
+                            color: AppColors.hintText(context),
+                          ),
+                          filled: true,
+                          fillColor: AppColors.fieldBg(context),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 16,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: phoneError != null
+                                  ? AppColors.errorColor
+                                  : AppColors.outlineColor(context),
+                              width: 1,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: phoneError != null
+                                  ? AppColors.errorColor
+                                  : AppColors.outlineColor(context),
+                              width: 1,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: phoneError != null
+                                  ? AppColors.errorColor
+                                  : AppColors.primaryColor,
+                              width: 2,
+                            ),
+                          ),
+                          errorBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: AppColors.errorColor,
+                              width: 1,
+                            ),
+                          ),
+                          focusedErrorBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: AppColors.errorColor,
+                              width: 2,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                // Error message
+                if (phoneError != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    phoneError!,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.errorColor,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
 
                 const SizedBox(height: 32),
 
                 AuthPrimaryButton(
-                  text: 'Send Reset Link',
+                  text: l10n.sendVerificationCode,
                   isLoading: isLoading,
-                  onPressed: _handleResetPassword,
+                  onPressed: _handleSendOtp,
                 ),
               ],
             ),
@@ -167,15 +406,15 @@ class _ForgetPasswordScreenState extends State<ForgetPasswordScreen> {
                 Icon(
                   Icons.arrow_back_rounded,
                   size: 18,
-                  color: AppColors.darkBlue.withOpacity(0.6),
+                  color: AppColors.secondaryText(context),
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Back to Sign In',
+                  l10n.backToSignIn,
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.darkBlue.withOpacity(0.6),
+                    color: AppColors.secondaryText(context),
                   ),
                 ),
               ],

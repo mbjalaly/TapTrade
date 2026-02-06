@@ -37,7 +37,7 @@ class ProgressSteps extends StatelessWidget {
               shape: BoxShape.circle,
               color: isActive
                   ? AppColors.primaryColor
-                  : AppColors.greyTextColor.withValues(alpha: 0.3),
+                  : AppColors.greyText(context).withValues(alpha: 0.3),
             ),
           ),
         );

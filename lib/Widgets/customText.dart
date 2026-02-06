@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:taptrade/Utills/appColors.dart';
 
 class AppText extends StatelessWidget {
   String text;
@@ -28,7 +29,7 @@ class AppText extends StatelessWidget {
       text,
       maxLines: maxLines,
       style: TextStyle(
-          color: textcolor ?? Colors.white,
+          color: textcolor ?? AppColors.textOnBg(context),
           fontSize: fontSize,
           fontWeight: fontWeight,
           overflow: TextOverflow.ellipsis,

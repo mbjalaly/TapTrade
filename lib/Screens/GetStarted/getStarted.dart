@@ -3,6 +3,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'dart:io';
+import 'package:taptrade/Controller/languageController.dart';
+import 'package:taptrade/l10n/app_localizations.dart';
 import 'package:taptrade/Screens/Auth/LoginScreen/loginScreen.dart';
 import 'package:taptrade/Screens/Auth/CreateAccount/userNameScreen.dart';
 import 'package:taptrade/Services/IntegrationServices/appleAuthService.dart';
@@ -120,11 +122,54 @@ class _GetStartedScreenState extends State<GetStartedScreen>
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.white.withOpacity(0.1),
-                    Colors.white.withOpacity(0.4),
-                    Colors.white.withOpacity(0.85),
+                    AppColors.overlayStart(context),
+                    AppColors.overlayMid(context),
+                    AppColors.overlayEnd(context),
                   ],
                   stops: const [0.0, 0.4, 1.0],
+                ),
+              ),
+            ),
+          ),
+          // Language toggle at top right
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topRight,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: GestureDetector(
+                  onTap: () {
+                    final langController = Get.find<LanguageController>();
+                    langController.toggleLanguage();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppColors.glassBg(context),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: AppColors.primaryColor.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.language, size: 18, color: AppColors.primaryColor),
+                        const SizedBox(width: 4),
+                        Obx(() {
+                          final langController = Get.find<LanguageController>();
+                          return Text(
+                            langController.languageCode == 'en' ? 'عربي' : 'EN',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primaryColor,
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -194,7 +239,7 @@ class _GetStartedScreenState extends State<GetStartedScreen>
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Logo with subtle pulse effect
+        // Logo with subtle pulse effect - larger size
         AnimatedBuilder(
           animation: _pulseController,
           builder: (context, child) {
@@ -213,8 +258,8 @@ class _GetStartedScreenState extends State<GetStartedScreen>
                   ],
                 ),
                 child: Image.asset(
-                  "assets/images/icon2.png",
-                  height: 160,
+                  "assets/images/appLogo.png",
+                  height: 190,
                   fit: BoxFit.contain,
                 ),
               ),
@@ -222,8 +267,7 @@ class _GetStartedScreenState extends State<GetStartedScreen>
           },
         ),
         const SizedBox(height: 24),
-        
-        // App Name with gradient text effect
+        // Tagline with gradient effect
         ShaderMask(
           shaderCallback: (bounds) => LinearGradient(
             colors: [
@@ -232,31 +276,12 @@ class _GetStartedScreenState extends State<GetStartedScreen>
             ],
           ).createShader(bounds),
           child: Text(
-            'TapTrade',
-            style: TextStyles.heading1.copyWith(
-              fontSize: 42,
+            'The Wanted for the Unwanted',         
+            style: TextStyle(
+              fontSize: 20,
               fontWeight: FontWeight.w900,
               color: Colors.white,
-              letterSpacing: -1,
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        
-        // Tagline with subtle styling
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-          decoration: BoxDecoration(
-            color: AppColors.darkBlue.withOpacity(0.08),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(
-            'Trade · Swipe · Match',
-            style: TextStyles.body1.copyWith(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: AppColors.darkBlue.withOpacity(0.8),
-              letterSpacing: 1.5,
+              letterSpacing: 0.5,
             ),
           ),
         ),
@@ -272,10 +297,10 @@ class _GetStartedScreenState extends State<GetStartedScreen>
         child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.85),
+            color: AppColors.glassBg(context),
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: Colors.white.withOpacity(0.5),
+              color: AppColors.glassBorder(context),
               width: 1.5,
             ),
             boxShadow: [
@@ -293,7 +318,7 @@ class _GetStartedScreenState extends State<GetStartedScreen>
               _buildSocialButton(
                 icon: 'assets/images/google_icon.png',
                 fallbackIcon: Icons.g_mobiledata_rounded,
-                label: 'Continue with Google',
+                label: AppLocalizations.of(context)?.continueWithGoogle ?? 'Continue with Google',
                 isLoading: _isGoogleLoading,
                 onTap: () async {
                   setState(() => _isGoogleLoading = true);
@@ -311,7 +336,7 @@ class _GetStartedScreenState extends State<GetStartedScreen>
                 _buildSocialButton(
                   icon: null,
                   fallbackIcon: Icons.apple,
-                  label: 'Continue with Apple',
+                  label: AppLocalizations.of(context)?.continueWithApple ?? 'Continue with Apple',
                   isLoading: _isAppleLoading,
                   onTap: () async {
                     setState(() => _isAppleLoading = true);
@@ -337,7 +362,7 @@ class _GetStartedScreenState extends State<GetStartedScreen>
                         gradient: LinearGradient(
                           colors: [
                             Colors.transparent,
-                            AppColors.darkBlue.withOpacity(0.2),
+                            AppColors.outlineColor(context),
                           ],
                         ),
                       ),
@@ -346,9 +371,9 @@ class _GetStartedScreenState extends State<GetStartedScreen>
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
-                      'or',
+                      AppLocalizations.of(context)?.orDivider ?? 'or',
                       style: TextStyles.caption.copyWith(
-                        color: AppColors.darkBlue.withOpacity(0.5),
+                        color: AppColors.secondaryText(context),
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
                       ),
@@ -360,7 +385,7 @@ class _GetStartedScreenState extends State<GetStartedScreen>
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            AppColors.darkBlue.withOpacity(0.2),
+                            AppColors.outlineColor(context),
                             Colors.transparent,
                           ],
                         ),
@@ -382,16 +407,17 @@ class _GetStartedScreenState extends State<GetStartedScreen>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    'Already have an account? ',
+                    AppLocalizations.of(context)?.alreadyHaveAccount ?? 'Already have an account?',
                     style: TextStyles.body2.copyWith(
-                      color: AppColors.darkBlue.withOpacity(0.7),
+                      color: AppColors.secondaryText(context),
                       fontSize: 14,
                     ),
                   ),
+                  const SizedBox(width: 4),
                   GestureDetector(
                     onTap: () => Get.to(() => const LoginScreen()),
                     child: Text(
-                      'Sign in',
+                      AppLocalizations.of(context)?.signIn ?? 'Sign in',
                       style: TextStyles.body2.copyWith(
                         fontWeight: FontWeight.w700,
                         color: AppColors.primaryColor,
@@ -425,12 +451,12 @@ class _GetStartedScreenState extends State<GetStartedScreen>
         child: Container(
           height: 54,
           decoration: BoxDecoration(
-            color: isApple ? Colors.black : Colors.white,
+            color: isApple ? Colors.black : AppColors.contentBg(context),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: isApple 
-                  ? Colors.black 
-                  : AppColors.darkBlue.withOpacity(0.12),
+              color: isApple
+                  ? Colors.black
+                  : AppColors.outlineColor(context),
               width: 1.5,
             ),
             boxShadow: [
@@ -471,7 +497,7 @@ class _GetStartedScreenState extends State<GetStartedScreen>
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: isApple ? Colors.white : AppColors.darkBlue,
+                        color: isApple ? Colors.white : AppColors.primaryText(context),
                         letterSpacing: 0.2,
                       ),
                     ),
@@ -516,7 +542,7 @@ class _GetStartedScreenState extends State<GetStartedScreen>
               ),
               const SizedBox(width: 10),
               Text(
-                'Create account with Email',
+                AppLocalizations.of(context)?.createAccount ?? 'Create account',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
@@ -536,32 +562,32 @@ class _GetStartedScreenState extends State<GetStartedScreen>
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Text.rich(
         TextSpan(
-          text: 'By continuing, you agree to our ',
+          text: AppLocalizations.of(context)?.byContinuingYouAgree ?? 'By continuing, you agree to our ',
           style: TextStyles.caption.copyWith(
             fontSize: 12,
-            color: AppColors.darkBlue.withOpacity(0.6),
+            color: AppColors.secondaryText(context),
           ),
           children: [
             TextSpan(
-              text: 'Terms',
+              text: AppLocalizations.of(context)?.terms ?? 'Terms',
               style: TextStyles.caption.copyWith(
                 fontSize: 12,
-                color: AppColors.darkBlue.withOpacity(0.8),
+                color: AppColors.primaryText(context),
                 fontWeight: FontWeight.w600,
                 decoration: TextDecoration.underline,
-                decorationColor: AppColors.darkBlue.withOpacity(0.4),
+                decorationColor: AppColors.secondaryText(context),
               ),
               recognizer: TapGestureRecognizer()..onTap = () {},
             ),
-            const TextSpan(text: ' and '),
+            TextSpan(text: AppLocalizations.of(context)?.andWord ?? ' and '),
             TextSpan(
-              text: 'Privacy Policy',
+              text: AppLocalizations.of(context)?.privacyPolicy ?? 'Privacy Policy',
               style: TextStyles.caption.copyWith(
                 fontSize: 12,
-                color: AppColors.darkBlue.withOpacity(0.8),
+                color: AppColors.primaryText(context),
                 fontWeight: FontWeight.w600,
                 decoration: TextDecoration.underline,
-                decorationColor: AppColors.darkBlue.withOpacity(0.4),
+                decorationColor: AppColors.secondaryText(context),
               ),
               recognizer: TapGestureRecognizer()..onTap = () {},
             ),

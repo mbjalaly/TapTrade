@@ -30,6 +30,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
 
 
   # The following adds the Cupertino Icons font to your application.
@@ -68,6 +70,8 @@ dependencies:
   audioplayers: ^6.1.0
   sign_in_with_apple: ^7.0.1
   flutter_dotenv: ^5.1.0
+  pinput: ^6.0.1
+  introduction_screen: ^3.1.14
 
 dev_dependencies:
   flutter_test:
@@ -92,6 +96,7 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
+  generate: true
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
@@ -135,6 +140,11 @@ flutter:
           weight: 800
         - asset: assets/fonts/Cinzel-Black.ttf
           weight: 900
+    - family: SaudiRiyal
+      fonts:
+        - asset: assets/fonts/saudi_riyal.ttf
+        - asset: assets/fonts/saudi_riyal_bold.ttf
+          weight: 700
   # example:
   # fonts:
   #   - family: Schyler

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
@@ -10,6 +11,8 @@ import 'package:taptrade/Services/ApiResponse/apiResponse.dart';
 import 'package:taptrade/Screens/Dashboard/Bottombar/bottombarscreen.dart';
 import 'package:taptrade/Utills/appColors.dart';
 import 'package:taptrade/Utills/showMessages.dart';
+import 'package:taptrade/l10n/app_localizations.dart';
+import 'package:taptrade/Widgets/saudi_riyal_symbol.dart';
 
 class AddProductWizardScreen extends StatefulWidget {
   const AddProductWizardScreen({Key? key, this.initialTitle, this.initialCategory, this.initialCondition, this.initialMinPrice, this.initialMaxPrice}) : super(key: key);
@@ -35,6 +38,8 @@ class _AddProductWizardScreenState extends State<AddProductWizardScreen> {
 
   // Details
   final TextEditingController _title = TextEditingController();
+  final TextEditingController _description = TextEditingController();
+  final TextEditingController _quantity = TextEditingController(text: '1');
   String? _category;
   String _condition = 'New';
 
@@ -42,6 +47,10 @@ class _AddProductWizardScreenState extends State<AddProductWizardScreen> {
   final TextEditingController _minPrice = TextEditingController(text: '0');
   final TextEditingController _maxPrice = TextEditingController(text: '500');
   RangeValues _range = const RangeValues(0, 500);
+
+  // Validation errors
+  String? _minPriceError;
+  String? _maxPriceError;
 
   bool _isSubmitting = false;
 
@@ -73,12 +82,98 @@ class _AddProductWizardScreenState extends State<AddProductWizardScreen> {
   @override
   void dispose() {
     _title.dispose();
+    _description.dispose();
+    _quantity.dispose();
     _minPrice.dispose();
     _maxPrice.dispose();
     super.dispose();
   }
 
+  Future<void> _showImagePickerOptions() async {
+    final l10n = AppLocalizations.of(context)!;
+    if (Platform.isIOS) {
+      // iOS native action sheet
+      showCupertinoModalPopup(
+        context: context,
+        builder: (BuildContext context) => CupertinoActionSheet(
+          actions: [
+            CupertinoActionSheetAction(
+              onPressed: () {
+                Navigator.pop(context);
+                _pickImageFromCamera();
+              },
+              child: Text(l10n.takePhoto),
+            ),
+            CupertinoActionSheetAction(
+              onPressed: () {
+                Navigator.pop(context);
+                _pickImages();
+              },
+              child: Text(l10n.chooseFromPhotos),
+            ),
+          ],
+          cancelButton: CupertinoActionSheetAction(
+            isDefaultAction: true,
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: Text(l10n.cancel),
+          ),
+        ),
+      );
+    } else {
+      // Android material bottom sheet
+      showModalBottomSheet(
+        context: context,
+        builder: (BuildContext context) {
+          return SafeArea(
+            child: Wrap(
+              children: <Widget>[
+                ListTile(
+                  leading: const Icon(Icons.camera_alt),
+                  title: Text(l10n.takePhoto),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickImageFromCamera();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.photo_library),
+                  title: Text(l10n.chooseFromPhotos),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickImages();
+                  },
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    }
+  }
+
+  Future<void> _pickImageFromCamera() async {
+    final l10n = AppLocalizations.of(context)!;
+    try {
+      final XFile? photo = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+      if (photo != null) {
+        setState(() {
+          const MAX_IMAGES = 4;
+          _images.add(File(photo.path));
+          if (_images.length > MAX_IMAGES) {
+            _images.removeRange(MAX_IMAGES, _images.length);
+            ShowMessage.notify(context, l10n.maximumImagesAllowed(MAX_IMAGES));
+          }
+        });
+      }
+    } catch (e) {
+      ShowMessage.notify(context, 'Camera access failed: $e');
+    }
+  }
+
   Future<void> _pickImages() async {
+    final l10n = AppLocalizations.of(context)!;
     try {
       final List<XFile> picked = await _picker.pickMultiImage(imageQuality: 85);
       if (picked.isNotEmpty) {
@@ -87,7 +182,7 @@ class _AddProductWizardScreenState extends State<AddProductWizardScreen> {
           _images.addAll(picked.map((x) => File(x.path)));
           if (_images.length > MAX_IMAGES) {
             _images.removeRange(MAX_IMAGES, _images.length);
-            ShowMessage.notify(context, 'Maximum ${MAX_IMAGES} images allowed');
+            ShowMessage.notify(context, l10n.maximumImagesAllowed(MAX_IMAGES));
           }
         });
       }
@@ -96,15 +191,79 @@ class _AddProductWizardScreenState extends State<AddProductWizardScreen> {
     }
   }
 
+  void _viewImage(File image, int index) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.black,
+          child: Stack(
+            children: [
+              Center(
+                child: InteractiveViewer(
+                  panEnabled: true,
+                  boundaryMargin: const EdgeInsets.all(20),
+                  minScale: 0.5,
+                  maxScale: 4,
+                  child: Image.file(image, fit: BoxFit.contain),
+                ),
+              ),
+              Positioned(
+                top: 10,
+                right: 10,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+              Positioned(
+                bottom: 20,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      'Image ${index + 1} of ${_images.length}',
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   void _next() {
+    final l10n = AppLocalizations.of(context)!;
     const MAX_IMAGES = 4; // Maximum 4 images allowed
     if (_currentStep == 0 && (_images.isEmpty || _images.length > MAX_IMAGES)) {
-      ShowMessage.notify(context, 'Please add at least 1 photo (maximum $MAX_IMAGES)');
+      ShowMessage.notify(context, l10n.addAtLeastOnePhoto(MAX_IMAGES));
       return;
     }
     if (_currentStep == 1) {
       if (_category == null || _title.text.trim().isEmpty) {
-        ShowMessage.notify(context, 'Please enter title and category');
+        ShowMessage.notify(context, l10n.pleaseEnterTitleAndCategory);
+        return;
+      }
+      if (_description.text.trim().isEmpty) {
+        ShowMessage.notify(context, l10n.pleaseEnterDescription);
+        return;
+      }
+      if (_description.text.trim().length > 500) {
+        ShowMessage.notify(context, l10n.descriptionTooLong);
+        return;
+      }
+      final qty = int.tryParse(_quantity.text.trim());
+      if (qty == null || qty < 1 || qty > 99) {
+        ShowMessage.notify(context, l10n.quantityMustBeBetween);
         return;
       }
     }
@@ -112,7 +271,7 @@ class _AddProductWizardScreenState extends State<AddProductWizardScreen> {
       final double minV = double.tryParse(_minPrice.text.trim()) ?? 0;
       final double maxV = double.tryParse(_maxPrice.text.trim()) ?? 0;
       if (minV < 0 || maxV <= minV) {
-        ShowMessage.notify(context, 'Minimum price must be less than maximum price');
+        ShowMessage.notify(context, l10n.minPriceMustBeLess);
         return;
       }
     }
@@ -128,17 +287,18 @@ class _AddProductWizardScreenState extends State<AddProductWizardScreen> {
   }
 
   Future<void> _submit() async {
+    final l10n = AppLocalizations.of(context)!;
     final String id = userController.userProfile.value.data?.id ?? '';
     if (id.isEmpty) {
-      ShowMessage.notify(context, 'User not found');
+      ShowMessage.notify(context, l10n.userNotFound);
       return;
     }
     if (_images.isEmpty) {
-      ShowMessage.notify(context, 'Please add photos');
+      ShowMessage.notify(context, l10n.pleaseAddPhotos);
       return;
     }
     if ((_category ?? '').isEmpty) {
-      ShowMessage.notify(context, 'Please select a category');
+      ShowMessage.notify(context, l10n.selectACategory);
       return;
     }
     setState(() => _isSubmitting = true);
@@ -147,10 +307,10 @@ class _AddProductWizardScreenState extends State<AddProductWizardScreen> {
       if (_coverIndex < 0 || _coverIndex >= _images.length) {
         _coverIndex = 0; // Fallback to first image
       }
-      
+
       // Upload all images - cover image as 'image' and all images as 'images' array
       final File cover = _images[_coverIndex];
-      
+
       // Reorder images to put cover first
       final List<File> orderedImages = [cover]; // Cover first
       for (int i = 0; i < _images.length; i++) {
@@ -158,10 +318,12 @@ class _AddProductWizardScreenState extends State<AddProductWizardScreen> {
           orderedImages.add(_images[i]);
         }
       }
-      
+
       final Map<String, dynamic> body = {
         'category': _category,
         'title': _title.text.trim(),
+        'description': _description.text.trim(),
+        'quantity': int.tryParse(_quantity.text.trim()) ?? 1,
         'min_price': double.tryParse(_minPrice.text.trim()) ?? 0,
         'max_price': double.tryParse(_maxPrice.text.trim()) ?? 0,
         'image': cover, // Primary/cover image (must be first)
@@ -170,11 +332,11 @@ class _AddProductWizardScreenState extends State<AddProductWizardScreen> {
       };
       final ApiResponse resp = await ProductService.instance.addSingleProduct(context, body, id);
       if (resp.status == Status.COMPLETED) {
-        ShowMessage.notify(context, 'Product submitted');
+        ShowMessage.notify(context, l10n.productSubmitted);
         // Navigate to home screen after first product submission
         Get.offAll(() => const BottomNavigationScreen());
       } else {
-        ShowMessage.notify(context, 'Failed to submit product');
+        ShowMessage.notify(context, l10n.failedToSubmitProduct);
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -183,11 +345,12 @@ class _AddProductWizardScreenState extends State<AddProductWizardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final size = MediaQuery.of(context).size;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add product'),
+        title: Text(l10n.addProduct),
         centerTitle: false,
       ),
       body: Stepper(
@@ -200,14 +363,14 @@ class _AddProductWizardScreenState extends State<AddProductWizardScreen> {
             child: Row(
               children: [
                 if (_currentStep > 0)
-                  OutlinedButton(onPressed: details.onStepCancel, child: const Text('Back')),
+                  OutlinedButton(onPressed: details.onStepCancel, child: Text(l10n.back)),
                 const SizedBox(width: 8),
                 if (_currentStep < 3)
-                  ElevatedButton(onPressed: details.onStepContinue, child: const Text('Next')),
+                  ElevatedButton(onPressed: details.onStepContinue, child: Text(l10n.next)),
                 if (_currentStep == 3)
                   ElevatedButton(
                     onPressed: _isSubmitting ? null : _submit,
-                    child: _isSubmitting ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Submit'),
+                    child: _isSubmitting ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : Text(l10n.submit),
                   )
               ],
             ),
@@ -215,13 +378,15 @@ class _AddProductWizardScreenState extends State<AddProductWizardScreen> {
         },
         steps: [
           Step(
-            title: const Text('Photos'),
+            title: Text(l10n.photos),
             isActive: _currentStep >= 0,
             state: _currentStep > 0 ? StepState.complete : StepState.indexed,
             content: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Add at least 1 photo', style: Theme.of(context).textTheme.bodyMedium),
+                Text(l10n.addAtLeastOnePhoto(4), style: Theme.of(context).textTheme.bodyMedium),
+                const SizedBox(height: 4),
+                Text(l10n.tapToSetCoverPhoto, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey)),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -232,6 +397,7 @@ class _AddProductWizardScreenState extends State<AddProductWizardScreen> {
                         children: [
                           GestureDetector(
                             onTap: () => setState(() => _coverIndex = i),
+                            onLongPress: () => _viewImage(_images[i], i),
                             child: Container(
                               decoration: BoxDecoration(
                                 border: Border.all(color: i == _coverIndex ? AppColors.primaryColor : Colors.transparent, width: 2),
@@ -268,13 +434,13 @@ class _AddProductWizardScreenState extends State<AddProductWizardScreen> {
                         ],
                       ),
                     InkWell(
-                      onTap: _pickImages,
+                      onTap: _showImagePickerOptions,
                       child: Container(
                         height: 90,
                         width: 90,
                         decoration: BoxDecoration(
-                          color: AppColors.fieldColor,
-                          border: Border.all(color: AppColors.outline),
+                          color: AppColors.fieldBg(context),
+                          border: Border.all(color: AppColors.outlineColor(context)),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Icon(Icons.add_a_photo_outlined),
@@ -286,19 +452,19 @@ class _AddProductWizardScreenState extends State<AddProductWizardScreen> {
             ),
           ),
           Step(
-            title: const Text('Details'),
+            title: Text(l10n.details),
             isActive: _currentStep >= 1,
             state: _currentStep > 1 ? StepState.complete : StepState.indexed,
             content: Column(
               children: [
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: Text('Title', style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+                  child: Text(l10n.title, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
                 ),
                 const SizedBox(height: 6),
                 TextFormField(
                   controller: _title,
-                  decoration: const InputDecoration(hintText: 'Enter a short title'),
+                  decoration: InputDecoration(hintText: l10n.enterShortTitle),
                   inputFormatters: [
                     LengthLimitingTextInputFormatter(50),
                   ],
@@ -306,7 +472,7 @@ class _AddProductWizardScreenState extends State<AddProductWizardScreen> {
                 const SizedBox(height: 12),
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: Text('Category', style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+                  child: Text(l10n.category, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
                 ),
                 const SizedBox(height: 6),
                 Obx(() {
@@ -330,38 +496,123 @@ class _AddProductWizardScreenState extends State<AddProductWizardScreen> {
                     items: items,
                     onChanged: items.isEmpty ? null : (v) => setState(() => _category = v),
                     decoration: InputDecoration(
-                      hintText: items.isEmpty ? 'Loading categories...' : 'Select a category',
+                      hintText: items.isEmpty ? l10n.loadingCategories : l10n.selectACategory,
                     ),
                   );
                 }),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(l10n.descriptionRequired, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+                ),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: _description,
+                  maxLines: 4,
+                  minLines: 2,
+                  decoration: InputDecoration(
+                    hintText: l10n.describeProductDetail,
+                    counterText: '${_description.text.length}/500',
+                  ),
+                  inputFormatters: [
+                    LengthLimitingTextInputFormatter(500),
+                  ],
+                  onChanged: (value) {
+                    setState(() {}); // Update character counter
+                  },
+                ),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(l10n.quantityAvailable, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle_outline),
+                      onPressed: () {
+                        final current = int.tryParse(_quantity.text) ?? 1;
+                        if (current > 1) {
+                          setState(() => _quantity.text = (current - 1).toString());
+                        }
+                      },
+                    ),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _quantity,
+                        keyboardType: TextInputType.number,
+                        textAlign: TextAlign.center,
+                        decoration: const InputDecoration(
+                          hintText: '1',
+                        ),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(2),
+                        ],
+                        onChanged: (value) {
+                          if (value.isEmpty) {
+                            _quantity.text = '1';
+                            _quantity.selection = TextSelection.fromPosition(
+                              const TextPosition(offset: 1),
+                            );
+                          } else {
+                            final qty = int.tryParse(value) ?? 1;
+                            if (qty > 99) {
+                              _quantity.text = '99';
+                              _quantity.selection = TextSelection.fromPosition(
+                                TextPosition(offset: _quantity.text.length),
+                              );
+                            } else if (qty < 1) {
+                              _quantity.text = '1';
+                              _quantity.selection = TextSelection.fromPosition(
+                                TextPosition(offset: _quantity.text.length),
+                              );
+                            }
+                          }
+                        },
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add_circle_outline),
+                      onPressed: () {
+                        final current = int.tryParse(_quantity.text) ?? 1;
+                        if (current < 99) {
+                          setState(() => _quantity.text = (current + 1).toString());
+                        }
+                      },
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
           Step(
-            title: const Text('Condition & Price'),
+            title: Text(l10n.conditionAndPrice),
             isActive: _currentStep >= 2,
             state: _currentStep > 2 ? StepState.complete : StepState.indexed,
             content: Column(
               children: [
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: Text('Condition', style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+                  child: Text(l10n.condition, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
                 ),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
                   value: _condition,
-                  items: const [
-                    DropdownMenuItem(value: 'New', child: Text('New')),
-                    DropdownMenuItem(value: 'Like New', child: Text('Like New')),
-                    DropdownMenuItem(value: 'Used - Good', child: Text('Used - Good')),
-                    DropdownMenuItem(value: 'Used - Fair', child: Text('Used - Fair')),
+                  items: [
+                    DropdownMenuItem(value: 'New', child: Text(l10n.productNew)),
+                    DropdownMenuItem(value: 'Like New', child: Text(l10n.productLikeNew)),
+                    DropdownMenuItem(value: 'Good', child: Text(l10n.productGood)),
+                    DropdownMenuItem(value: 'Fair', child: Text(l10n.productFair)),
+                    DropdownMenuItem(value: 'Poor', child: Text(l10n.poor)),
                   ],
                   onChanged: (v) => setState(() => _condition = v ?? 'New'),
-                  decoration: const InputDecoration(hintText: 'Select condition'),
+                  decoration: InputDecoration(hintText: l10n.selectCondition),
                 ),
                 const SizedBox(height: 12),
                 RangeSlider(
-                  activeColor: AppColors.primaryTextColor,
+                  activeColor: AppColors.primaryText(context),
                   values: _range,
                   min: 0,
                   max: 1000,
@@ -380,12 +631,26 @@ class _AddProductWizardScreenState extends State<AddProductWizardScreen> {
                     Expanded(
                       child: TextFormField(
                         controller: _minPrice,
-                        decoration: const InputDecoration(labelText: 'Min price'),
+                        decoration: InputDecoration(
+                          labelText: l10n.minPrice,
+                          errorText: _minPriceError,
+                          errorStyle: const TextStyle(fontSize: 10),
+                          suffixIcon: const Padding(
+                            padding: EdgeInsets.all(12.0),
+                            child: SaudiRiyalSymbol(color: Colors.grey, size: 24),
+                          ),
+                        ),
                         keyboardType: TextInputType.number,
                         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                         onChanged: (v) {
-                          final d = double.tryParse(v) ?? 0;
-                          if (d <= _range.end) setState(() => _range = RangeValues(d, _range.end));
+                          setState(() => _minPriceError = null);
+                          final minVal = double.tryParse(v) ?? 0;
+                          final maxVal = double.tryParse(_maxPrice.text) ?? 500;
+                          if (minVal >= maxVal) {
+                            setState(() => _minPriceError = l10n.minMustBeLessThanMax);
+                            return;
+                          }
+                          if (minVal <= _range.end) setState(() => _range = RangeValues(minVal, _range.end));
                         },
                       ),
                     ),
@@ -393,12 +658,30 @@ class _AddProductWizardScreenState extends State<AddProductWizardScreen> {
                     Expanded(
                       child: TextFormField(
                         controller: _maxPrice,
-                        decoration: const InputDecoration(labelText: 'Max price'),
+                        decoration: InputDecoration(
+                          labelText: l10n.maxPrice,
+                          errorText: _maxPriceError,
+                          errorStyle: const TextStyle(fontSize: 10),
+                          suffixIcon: const Padding(
+                            padding: EdgeInsets.all(12.0),
+                            child: SaudiRiyalSymbol(color: Colors.grey, size: 24),
+                          ),
+                        ),
                         keyboardType: TextInputType.number,
                         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                         onChanged: (v) {
-                          final d = double.tryParse(v) ?? 0;
-                          if (d >= _range.start) setState(() => _range = RangeValues(_range.start, d));
+                          setState(() => _maxPriceError = null);
+                          final minVal = double.tryParse(_minPrice.text) ?? 0;
+                          final maxVal = double.tryParse(v) ?? 0;
+                          if (maxVal > 1000) {
+                            setState(() => _maxPriceError = l10n.maxCannotExceed1000);
+                            return;
+                          }
+                          if (maxVal <= minVal) {
+                            setState(() => _maxPriceError = l10n.maxMustBeGreaterThanMin);
+                            return;
+                          }
+                          if (maxVal >= _range.start) setState(() => _range = RangeValues(_range.start, maxVal));
                         },
                       ),
                     ),
@@ -408,67 +691,93 @@ class _AddProductWizardScreenState extends State<AddProductWizardScreen> {
             ),
           ),
           Step(
-            title: const Text('Review'),
+            title: Text(l10n.review),
             isActive: _currentStep >= 3,
             state: StepState.indexed,
             content: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Preview', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                Text(l10n.preview, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 4),
+                Text(l10n.tapImagesToView, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey)),
                 const SizedBox(height: 8),
                 if (_images.isNotEmpty)
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      for (final f in _images.take(4))
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.file(f, height: 64, width: 64, fit: BoxFit.cover),
+                      for (int i = 0; i < _images.take(4).length; i++)
+                        GestureDetector(
+                          onTap: () => _viewImage(_images[i], i),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.file(_images[i], height: 64, width: 64, fit: BoxFit.cover),
+                          ),
                         ),
                       if (_images.length > 4)
-                        Chip(label: Text('+${_images.length - 4} more')),
+                        GestureDetector(
+                          onTap: () => _viewImage(_images[4], 4),
+                          child: Chip(label: Text('+${_images.length - 4} more')),
+                        ),
                     ],
                   )
                 else
-                  const Text('No photos selected'),
+                  Text(l10n.noPhotosSelected),
                 const SizedBox(height: 12),
                 Card(
                   child: Column(
                     children: [
                       ListTile(
                         leading: const Icon(Icons.photo_library_outlined),
-                        title: Text('${_images.length} photos selected'),
+                        title: Text(l10n.photosSelected(_images.length)),
                       ),
                       const Divider(height: 1),
                       ListTile(
                         leading: const Icon(Icons.label_outline),
-                        title: const Text('Title'),
+                        title: Text(l10n.title),
                         subtitle: Text(_title.text.isEmpty ? '-' : _title.text),
                       ),
                       const Divider(height: 1),
                       ListTile(
                         leading: const Icon(Icons.category_outlined),
-                        title: const Text('Category'),
+                        title: Text(l10n.category),
                         subtitle: Text(_category ?? '-'),
                       ),
                       const Divider(height: 1),
                       ListTile(
+                        leading: const Icon(Icons.description_outlined),
+                        title: Text(l10n.description),
+                        subtitle: Text(_description.text.isEmpty ? '-' : _description.text),
+                        isThreeLine: _description.text.length > 50,
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.format_list_numbered),
+                        title: Text(l10n.quantity),
+                        subtitle: Text(_quantity.text),
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
                         leading: const Icon(Icons.inventory_2_outlined),
-                        title: const Text('Condition'),
+                        title: Text(l10n.condition),
                         subtitle: Text(_condition),
                       ),
                       const Divider(height: 1),
                       ListTile(
-                        leading: const Icon(Icons.attach_money),
-                        title: const Text('Price range'),
-                        subtitle: Text('${_minPrice.text} - ${_maxPrice.text}'),
+                        leading: const Icon(Icons.price_check_outlined),
+                        title: Text(l10n.priceRange),
+                        subtitle: SaudiRiyalFormatter.formatRange(
+                          _minPrice.text,
+                          _maxPrice.text,
+                          fontSize: 14,
+                          color: AppColors.secondaryText(context),
+                        ),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text('Press Submit to upload all items')
+                Text(l10n.pressSubmitToUpload)
               ],
             ),
           ),

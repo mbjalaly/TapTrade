@@ -67,13 +67,13 @@ class _CompletedDealScreenState extends State<CompletedDealScreen> {
     Size size = MediaQuery.of(context).size;
     final tradeList = (productController.tradeRequestProduct.value.data ?? []).where((e) => e.paymentStatus == 'paid').toList();
     return Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.backgroundColor(context),
         body: SafeArea(
           top: false,
           child: isLoading
-              ? const Center(
+              ? Center(
                   child: CircularProgressIndicator(
-                    color: AppColors.primaryTextColor,
+                    color: AppColors.primaryText(context),
                   ),
                 )
               : Column(
@@ -93,7 +93,7 @@ class _CompletedDealScreenState extends State<CompletedDealScreen> {
                               Get.to(() => ContactTrader());
                             },
                             child: Card(
-                              color: AppColors.surfaceVariant,
+                              color: AppColors.surfaceVariantColor(context),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
                                 side: const BorderSide(color: Color(0xFFB3E5FC)),

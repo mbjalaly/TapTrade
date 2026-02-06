@@ -100,8 +100,10 @@ class MatchData {
 class UserProduct {
   int? id;
   String? title;
+  String? description;
   String? minPrice;
   String? maxPrice;
+  int? quantity;
   String? image;
   List<String>? images; // Multiple product images
   String? productCondition;
@@ -112,8 +114,10 @@ class UserProduct {
   UserProduct(
       {this.id,
         this.title,
+        this.description,
         this.minPrice,
         this.maxPrice,
+        this.quantity,
         this.image,
         this.images,
         this.productCondition,
@@ -124,12 +128,17 @@ class UserProduct {
   UserProduct.fromJson(Map<String, dynamic> json) {
     id = json['id'] ?? -1;
     title = json['title'] ?? '';
+    description = json['description'] ?? '';
     minPrice = json['min_price'] ?? '';
     maxPrice = json['max_price'] ?? '';
+    quantity = json['quantity'] is int ? json['quantity'] : (int.tryParse(json['quantity']?.toString() ?? '1') ?? 1);
     image = json['image'] ?? '';
-    // Parse images array if available
+    // Parse images array if available and remove duplicates
     if (json['images'] is List) {
-      images = (json['images'] as List).map((e) => e.toString()).toList();
+      images = (json['images'] as List)
+          .map((e) => e.toString())
+          .toSet()
+          .toList();
     } else {
       images = [];
     }
@@ -143,8 +152,10 @@ class UserProduct {
     final Map<String, dynamic> data = <String, dynamic>{};
     data['id'] = id ?? -1;
     data['title'] = title ?? '';
+    data['description'] = description ?? '';
     data['min_price'] = minPrice ?? '';
     data['max_price'] = maxPrice ?? '';
+    data['quantity'] = quantity ?? 1;
     data['image'] = image ?? '';
     if (images != null) {
       data['images'] = images;

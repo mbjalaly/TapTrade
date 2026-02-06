@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:taptrade/Const/globleKey.dart';
+import 'package:taptrade/l10n/app_localizations.dart';
 import 'package:taptrade/Models/MyProductModel/myProductModel.dart' as mp;
 import 'package:taptrade/Controller/userController.dart';
 import 'package:taptrade/Services/IntegrationServices/generalService.dart';
@@ -13,6 +14,7 @@ import 'package:taptrade/Services/IntegrationServices/productService.dart';
 import 'package:taptrade/Services/ApiResponse/apiResponse.dart';
 import 'package:taptrade/Utills/appColors.dart';
 import 'package:taptrade/Utills/showMessages.dart';
+import 'package:taptrade/Widgets/saudi_riyal_symbol.dart';
 
 // Helper class to track images (either existing URL/base64 or new File)
 class _ImageItem {
@@ -36,8 +38,10 @@ class EditProductScreen extends StatefulWidget {
 
 class _EditProductScreenState extends State<EditProductScreen> {
   final TextEditingController _title = TextEditingController();
+  final TextEditingController _description = TextEditingController();
   final TextEditingController _minPrice = TextEditingController();
   final TextEditingController _maxPrice = TextEditingController();
+  final TextEditingController _quantity = TextEditingController();
   String? _category;
   String _condition = 'New';
   final List<_ImageItem> _allImages = [];
@@ -48,10 +52,12 @@ class _EditProductScreenState extends State<EditProductScreen> {
   void initState() {
     super.initState();
     _title.text = widget.product.title ?? '';
+    _description.text = widget.product.description ?? '';
     _category = widget.product.category;
     _condition = widget.product.productCondition?.isNotEmpty == true ? widget.product.productCondition! : 'New';
     _minPrice.text = widget.product.minPrice ?? '0';
     _maxPrice.text = widget.product.maxPrice ?? '0';
+    _quantity.text = (widget.product.quantity ?? 1).toString();
     
     // Load existing images
     _loadExistingImages();
@@ -86,8 +92,10 @@ class _EditProductScreenState extends State<EditProductScreen> {
   @override
   void dispose() {
     _title.dispose();
+    _description.dispose();
     _minPrice.dispose();
     _maxPrice.dispose();
+    _quantity.dispose();
     super.dispose();
   }
 
@@ -177,7 +185,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
         }
         if (_allImages.length > MAX_IMAGES) {
           _allImages.removeRange(MAX_IMAGES, _allImages.length);
-          ShowMessage.notify(context, 'Maximum ${MAX_IMAGES} images allowed');
+          ShowMessage.notify(context, AppLocalizations.of(context)?.maximumImagesAllowed(MAX_IMAGES) ?? 'Maximum $MAX_IMAGES images allowed');
         }
       });
     }
@@ -194,7 +202,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
   void _removeImage(int index) {
     // Ensure at least 1 image remains
     if (_allImages.length <= 1) {
-      ShowMessage.notify(context, 'At least 1 image is required');
+      ShowMessage.notify(context, AppLocalizations.of(context)?.atLeastOneImageRequired ?? 'At least 1 image is required');
       return;
     }
     
@@ -211,21 +219,38 @@ class _EditProductScreenState extends State<EditProductScreen> {
 
   Future<void> _save() async {
     if (_title.text.trim().isEmpty) {
-      ShowMessage.notify(context, 'Please enter title');
+      ShowMessage.notify(context, AppLocalizations.of(context)?.pleaseEnterTitle ?? 'Please enter title');
       return;
     }
-    
+
+    // Validate description (REQUIRED)
+    if (_description.text.trim().isEmpty) {
+      ShowMessage.notify(context, AppLocalizations.of(context)?.productDescriptionRequired ?? 'Product description is required');
+      return;
+    }
+    if (_description.text.trim().length > 500) {
+      ShowMessage.notify(context, AppLocalizations.of(context)?.descriptionTooLong ?? 'Description is too long (max 500 characters)');
+      return;
+    }
+
+    // Validate quantity (1-99 range)
+    final quantity = int.tryParse(_quantity.text.trim()) ?? 1;
+    if (quantity < 1 || quantity > 99) {
+      ShowMessage.notify(context, AppLocalizations.of(context)?.quantityMustBeBetween ?? 'Quantity must be between 1 and 99');
+      return;
+    }
+
     // Ensure at least 1 image exists (existing or new)
     if (_allImages.isEmpty) {
-      ShowMessage.notify(context, 'At least 1 image is required');
+      ShowMessage.notify(context, AppLocalizations.of(context)?.atLeastOneImageRequired ?? 'At least 1 image is required');
       return;
     }
-    
+
     setState(() => _isSaving = true);
     try {
       final productId = widget.product.id?.toString() ?? '';
       if (productId.isEmpty) {
-        ShowMessage.notify(context, 'Product ID is missing');
+        ShowMessage.notify(context, AppLocalizations.of(context)?.productIdMissing ?? 'Product ID is missing');
         setState(() => _isSaving = false);
         return;
       }
@@ -247,7 +272,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
       final maxPrice = double.tryParse(_maxPrice.text.trim()) ?? 0;
       
       if (minPrice >= maxPrice) {
-        ShowMessage.notify(context, 'Minimum price must be less than maximum price');
+        ShowMessage.notify(context, AppLocalizations.of(context)?.minPriceMustBeLess ?? 'Minimum price must be less than maximum price');
         setState(() => _isSaving = false);
         return;
       }
@@ -255,8 +280,10 @@ class _EditProductScreenState extends State<EditProductScreen> {
       final body = <String, dynamic>{
         'category': _category ?? widget.product.category ?? '',
         'title': _title.text.trim(),
+        'description': _description.text.trim(),
         'min_price': minPrice,
         'max_price': maxPrice,
+        'quantity': int.tryParse(_quantity.text.trim()) ?? 1,
         'product_condition': _condition,
       };
       
@@ -330,10 +357,10 @@ class _EditProductScreenState extends State<EditProductScreen> {
       // Use updateProduct instead of addSingleProduct
       final ApiResponse resp = await ProductService.instance.updateProduct(context, body, productId);
       if (resp.status == Status.COMPLETED) {
-        ShowMessage.notify(context, 'Product updated');
+        ShowMessage.notify(context, AppLocalizations.of(context)?.productUpdated ?? 'Product updated');
         Navigator.pop(context, true);
       } else {
-        ShowMessage.notify(context, 'Update failed');
+        ShowMessage.notify(context, AppLocalizations.of(context)?.updateFailed ?? 'Update failed');
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -343,7 +370,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Edit product')),
+      appBar: AppBar(title: Text(AppLocalizations.of(context)?.editProduct ?? 'Edit product')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -354,11 +381,11 @@ class _EditProductScreenState extends State<EditProductScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Images (1-4)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                  Text(AppLocalizations.of(context)?.images1to4 ?? 'Images (1-4)', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                   TextButton.icon(
                     onPressed: _allImages.length < 4 ? _pickImages : null,
                     icon: const Icon(Icons.add_a_photo_outlined),
-                    label: const Text('Add'),
+                    label: Text(AppLocalizations.of(context)?.add ?? 'Add'),
                   ),
                 ],
               ),
@@ -409,8 +436,8 @@ class _EditProductScreenState extends State<EditProductScreen> {
                               color: AppColors.primaryColor,
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            child: const Text(
-                              'Cover',
+                            child: Text(
+                              AppLocalizations.of(context)?.cover ?? 'Cover',
                               style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
                             ),
                           ),
@@ -443,8 +470,8 @@ class _EditProductScreenState extends State<EditProductScreen> {
                               color: Colors.black54,
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            child: const Text(
-                              'Tap to set cover',
+                            child: Text(
+                              AppLocalizations.of(context)?.tapToSetCover ?? 'Tap to set cover',
                               style: TextStyle(color: Colors.white, fontSize: 9),
                               textAlign: TextAlign.center,
                             ),
@@ -458,22 +485,22 @@ class _EditProductScreenState extends State<EditProductScreen> {
                 Container(
                   height: 200,
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceVariant,
+                    color: AppColors.surfaceVariantColor(context),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.outline),
+                    border: Border.all(color: AppColors.outlineColor(context)),
                   ),
                   child: Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.image_outlined, size: 48, color: AppColors.greyTextColor),
+                        Icon(Icons.image_outlined, size: 48, color: AppColors.greyText(context)),
                         const SizedBox(height: 12),
-                        const Text('No images', style: TextStyle(fontWeight: FontWeight.w700)),
+                        Text(AppLocalizations.of(context)?.noImages ?? 'No images', style: TextStyle(fontWeight: FontWeight.w700)),
                         const SizedBox(height: 8),
                         ElevatedButton.icon(
                           onPressed: _pickImages,
                           icon: const Icon(Icons.add_a_photo_outlined),
-                          label: const Text('Add images'),
+                          label: Text(AppLocalizations.of(context)?.addImages ?? 'Add images'),
                         ),
                       ],
                     ),
@@ -482,7 +509,26 @@ class _EditProductScreenState extends State<EditProductScreen> {
             ],
           ),
           const SizedBox(height: 24),
-          TextFormField(controller: _title, decoration: const InputDecoration(labelText: 'Title')),
+          TextFormField(controller: _title, decoration: InputDecoration(labelText: AppLocalizations.of(context)?.title ?? 'Title'), inputFormatters: [LengthLimitingTextInputFormatter(50)]),
+          const SizedBox(height: 12),
+          // Description field (REQUIRED)
+          TextFormField(
+            controller: _description,
+            maxLines: 5,
+            minLines: 3,
+            decoration: InputDecoration(
+              labelText: AppLocalizations.of(context)?.descriptionRequired ?? 'Description *',
+              hintText: AppLocalizations.of(context)?.describeYourProduct ?? 'Describe your product in detail',
+              counterText: '${_description.text.length}/500',
+              border: const OutlineInputBorder(),
+            ),
+            inputFormatters: [
+              LengthLimitingTextInputFormatter(500),
+            ],
+            onChanged: (value) {
+              setState(() {}); // Update character counter
+            },
+          ),
           const SizedBox(height: 12),
           Obx(() {
             final List<String> categoriesList = GeneralService.instance.allCategory.value.data
@@ -503,29 +549,111 @@ class _EditProductScreenState extends State<EditProductScreen> {
               items: items,
               onChanged: items.isEmpty ? null : (v) => setState(() => _category = v),
               decoration: InputDecoration(
-                labelText: 'Category',
-                hintText: items.isEmpty ? 'Loading categories...' : 'Select a category',
+                labelText: AppLocalizations.of(context)?.category ?? 'Category',
+                hintText: items.isEmpty ? (AppLocalizations.of(context)?.loadingCategories ?? 'Loading categories...') : (AppLocalizations.of(context)?.selectACategory ?? 'Select a category'),
               ),
             );
           }),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             value: _condition,
-            items: const [
-              DropdownMenuItem(value: 'New', child: Text('New')),
-              DropdownMenuItem(value: 'Like New', child: Text('Like New')),
-              DropdownMenuItem(value: 'Used - Good', child: Text('Used - Good')),
-              DropdownMenuItem(value: 'Used - Fair', child: Text('Used - Fair')),
+            items: [
+              DropdownMenuItem(value: 'New', child: Text(AppLocalizations.of(context)?.productNew ?? 'New')),
+              DropdownMenuItem(value: 'Like New', child: Text(AppLocalizations.of(context)?.productLikeNew ?? 'Like New')),
+              DropdownMenuItem(value: 'Used - Good', child: Text(AppLocalizations.of(context)?.productGood ?? 'Used - Good')),
+              DropdownMenuItem(value: 'Used - Fair', child: Text(AppLocalizations.of(context)?.productFair ?? 'Used - Fair')),
             ],
             onChanged: (v) => setState(() => _condition = v ?? 'New'),
-            decoration: const InputDecoration(labelText: 'Condition'),
+            decoration: InputDecoration(labelText: AppLocalizations.of(context)?.condition ?? 'Condition'),
+          ),
+          const SizedBox(height: 12),
+          // Quantity field
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _quantity,
+                  decoration: InputDecoration(
+                    labelText: AppLocalizations.of(context)?.quantity ?? 'Quantity',
+                    hintText: '1',
+                    prefixIcon: Icon(Icons.inventory_2_outlined),
+                  ),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(2),
+                  ],
+                  onChanged: (value) {
+                    if (value.isNotEmpty) {
+                      final qty = int.tryParse(value) ?? 1;
+                      if (qty > 99) {
+                        _quantity.text = '99';
+                        _quantity.selection = TextSelection.fromPosition(
+                          TextPosition(offset: _quantity.text.length),
+                        );
+                      } else if (qty < 1) {
+                        _quantity.text = '1';
+                        _quantity.selection = TextSelection.fromPosition(
+                          TextPosition(offset: _quantity.text.length),
+                        );
+                      }
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Column(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.add_circle_outline, color: AppColors.primaryColor),
+                    onPressed: () {
+                      final current = int.tryParse(_quantity.text) ?? 1;
+                      if (current < 99) {
+                        _quantity.text = (current + 1).toString();
+                      }
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.remove_circle_outline, color: AppColors.primaryColor),
+                    onPressed: () {
+                      final current = int.tryParse(_quantity.text) ?? 1;
+                      if (current > 1) {
+                        _quantity.text = (current - 1).toString();
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(child: TextFormField(controller: _minPrice, decoration: const InputDecoration(labelText: 'Min price'), keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly])),
+              Expanded(child: TextFormField(
+                controller: _minPrice, 
+                decoration: InputDecoration(
+                  labelText: AppLocalizations.of(context)?.minPrice ?? 'Min price',
+                  suffixIcon: const Padding(
+                    padding: EdgeInsets.all(12.0),
+                    child: SaudiRiyalSymbol(color: Colors.grey, size: 24),
+                  ),
+                ), 
+                keyboardType: TextInputType.number, 
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly]
+              )),
               const SizedBox(width: 12),
-              Expanded(child: TextFormField(controller: _maxPrice, decoration: const InputDecoration(labelText: 'Max price'), keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly])),
+              Expanded(child: TextFormField(
+                controller: _maxPrice, 
+                decoration: InputDecoration(
+                  labelText: AppLocalizations.of(context)?.maxPrice ?? 'Max price',
+                  suffixIcon: const Padding(
+                    padding: EdgeInsets.all(12.0),
+                    child: SaudiRiyalSymbol(color: Colors.grey, size: 24),
+                  ),
+                ), 
+                keyboardType: TextInputType.number, 
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly]
+              )),
             ],
           ),
           const SizedBox(height: 24),
@@ -533,7 +661,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
             onPressed: _isSaving ? null : _save,
             child: _isSaving 
                 ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) 
-                : const Text('Save changes'),
+                : Text(AppLocalizations.of(context)?.saveChanges ?? 'Save changes'),
           ),
         ],
       ),

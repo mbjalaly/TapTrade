@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:taptrade/l10n/app_localizations.dart';
 import 'package:get/get.dart';
 import 'package:taptrade/Const/globleKey.dart';
 import 'package:taptrade/Controller/productController.dart';
@@ -154,23 +155,24 @@ class _MatchDealScreenState extends State<MatchDealScreen> {
   /// Mark trade as complete (first user action)
   Future<void> markTradeAsComplete() async {
     if (widget.tradeRequestData == null) return;
-    
+    final l10n = AppLocalizations.of(context)!;
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Mark Trade as Complete?'),
-        content: const Text(
-          'Have you completed this trade in person? The other party will need to confirm before the trade is finalized.'
+        title: Text(l10n.markTradeComplete),
+        content: Text(
+          '${AppLocalizations.of(context)?.haveYouCompletedTradeInPerson ?? "Have you completed this trade in person?"} ${l10n.theyWillNeedToConfirm}'
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancel),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-            child: const Text('Yes, Mark Complete'),
+            child: Text(l10n.yesMarkComplete),
           ),
         ],
       ),
@@ -179,15 +181,15 @@ class _MatchDealScreenState extends State<MatchDealScreen> {
     if (confirmed != true) return;
 
     setState(() => isMarkingComplete = true);
-    
+
     try {
       final result = await ProductService.instance.markTradeComplete(
         context,
         widget.tradeRequestData!.id ?? -1,
       );
-      
+
       if (result.status == Status.COMPLETED) {
-        ShowMessage.notify(context, 'Trade marked as complete. Waiting for other party to confirm.');
+        ShowMessage.notify(context, l10n.tradeMarkedWaiting);
         // Update local state
         setState(() {
           widget.tradeRequestData?.completedByRequester = 
@@ -205,23 +207,22 @@ class _MatchDealScreenState extends State<MatchDealScreen> {
   /// Confirm trade completion (second user action)
   Future<void> confirmTradeComplete() async {
     if (widget.tradeRequestData == null) return;
-    
+    final l10n = AppLocalizations.of(context)!;
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Confirm Trade Completion?'),
-        content: const Text(
-          'The other party has marked this trade as complete. Do you confirm that the trade has been completed successfully?'
-        ),
+        title: Text(l10n.confirmTradeCompletion),
+        content: Text(l10n.confirmTradeCompletionMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Not Yet'),
+            child: Text(l10n.notYet),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-            child: const Text('Yes, Confirm'),
+            child: Text(l10n.yesConfirm),
           ),
         ],
       ),
@@ -230,15 +231,15 @@ class _MatchDealScreenState extends State<MatchDealScreen> {
     if (confirmed != true) return;
 
     setState(() => isMarkingComplete = true);
-    
+
     try {
       final result = await ProductService.instance.confirmTradeComplete(
         context,
         widget.tradeRequestData!.id ?? -1,
       );
-      
+
       if (result.status == Status.COMPLETED) {
-        ShowMessage.notify(context, 'Trade completed successfully! 🎉');
+        ShowMessage.notify(context, l10n.tradeCompletedSuccess);
         // Update local state
         setState(() {
           widget.tradeRequestData?.completedByRequester = true;
@@ -254,6 +255,7 @@ class _MatchDealScreenState extends State<MatchDealScreen> {
 
   /// Build the appropriate bottom button based on trade status
   Widget _buildBottomButton() {
+    final l10n = AppLocalizations.of(context)!;
     final status = widget.tradeRequestData?.status ?? '';
     final isCompleted = status == 'completed';
     final isPendingConfirmation = status == 'pending_confirmation';
@@ -274,7 +276,7 @@ class _MatchDealScreenState extends State<MatchDealScreen> {
             const Icon(Icons.check_circle, color: Colors.white),
             const SizedBox(width: 8),
             Text(
-              'Trade Completed ✓',
+              l10n.tradeCompletedCheck,
               style: TextStyle(
                 color: Colors.white,
                 fontSize: Get.width * 0.045,
@@ -310,7 +312,7 @@ class _MatchDealScreenState extends State<MatchDealScreen> {
               ),
               const SizedBox(width: 12),
               Text(
-                'Waiting for Confirmation...',
+                l10n.waitingForConfirmation,
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: Get.width * 0.04,
@@ -326,7 +328,7 @@ class _MatchDealScreenState extends State<MatchDealScreen> {
           isLoading: isMarkingComplete,
           onPressed: confirmTradeComplete,
           width: Get.width * 0.5,
-          text: "Confirm Completion",
+          text: l10n.confirmCompletion,
           fontSize: Get.width * 0.045,
           margin: EdgeInsets.symmetric(horizontal: Get.width / 6, vertical: 20),
         );
@@ -339,7 +341,7 @@ class _MatchDealScreenState extends State<MatchDealScreen> {
         isLoading: isMarkingComplete,
         onPressed: markTradeAsComplete,
         width: Get.width * 0.5,
-        text: "Mark as Completed",
+        text: l10n.markAsCompleted,
         fontSize: Get.width * 0.045,
         margin: EdgeInsets.symmetric(horizontal: Get.width / 6, vertical: 20),
       );
@@ -350,7 +352,7 @@ class _MatchDealScreenState extends State<MatchDealScreen> {
       isLoading: isLoading,
       onPressed: () async {
         if (!showMatch) {
-          ShowMessage.notify(context, "Please tap on a product to reveal the match first!");
+          ShowMessage.notify(context, l10n.tapProductToReveal);
           return;
         }
 
@@ -369,14 +371,14 @@ class _MatchDealScreenState extends State<MatchDealScreen> {
           }
           
           if (success == true) {
-            ShowMessage.notify(context, "Trader revealed successfully!");
+            ShowMessage.notify(context, l10n.traderRevealedSuccess);
           } else {
-            ShowMessage.notify(context, "Your request cannot proceed at the moment please try again later");
+            ShowMessage.notify(context, l10n.requestCannotProceed);
           }
         } catch (error, stackTrace) {
           debugPrint("Error in reveal trader: $error");
           debugPrint("Stack trace: $stackTrace");
-          ShowMessage.notify(context, 'An error occurred. Please try again later.');
+          ShowMessage.notify(context, l10n.errorTryAgainLater);
         } finally {
           setState(() {
             isLoading = false;
@@ -384,7 +386,7 @@ class _MatchDealScreenState extends State<MatchDealScreen> {
         }
       },
       width: Get.width * 0.45,
-      text: "Reveal Trader",
+      text: l10n.revealTrader,
       fontSize: Get.width * 0.05,
       margin: EdgeInsets.symmetric(horizontal: Get.width / 6, vertical: 20),
     );
@@ -392,6 +394,7 @@ class _MatchDealScreenState extends State<MatchDealScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -433,7 +436,7 @@ class _MatchDealScreenState extends State<MatchDealScreen> {
                         ),
                         Center(
                           child: AppText(
-                            text: "Matched Deal",
+                            text: l10n.matchedDeal,
                             fontSize: Get.width * 0.078,
                             textcolor: AppColors.darkBlue,
                             fontWeight: FontWeight.w700,
@@ -445,7 +448,7 @@ class _MatchDealScreenState extends State<MatchDealScreen> {
                             },
                             child: Icon(
                               Icons.arrow_forward_ios,
-                              color: Colors.grey.withOpacity(.70),
+                              color: AppColors.greyText(context).withOpacity(0.70),
                             ))
                       ],
                     ),
@@ -517,7 +520,7 @@ class _MatchDealScreenState extends State<MatchDealScreen> {
                                     fontFamily: 'Cinzel',
                                     fontWeight: FontWeight.bold,
                                     color: AppColors
-                                        .primaryTextColor,
+                                        .primaryText(context),
                                     fontSize:
                                     Get.width * 0.045),
                               ),
@@ -563,7 +566,7 @@ class _MatchDealScreenState extends State<MatchDealScreen> {
                                     fontFamily: 'Cinzel',
                                     fontWeight: FontWeight.bold,
                                     color: AppColors
-                                        .primaryTextColor,
+                                        .primaryText(context),
                                     fontSize:
                                     Get.width * 0.045),
                               ),

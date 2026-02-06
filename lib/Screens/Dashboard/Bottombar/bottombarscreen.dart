@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:taptrade/l10n/app_localizations.dart';
 import 'package:get/get.dart';
 import 'package:taptrade/Screens/Dashboard/MyProduct/myProductScreen.dart';
 import 'package:taptrade/Screens/Dashboard/homescreen.dart';
 import 'package:taptrade/Screens/Dashboard/Chat/matchesListScreen.dart';
 import 'package:taptrade/Screens/Dashboard/More/moreScreen.dart';
+import 'package:taptrade/Screens/GetStarted/locationPermissionScreen.dart';
 import 'package:taptrade/Services/IntegrationServices/chatService.dart';
 import 'package:taptrade/Utills/appColors.dart';
 
@@ -16,19 +19,14 @@ class BottomNavigationScreen extends StatefulWidget {
       _BottomNavigationScreenState();
 }
 
-class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
-  int selectedPage = 1; // 0: Products, 1: Bazaar, 2: Matches, 3: More
+class _BottomNavigationScreenState extends State<BottomNavigationScreen> with WidgetsBindingObserver {
+  int selectedPage = 1; // 0: Products, 1: Bazaar, 2: Matches, 3: Profile
   int _totalUnreadCount = 0; // Track total unread messages
   Timer? _unreadTimer;
+  StreamSubscription<ServiceStatus>? _serviceStatusSub;
 
-  final List<Widget> pages = const [
-    MyProductScreen(),
-    // Center tab: Bazaar (Home)
-    // Placeholder, will be replaced at runtime with HomeScreen() since it's not const
-    SizedBox.shrink(),
-    MatchesListScreen(), // Matches tab
-    MoreScreen(), // NEW: More tab (settings and profile)
-  ];
+  // Pages list to preserve state
+  List<Widget>? _pages;
 
   // Function to change page
   void changePage(int index) {
@@ -44,17 +42,62 @@ class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _fetchUnreadCount();
-    // Poll for unread messages every 30 seconds
-    _unreadTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+    // Poll for unread messages every 5 seconds for real-time updates
+    _unreadTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       _fetchUnreadCount();
+    });
+    // Listen for location service being toggled off
+    _serviceStatusSub = Geolocator.getServiceStatusStream().listen((status) {
+      if (status == ServiceStatus.disabled) {
+        _redirectToLocationScreen();
+      }
     });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _unreadTimer?.cancel();
+    _serviceStatusSub?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _fetchUnreadCount();
+      _checkLocationPermission();
+    }
+  }
+
+  Future<void> _checkLocationPermission() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        _redirectToLocationScreen();
+        return;
+      }
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        _redirectToLocationScreen();
+      }
+    } catch (_) {}
+  }
+
+  void _redirectToLocationScreen() {
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const LocationPermissionScreen(
+          destination: BottomNavigationScreen(),
+        ),
+      ),
+      (route) => false,
+    );
   }
 
   Future<void> _fetchUnreadCount() async {
@@ -76,11 +119,21 @@ class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final Widget currentPage = selectedPage == 1 ? HomeScreen() : pages[selectedPage];
+    // Initialize pages on first build to ensure proper context
+    _pages ??= [
+      const MyProductScreen(),
+      HomeScreen(),
+      const MatchesListScreen(),
+      const MoreScreen(),
+    ];
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.backgroundColor(context),
       extendBody: true,
-      body: currentPage,
+      body: IndexedStack(
+        index: selectedPage,
+        children: _pages!,
+      ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: Transform.translate(
         offset: const Offset(0, 8),
@@ -107,7 +160,7 @@ class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
           child: BottomAppBar(
             shape: const CircularNotchedRectangle(),
             notchMargin: 4,
-            color: Colors.white,
+            color: AppColors.contentBg(context),
             elevation: 6,
             height: 56, // Standard Material height - no overflow
             padding: EdgeInsets.zero, // Remove default padding
@@ -121,12 +174,12 @@ class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
                       _buildNavItem(
                         index: 0,
                         asset: 'assets/images/board.png',
-                        label: 'Products',
+                        label: AppLocalizations.of(context)?.myProducts ?? 'Products',
                       ),
                       _buildNavItem(
                         index: 2,
                         icon: Icons.favorite,
-                        label: 'Matches',
+                        label: AppLocalizations.of(context)?.matches ?? 'Matches',
                         badgeCount: _totalUnreadCount,
                       ),
                     ],
@@ -141,8 +194,8 @@ class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
                     children: [
                       _buildNavItem(
                         index: 3,
-                        icon: Icons.more_horiz,
-                        label: 'More',
+                        icon: Icons.person_outline,
+                        label: AppLocalizations.of(context)?.profile ?? 'Profile',
                       ),
                     ],
                   ),
@@ -163,7 +216,7 @@ class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
     int badgeCount = 0,
   }) {
     final bool isSelected = selectedPage == index;
-    final color = isSelected ? AppColors.primaryColor : AppColors.greyTextColor;
+    final color = isSelected ? AppColors.primaryColor : AppColors.greyText(context);
     final bool hasUnread = badgeCount > 0;
 
     return Expanded(
@@ -184,13 +237,13 @@ class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
                       asset,
                       height: 22,
                       width: 22,
-                      color: hasUnread ? Colors.red : color,
+                      color: color,
                     )
                   else if (icon != null)
                     Icon(
-                      icon, 
-                      size: 22, 
-                      color: hasUnread ? Colors.red : color,
+                      icon,
+                      size: 22,
+                      color: color,
                     ),
                   // Red badge
                   if (hasUnread)
@@ -199,8 +252,11 @@ class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
                       top: -4,
                       child: Container(
                         padding: const EdgeInsets.all(3),
-                        decoration: const BoxDecoration(
-                          color: Colors.red,
+                        decoration: BoxDecoration(
+                          // Dynamic color: gray when on matches screen, red otherwise
+                          color: (label == 'Matches' && selectedPage == 2)
+                              ? Colors.grey.shade600
+                              : Colors.lightBlue,
                           shape: BoxShape.circle,
                         ),
                         constraints: const BoxConstraints(
@@ -209,8 +265,8 @@ class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
                         ),
                         child: Text(
                           badgeCount > 99 ? '99+' : badgeCount.toString(),
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: AppColors.primaryColor,
                             fontSize: 9,
                             fontWeight: FontWeight.bold,
                           ),
@@ -229,7 +285,7 @@ class _BottomNavigationScreenState extends State<BottomNavigationScreen> {
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                    color: hasUnread ? Colors.red : color,
+                    color: color,
                     height: 1.0,
                     letterSpacing: -0.2, // Tighter letter spacing
                   ),

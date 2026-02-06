@@ -59,11 +59,17 @@ class CustomShimmerState extends State<CustomShimmer>
           return ShaderMask(
             shaderCallback: (bounds) {
               return LinearGradient(
-                colors: [
-                  AppColors.blackTextColor.withOpacity(0.3),
-                  AppColors.blackTextColor.withOpacity(0.1),
-                  AppColors.blackTextColor.withOpacity(0.3),
-                ],
+                colors: AppColors.isDark(context)
+                    ? [
+                        Colors.white.withOpacity(0.15),
+                        Colors.white.withOpacity(0.05),
+                        Colors.white.withOpacity(0.15),
+                      ]
+                    : [
+                        AppColors.blackTextColor.withOpacity(0.3),
+                        AppColors.blackTextColor.withOpacity(0.1),
+                        AppColors.blackTextColor.withOpacity(0.3),
+                      ],
                 stops: const [0.1, 0.5, 0.9],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,

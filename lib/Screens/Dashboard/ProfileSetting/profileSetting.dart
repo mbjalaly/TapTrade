@@ -4,10 +4,12 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:taptrade/l10n/app_localizations.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:taptrade/Const/apiEndPoint.dart';
 import 'package:taptrade/Const/globleKey.dart';
+import 'package:taptrade/Controller/languageController.dart';
 import 'package:taptrade/Controller/userController.dart';
 import 'package:taptrade/Models/UserProfile/userProfile.dart';
 import 'package:taptrade/Screens/Dashboard/Payment/paymentScreen.dart';
@@ -21,6 +23,7 @@ import 'package:taptrade/Widgets/customButtom.dart';
 import 'package:taptrade/Services/NotificationService/notification_service.dart';
 import 'AddBio/addBio.dart';
 import 'ContactUs/contactUs.dart';
+import 'LanguageSettings/languageSettings.dart';
 import 'TradePreferences/tradePreferences.dart';
 import 'package:taptrade/Screens/Dashboard/Chat/matchesListScreen.dart';
 
@@ -40,7 +43,7 @@ class _ProfileSettingState extends State<ProfileSetting> {
 
   Future<void> _pickImage() async {
     showModalBottomSheet(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.contentBg(context),
       context: context,
       builder: (BuildContext context) {
         return SafeArea(
@@ -49,7 +52,7 @@ class _ProfileSettingState extends State<ProfileSetting> {
             children: <Widget>[
               ListTile(
                 leading: Icon(Icons.person),
-                title: Text('Avatar'),
+                title: Text(AppLocalizations.of(context)?.avatar ?? 'Avatar'),
                 onTap: () {
                   Navigator.pop(context); // Close the bottom sheet first
                   _openAvatarSlider(); // Open the avatar slider as a dialog
@@ -57,7 +60,7 @@ class _ProfileSettingState extends State<ProfileSetting> {
               ),
               ListTile(
                 leading: Icon(Icons.camera),
-                title: Text('Camera'),
+                title: Text(AppLocalizations.of(context)?.camera ?? 'Camera'),
                 onTap: () async {
                   final picker = ImagePicker();
                   final pickedFile =
@@ -75,7 +78,7 @@ class _ProfileSettingState extends State<ProfileSetting> {
               ),
               ListTile(
                 leading: Icon(Icons.photo_album),
-                title: Text('Gallery'),
+                title: Text(AppLocalizations.of(context)?.gallery ?? 'Gallery'),
                 onTap: () async {
                   final picker = ImagePicker();
                   final pickedFile =
@@ -185,13 +188,19 @@ class _ProfileSettingState extends State<ProfileSetting> {
             appBar: AppBar(
               automaticallyImplyLeading: false,
               centerTitle: false,
-              title: Text('Settings', style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.darkBlue)),
+              title: Text(AppLocalizations.of(context)?.settings ?? 'Settings', style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.darkBlue)),
               actions: [
-                TextButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.language, color: AppColors.primaryTextColor),
-                  label: Text('English', style: TextStyle(color: AppColors.primaryTextColor, fontWeight: FontWeight.w600)),
-                ),
+                Obx(() {
+                  final langController = Get.find<LanguageController>();
+                  return TextButton.icon(
+                    onPressed: () => Get.to(() => const LanguageSettingsScreen()),
+                    icon: Icon(Icons.language, color: AppColors.primaryText(context)),
+                    label: Text(
+                      langController.currentLanguageName,
+                      style: TextStyle(color: AppColors.primaryText(context), fontWeight: FontWeight.w600),
+                    ),
+                  );
+                }),
               ],
             ),
             body: Stack(
@@ -207,43 +216,49 @@ class _ProfileSettingState extends State<ProfileSetting> {
                         children: [
                           _SettingsItem(
                             icon: Icons.person_outline,
-                            label: 'Profile information',
+                            label: AppLocalizations.of(context)?.profileInformation ?? 'Profile information',
                             onTap: () => Get.to(() => AddBioScreen(profileData: profileData)),
                           ),
                           const Divider(),
                           _SettingsItem(
-                            icon: Icons.tune,
-                            label: 'Trade preferences',
+                            icon: Icons.filter_list,
+                            label: AppLocalizations.of(context)?.tradePreferences ?? 'Trade preferences',
                             onTap: () => Get.to(() => TradePreferences(profileData: profileData)),
                           ),
                           const Divider(),
                           _SettingsItem(
                             icon: Icons.favorite_outline,
-                            label: 'Matches & Chat',
+                            label: AppLocalizations.of(context)?.matchesAndChat ?? 'Matches & Chat',
                             onTap: () => Get.to(() => const MatchesListScreen()),
                           ),
                           const Divider(),
                           _SettingsItem(
                             icon: Icons.help_outline,
-                            label: 'FAQ questions',
-                            onTap: () => NotificationService.info(title: 'Coming soon', message: 'FAQ page is coming soon'),
+                            label: AppLocalizations.of(context)?.faqQuestions ?? 'FAQ questions',
+                            onTap: () => NotificationService.info(title: AppLocalizations.of(context)?.comingSoon ?? 'Coming soon', message: AppLocalizations.of(context)?.faqComingSoon ?? 'FAQ page is coming soon'),
                           ),
                           const Divider(),
                           _SettingsItem(
                             icon: Icons.description_outlined,
-                            label: 'Terms and policies',
+                            label: AppLocalizations.of(context)?.termsAndPolicies ?? 'Terms and policies',
                             onTap: () => _openTermsBottomSheet(context),
                           ),
                           const Divider(),
                           _SettingsItem(
                             icon: Icons.mail_outline,
-                            label: 'Contact us',
+                            label: AppLocalizations.of(context)?.contactUs ?? 'Contact us',
                             onTap: () => Get.to(() => const ContactUs()),
+                          ),
+                          const Divider(),
+                          _SettingsItem(
+                            icon: Icons.language,
+                            label: AppLocalizations.of(context)?.language ?? 'Language',
+                            onTap: () => Get.to(() => const LanguageSettingsScreen()),
                           ),
                           const SizedBox(height: 8),
                           _SettingsItem(
                             icon: Icons.logout,
-                            label: 'Log out',
+                            label: AppLocalizations.of(context)?.logOut ?? 'Log out',
                             isDestructive: true,
                             onTap: () => ShowMessage.showLogoutDialog(context),
                           ),
@@ -253,19 +268,19 @@ class _ProfileSettingState extends State<ProfileSetting> {
                   ],
                 ),
                 if (isLoading)
-                  const Column(
+                  Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Center(
                         child: CircularProgressIndicator(
-                          color: AppColors.primaryTextColor,
+                          color: AppColors.primaryText(context),
                         ),
                       ),
                       Text(
-                        "Processing Please Wait",
+                        AppLocalizations.of(context)?.processingPleaseWait ?? "Processing Please Wait",
                         style: TextStyle(
-                            color: AppColors.primaryTextColor,
+                            color: AppColors.primaryText(context),
                             fontWeight: FontWeight.w600,
                             fontSize: 16),
                       )
@@ -299,7 +314,7 @@ class _ProfileSettingState extends State<ProfileSetting> {
           end: Alignment.bottomCenter,
           colors: [
             AppColors.primaryColor,
-            AppColors.primaryTextColor.withOpacity(0.85),
+            AppColors.primaryText(context).withOpacity(0.85),
           ],
         ),
         borderRadius: const BorderRadius.only(
@@ -416,9 +431,10 @@ class _ProfileSettingState extends State<ProfileSetting> {
   }
 
   void _openTermsBottomSheet(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.contentBg(context),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -429,18 +445,18 @@ class _ProfileSettingState extends State<ProfileSetting> {
             children: [
               ListTile(
                 leading: const Icon(Icons.description_outlined),
-                title: const Text('Terms of Service', style: TextStyle(fontWeight: FontWeight.w700)),
+                title: Text(l10n?.termsOfService ?? 'Terms of Service', style: const TextStyle(fontWeight: FontWeight.w700)),
                 onTap: () {
                   Navigator.pop(ctx);
-                  NotificationService.info(title: 'Coming soon', message: 'Terms page is coming soon');
+                  NotificationService.info(title: l10n?.comingSoon ?? 'Coming soon', message: l10n?.termsComingSoon ?? 'Coming soon');
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.privacy_tip_outlined),
-                title: const Text('Privacy Policy', style: TextStyle(fontWeight: FontWeight.w700)),
+                title: Text(l10n?.privacyPolicy ?? 'Privacy Policy', style: const TextStyle(fontWeight: FontWeight.w700)),
                 onTap: () {
                   Navigator.pop(ctx);
-                  NotificationService.info(title: 'Coming soon', message: 'Privacy page is coming soon');
+                  NotificationService.info(title: l10n?.comingSoon ?? 'Coming soon', message: l10n?.privacyComingSoon ?? 'Coming soon');
                 },
               ),
             ],
@@ -464,13 +480,13 @@ class _SettingsItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Color textColor = isDestructive ? Colors.red : Theme.of(context).colorScheme.onSurface;
-    final Color iconColor = isDestructive ? Colors.red : AppColors.primaryTextColor;
+    final Color iconColor = isDestructive ? Colors.red : AppColors.primaryText(context);
     return ListTile(
       onTap: onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
       leading: CircleAvatar(
         radius: 18,
-        backgroundColor: AppColors.surfaceVariant,
+        backgroundColor: AppColors.surfaceVariantColor(context),
         child: Icon(icon, color: iconColor),
       ),
       title: Text(label, style: TextStyle(fontWeight: FontWeight.w600, color: textColor)),
@@ -522,13 +538,13 @@ class _NeumoAction extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: AppColors.surfaceColor(context),
           borderRadius: BorderRadius.circular(16),
           boxShadow: const [
             BoxShadow(color: Color(0x11000000), offset: Offset(6, 6), blurRadius: 12),
             BoxShadow(color: Colors.white, offset: Offset(-6, -6), blurRadius: 12),
           ],
-          border: Border.all(color: AppColors.outline),
+          border: Border.all(color: AppColors.outlineColor(context)),
         ),
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
         child: Column(

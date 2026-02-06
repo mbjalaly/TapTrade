@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:taptrade/Widgets/customText.dart';
 import 'package:taptrade/Widgets/search_field.dart';
+import 'package:taptrade/l10n/app_localizations.dart';
+import 'package:taptrade/Utills/appColors.dart';
 
 class UserChatList extends StatefulWidget {
   const UserChatList({Key? key}) : super(key: key);
@@ -17,7 +19,7 @@ class _UserChatListState extends State<UserChatList> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.backgroundColor(context),
       body: SafeArea(
         child: Padding(
           padding: EdgeInsets.only(left: Get.width * 0.04, right: Get.width * 0.04, top: Get.height * 0.01),
@@ -29,8 +31,8 @@ class _UserChatListState extends State<UserChatList> {
 
 
                   AppText(
-                    text: "Traders",
-                    textcolor: Colors.black,
+                    text: AppLocalizations.of(context)?.traders ?? "Traders",
+                    textcolor: AppColors.textOnBg(context),
                     fontSize: Get.width * 0.06,
                     fontWeight: FontWeight.bold,
                   ),
@@ -42,12 +44,12 @@ class _UserChatListState extends State<UserChatList> {
           Row(
 
             children: [
-              _buildButton(0, "All"),
+              _buildButton(0, AppLocalizations.of(context)?.all ?? "All"),
               SizedBox(width: 15,),
-              _buildButton(1, "Favourites"),
+              _buildButton(1, AppLocalizations.of(context)?.favourites ?? "Favourites"),
               SizedBox(width: 15,),
 
-              _buildButton(2, "Archives"),
+              _buildButton(2, AppLocalizations.of(context)?.archives ?? "Archives"),
             ],
           ),
               SizedBox(height: Get.height*0.03,),
@@ -79,14 +81,14 @@ height: Get.height*0.6,
                                         SizedBox(height: 8),
                                         AppText(
                                           text: "Anny Peter",
-                                          textcolor: Colors.black,
+                                          textcolor: AppColors.textOnBg(context),
                                           fontSize: Get.width * 0.033,
                                           fontWeight: FontWeight.w700,
                                         ),
                                         SizedBox(height: 10),
                                         AppText(
                                           text: "Are you still in barcelona?",
-                                          textcolor: Colors.black,
+                                          textcolor: AppColors.textOnBg(context),
                                           fontSize: Get.width * 0.032,
                                           fontWeight: FontWeight.w400,
                                         ),

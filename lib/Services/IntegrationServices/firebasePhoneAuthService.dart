@@ -11,17 +11,22 @@ class FirebasePhoneAuthService {
   factory FirebasePhoneAuthService() => instance;
   
   FirebasePhoneAuthService._internal();
-  
+
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  
+
   String? _verificationId;
   int? _resendToken;
-  
+  bool _isFallbackMode = false;
+
   /// Get the verification ID (needed for OTP verification)
   String? get verificationId => _verificationId;
+
+  /// Check if Firebase is being used as fallback
+  bool get isFallbackMode => _isFallbackMode;
   
   /// Send OTP to phone number
   /// [phoneNumber] should include country code, e.g., "+966123456789"
+  /// [isFallback] indicates if Firebase is being used as fallback for UnoSend
   Future<bool> sendOtp({
     required String phoneNumber,
     required BuildContext context,
@@ -29,8 +34,16 @@ class FirebasePhoneAuthService {
     required Function(PhoneAuthCredential credential) onAutoVerify,
     Function(String error)? onError,
     int? forceResendingToken,
+    bool isFallback = false,
   }) async {
     try {
+      // Set fallback mode flag
+      _isFallbackMode = isFallback;
+
+      if (isFallback) {
+        printLog('[Firebase Phone Auth] Running in FALLBACK mode (UnoSend unavailable)');
+      }
+
       printLog('[Firebase Phone Auth] Sending OTP to: $phoneNumber');
       printLog('[Firebase Phone Auth] Firebase App Name: ${_auth.app.name}');
       printLog('[Firebase Phone Auth] Firebase App Options: ${_auth.app.options.projectId}');

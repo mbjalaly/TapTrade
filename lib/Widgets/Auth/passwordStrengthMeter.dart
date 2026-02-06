@@ -88,7 +88,7 @@ class PasswordStrengthMeter extends StatelessWidget {
                 borderRadius: BorderRadius.circular(4),
                 child: LinearProgressIndicator(
                   value: password.isEmpty ? 0 : strengthValue,
-                  backgroundColor: AppColors.greyTextColor.withValues(alpha: 0.2),
+                  backgroundColor: AppColors.greyText(context).withValues(alpha: 0.2),
                   valueColor: AlwaysStoppedAnimation<Color>(barColor),
                   minHeight: 6,
                 ),
@@ -114,14 +114,17 @@ class PasswordStrengthMeter extends StatelessWidget {
           runSpacing: 8,
           children: [
             _buildRequirement(
+              context: context,
               label: '8+ chars',
               isMet: hasMinLength,
             ),
             _buildRequirement(
+              context: context,
               label: 'Letter',
               isMet: hasLetter,
             ),
             _buildRequirement(
+              context: context,
               label: 'Number/Symbol',
               isMet: hasNumber,
             ),
@@ -133,6 +136,7 @@ class PasswordStrengthMeter extends StatelessWidget {
 
   /// Build individual requirement item with checkmark
   Widget _buildRequirement({
+    required BuildContext context,
     required String label,
     required bool isMet,
   }) {
@@ -144,7 +148,7 @@ class PasswordStrengthMeter extends StatelessWidget {
           size: 16,
           color: isMet
               ? AppColors.successColor ?? Colors.green
-              : AppColors.greyTextColor.withValues(alpha: 0.5),
+              : AppColors.greyText(context).withValues(alpha: 0.5),
         ),
         SizedBox(width: 4),
         Text(
@@ -152,8 +156,8 @@ class PasswordStrengthMeter extends StatelessWidget {
           style: TextStyle(
             fontSize: 13,
             color: isMet
-                ? AppColors.primaryTextColor
-                : AppColors.greyTextColor,
+                ? AppColors.primaryText(context)
+                : AppColors.greyText(context),
             fontWeight: isMet ? FontWeight.w500 : FontWeight.w400,
           ),
         ),

@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:taptrade/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:taptrade/Const/globleKey.dart';
@@ -65,7 +66,7 @@ class _LikedDealScreenState extends State<LikedDealScreen> {
     Size size = MediaQuery.of(context).size;
     final likeList = productController.likeProduct.value.data ?? [];
     return Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.backgroundColor(context),
         body: Container(
           height: size.height,
           width: size.width,
@@ -80,7 +81,7 @@ class _LikedDealScreenState extends State<LikedDealScreen> {
             ),
           ),
           child: SafeArea(
-            child: isLoading ? const Center(child: CircularProgressIndicator(color: AppColors.primaryTextColor,),): SingleChildScrollView(
+            child: isLoading ? Center(child: CircularProgressIndicator(color: AppColors.primaryText(context),),): SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -89,7 +90,7 @@ class _LikedDealScreenState extends State<LikedDealScreen> {
                   ),
                   Center(
                     child: AppText(
-                      text: "Liked Deals",
+                      text: AppLocalizations.of(context)?.likedDeals ?? "Liked Deals",
                       fontSize: size.width * 0.078,
                       textcolor: AppColors.darkBlue,
                       fontWeight: FontWeight.w700,
@@ -232,9 +233,9 @@ class _LikedDealScreenState extends State<LikedDealScreen> {
                                     child: Text(
                                       "${(userProduct.title ?? '').capitalize}",
                                       maxLines: 2,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         overflow: TextOverflow.ellipsis,
-                                        color: Colors.black,
+                                        color: AppColors.textOnBg(context),
                                         fontSize: 11,
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -246,9 +247,9 @@ class _LikedDealScreenState extends State<LikedDealScreen> {
                                     child: Text(
                                       "${(otherProduct.title ?? '').capitalize}",
                                       maxLines: 2,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         overflow: TextOverflow.ellipsis,
-                                        color: Colors.black,
+                                        color: AppColors.textOnBg(context),
                                         fontSize: 11,
                                         fontWeight: FontWeight.bold,
                                       ),

@@ -46,7 +46,7 @@ class ProfileService {
 
         Map<String, dynamic> errorMessageJson = json.decode(e.message);
         String errorMessage =
-            errorMessageJson['error'] ?? 'An error occurred';
+            errorMessageJson['message'] ?? errorMessageJson['error'] ?? 'An error occurred';
         ShowMessage.inDialog(context,errorMessage.capitalizeFirst.toString(), true);
 
         return ApiResponse.error(errorMessage);
@@ -83,9 +83,41 @@ class ProfileService {
         printLog("ApiException: ${e.message}");
 
         Map<String, dynamic> errorMessageJson = json.decode(e.message);
-        String errorMessage =
-            errorMessageJson['error'] ?? 'An error occurred';
-        ShowMessage.inDialog(context,errorMessage.capitalizeFirst.toString(), true);
+        
+        // Extract the most specific error message available
+        String errorMessage = 'An error occurred';
+        
+        // Check for nested error object with details (e.g., database errors)
+        if (errorMessageJson['error'] is Map) {
+          var errorObj = errorMessageJson['error'] as Map;
+          if (errorObj['details'] != null && errorObj['details'].toString().isNotEmpty) {
+            // Parse details like "Key (email)=(test@email.com) already exists."
+            String details = errorObj['details'].toString();
+            if (details.contains('already exists')) {
+              if (details.contains('email')) {
+                errorMessage = 'This email is already registered to another account';
+              } else if (details.contains('phone') || details.contains('contact')) {
+                errorMessage = 'This phone number is already registered to another account';
+              } else if (details.contains('username')) {
+                errorMessage = 'This username is already taken';
+              } else {
+                errorMessage = details;
+              }
+            } else {
+              errorMessage = details;
+            }
+          } else if (errorObj['message'] != null) {
+            errorMessage = errorObj['message'].toString();
+          }
+        } else if (errorMessageJson['message'] != null && 
+                   errorMessageJson['message'] != 'Failed to update profile') {
+          // Use message if it's specific (not the generic "Failed to update profile")
+          errorMessage = errorMessageJson['message'].toString();
+        } else if (errorMessageJson['error'] is String) {
+          errorMessage = errorMessageJson['error'].toString();
+        }
+        
+        ShowMessage.inDialog(context, errorMessage.capitalizeFirst.toString(), true);
 
         return ApiResponse.error(errorMessage);
       } else {
@@ -110,7 +142,7 @@ class ProfileService {
 
         Map<String, dynamic> errorMessageJson = json.decode(e.message);
         String errorMessage =
-            errorMessageJson['error'] ?? 'An error occurred';
+            errorMessageJson['message'] ?? errorMessageJson['error'] ?? 'An error occurred';
         ShowMessage.inDialog(context,errorMessage.capitalizeFirst.toString(), true);
 
         return ApiResponse.error(errorMessage);
@@ -127,7 +159,7 @@ class ProfileService {
       )
   async {
     try{
-      final result = await ApiService.postRequestData(ApiEndPoint.updatePreference+'$id/', body, context);
+      final result = await ApiService.postRequestData(ApiEndPoint.updatePreference, body, context, sendToken: true);
       print("updateTradePreference Saved Response: ${result}");
       return ApiResponse.completed(result);
     }catch (e) {
@@ -138,7 +170,7 @@ class ProfileService {
 
         Map<String, dynamic> errorMessageJson = json.decode(e.message);
         String errorMessage =
-            errorMessageJson['error'] ?? 'An error occurred';
+            errorMessageJson['message'] ?? errorMessageJson['error'] ?? 'An error occurred';
         ShowMessage.inDialog(context,errorMessage.capitalizeFirst.toString(), true);
 
         return ApiResponse.error(errorMessage);
@@ -198,7 +230,7 @@ class ProfileService {
 
         Map<String, dynamic> errorMessageJson = json.decode(e.message);
         String errorMessage =
-            errorMessageJson['error'] ?? 'An error occurred';
+            errorMessageJson['message'] ?? errorMessageJson['error'] ?? 'An error occurred';
         ShowMessage.inDialog(context,errorMessage.capitalizeFirst.toString(), true);
 
         return ApiResponse.error(errorMessage);
@@ -258,7 +290,7 @@ class ProfileService {
 
         Map<String, dynamic> errorMessageJson = json.decode(e.message);
         String errorMessage =
-            errorMessageJson['error'] ?? 'An error occurred';
+            errorMessageJson['message'] ?? errorMessageJson['error'] ?? 'An error occurred';
         ShowMessage.inDialog(context,errorMessage.capitalizeFirst.toString(), true);
 
         return ApiResponse.error(errorMessage);
@@ -290,7 +322,7 @@ class ProfileService {
 
         Map<String, dynamic> errorMessageJson = json.decode(e.message);
         String errorMessage =
-            errorMessageJson['error'] ?? 'An error occurred';
+            errorMessageJson['message'] ?? errorMessageJson['error'] ?? 'An error occurred';
         ShowMessage.inDialog(context,errorMessage.capitalizeFirst.toString(), true);
 
         return ApiResponse.error(errorMessage);

@@ -3,6 +3,7 @@ import cors from 'cors';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 import routes from './routes';
+import { startInactivityCron } from './services/inactivityCron';
 
 dotenv.config();
 
@@ -20,5 +21,6 @@ app.use(routes);
 const port = Number(process.env.PORT || 3001);
 app.listen(port, () => {
   console.log(`TapTrade API listening on http://localhost:${port}`);
+  startInactivityCron();
 });
 

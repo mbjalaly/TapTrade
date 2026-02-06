@@ -59,7 +59,7 @@ class _AppButtonState extends State<AppButton> {
           ),
         ),
         margin: widget.margin,
-        child: (widget.isLoading ?? false) ? const CircularProgressIndicator(color: AppColors.primaryTextColor,) : Text(
+        child: (widget.isLoading ?? false) ? CircularProgressIndicator(color: AppColors.primaryText(context),) : Text(
           widget.text ?? "",
           style: TextStyle(
               color: Colors.white,

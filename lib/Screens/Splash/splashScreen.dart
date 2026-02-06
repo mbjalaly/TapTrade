@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:taptrade/Const/globleKey.dart';
 import 'package:taptrade/Screens/Dashboard/Bottombar/bottombarscreen.dart';
 import 'package:taptrade/Screens/GetStarted/getStarted.dart';
+import 'package:taptrade/Screens/GetStarted/locationPermissionScreen.dart';
 import 'package:taptrade/Screens/UserDetail/AddInterest/addInterest.dart';
 import 'package:taptrade/Services/ApiResponse/apiResponse.dart';
 import 'package:taptrade/Services/IntegrationServices/generalService.dart';
 import 'package:taptrade/Services/IntegrationServices/profileService.dart';
 import 'package:taptrade/Services/SharedPreferenceService/sharePreferenceService.dart';
 import 'package:taptrade/Services/LocationService/locationService.dart';
+import 'package:taptrade/Services/TutorialService/tutorialService.dart';
+import 'package:taptrade/Screens/Tutorial/introTutorialScreen.dart';
 
 
 class SplashScreen extends StatefulWidget {
@@ -28,51 +32,69 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   void initState() {
-    Future.delayed(const Duration(seconds: 2)).then((value) async {
-      // Try to get location permission (non-blocking - app can work without it)
+    super.initState();
+    Future.delayed(const Duration(seconds: 2)).then((_) => _init());
+  }
+
+  Future<void> _init() async {
+    // Fire-and-forget preloads
+    GeneralService.instance.getAllCategories(context);
+    GeneralService.instance.getAllInterests(context);
+
+    // Determine the destination screen
+    Widget destination = await _resolveDestination();
+
+    // Check location permission — gate everything behind it
+    bool hasLocation = await _hasLocationPermission();
+    if (!hasLocation) {
+      await _navigateSafely(
+        LocationPermissionScreen(destination: destination),
+      );
+      return;
+    }
+
+    // Location is granted, start updates and navigate
+    LocationService.instance.startLocationUpdates();
+    await _navigateSafely(destination);
+  }
+
+  Future<bool> _hasLocationPermission() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return false;
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      return permission == LocationPermission.whileInUse ||
+          permission == LocationPermission.always;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<Widget> _resolveDestination() async {
+    String? token = await SharedPreferencesService().getString(KeyConstants.accessToken);
+    String? userId = await SharedPreferencesService().getString(KeyConstants.userId);
+
+    if (token != null && userId != null && token.isNotEmpty && userId.isNotEmpty) {
       try {
-        await LocationService.instance
-            .ensurePermissionsGranted()
-            .timeout(const Duration(seconds: 8));
-      } on TimeoutException catch (_) {
-        // Continue anyway - LocationService will handle location when permission is granted
-        print('Location permission timeout - continuing anyway');
-      } catch (e) {
-        // Continue anyway - LocationService will handle location when permission is granted
-        print('Location permission error - continuing anyway: $e');
-      }
-
-      String? token = await SharedPreferencesService().getString(KeyConstants.accessToken);
-      String? userId = await SharedPreferencesService().getString(KeyConstants.userId);
-
-      // Fire-and-forget preloads
-      GeneralService.instance.getAllCategories(context);
-      GeneralService.instance.getAllInterests(context);
-      LocationService.instance.startLocationUpdates();
-
-      if (token != null && userId != null && token.isNotEmpty && userId.isNotEmpty) {
-        try {
-          final result = await ProfileService.instance.getProfile(context);
-          if (result.status == Status.COMPLETED) {
-            bool isProfileComplete = result.responseData['data']['is_profile_completed'] ?? false;
-            if (isProfileComplete) {
-              await _navigateSafely(const BottomNavigationScreen());
+        final result = await ProfileService.instance.getProfile(context);
+        if (result.status == Status.COMPLETED) {
+          bool isProfileComplete =
+              result.responseData['data']['is_profile_completed'] ?? false;
+          if (isProfileComplete) {
+            final hasSeenTutorial = await TutorialService.hasSeen();
+            if (hasSeenTutorial) {
+              return const BottomNavigationScreen();
             } else {
-              await _navigateSafely(const AddInterestScreen());
+              return const IntroTutorialScreen();
             }
           } else {
-            await _navigateSafely(const GetStartedScreen());
+            return const AddInterestScreen();
           }
-        } catch (_) {
-          await _navigateSafely(const GetStartedScreen());
         }
-      } else {
-        await _navigateSafely(const GetStartedScreen());
-      }
+      } catch (_) {}
     }
-        );
-    // TODO: implement initState
-    super.initState();
+    return const GetStartedScreen();
   }
   @override
   Widget build(BuildContext context) {

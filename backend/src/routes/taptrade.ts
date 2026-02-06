@@ -17,6 +17,7 @@ import {
   sendTradeCompletedNotification,
   sendTradeConfirmationNeededNotification
 } from '../services/pushNotificationService';
+import * as unoSendService from '../services/unoSendService';
 // @ts-ignore - Module resolution in sandbox environment
 import type { Request, Response } from 'express';
 
@@ -69,23 +70,66 @@ const registerBody = z.object({
   username: z.string().min(1),
   password: z.string().min(6),
   contact: z.string().optional().or(z.literal('')),
+  country_code: z.string().optional().or(z.literal('')),
   full_name: z.string().optional().or(z.literal('')),
+  phone_verified: z.boolean().optional(),
+  email_verified: z.boolean().optional(),
 });
 
 router.post('/api/user/register/', async (req: Request, res: Response) => {
   const parsed = registerBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ success: false, message: 'Invalid payload', errors: parsed.error.flatten() });
 
-  const { email, username, password, contact, full_name } = parsed.data;
+  let { email, username, password, contact, country_code, full_name, phone_verified, email_verified } = parsed.data;
+
+  // Require phone verification for new registration flow
+  if (!phone_verified) {
+    return res.status(400).json({
+      success: false,
+      message: 'Phone verification is required. Please verify your phone number before registration.'
+    });
+  }
+
+  // Parse phone number if it starts with + (full format like +966555555555)
+  if (contact && contact.startsWith('+')) {
+    const digitsOnly = contact.replace(/\D/g, '');
+    if (digitsOnly.length > 9) {
+      // Extract country code (all digits except last 9)
+      country_code = digitsOnly.substring(0, digitsOnly.length - 9);
+      // Extract phone number (last 9 digits)
+      contact = digitsOnly.substring(digitsOnly.length - 9);
+      console.log(`[Registration] Parsed phone: +${contact} -> country_code: ${country_code}, contact: ${contact}`);
+    }
+  }
+
+  // Check if phone number already exists
+  if (contact && country_code) {
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('id, username')
+      .eq('contact', contact)
+      .eq('country_code', country_code)
+      .maybeSingle();
+
+    if (existingUser) {
+      console.log(`[Registration] Phone number already registered: +${country_code}${contact}`);
+      return res.status(400).json({
+        success: false,
+        message: 'This phone number is already registered. Please use a different number or login.',
+      });
+    }
+  }
+
   const password_hash = bcrypt.hashSync(password, 10);
 
-  // Try to insert into existing Supabase table; if it doesn't exist yet, return a helpful error.
+  // Try to insert into existing Supabase table
   const { data: user, error } = await supabase
     .from('users')
     .insert({
       email: email || null,
       username,
       contact: contact || null,
+      country_code: country_code || '966', // Default to Saudi Arabia if not provided
       full_name: full_name || null,
       password_hash,
       is_active: true,
@@ -94,6 +138,8 @@ router.post('/api/user/register/', async (req: Request, res: Response) => {
       is_deleted: false,
       user_type: 'user',
       is_profile_completed: false,
+      phone_verified: phone_verified || false,
+      email_verified: email_verified || false,
     })
     .select('*')
     .maybeSingle();
@@ -228,6 +274,649 @@ router.post('/api/email/verify-otp/', async (req: Request, res: Response) => {
   }
 });
 
+// ---------- SMS OTP System (UnoSend with Firebase fallback) ----------
+// In-memory SMS verification storage
+interface SmsVerificationSession {
+  phone: string;
+  verification_id: string;
+  provider: 'unosend' | 'firebase';
+  expiresAt: number;
+  attempts: number;
+  sentAt: number;
+}
+
+const smsVerificationStore: Map<string, SmsVerificationSession> = new Map();
+
+// Clean up expired SMS verification sessions periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [phone, session] of smsVerificationStore.entries()) {
+    if (session.expiresAt < now) {
+      smsVerificationStore.delete(phone);
+    }
+  }
+}, 60000); // Clean every minute
+
+// ==================== Password Reset Session Management ====================
+
+interface PasswordResetSession {
+  phone: string;
+  resetToken: string;
+  verifiedAt: number;
+  expiresAt: number; // 15 minutes from verification
+  used: boolean;
+}
+
+const passwordResetSessions = new Map<string, PasswordResetSession>();
+
+// Cleanup expired reset sessions every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, session] of passwordResetSessions.entries()) {
+    if (session.expiresAt < now || session.used) {
+      passwordResetSessions.delete(token);
+    }
+  }
+}, 5 * 60 * 1000);
+
+// Password reset rate limiting (3 attempts per 10 minutes per phone)
+interface ForgotPasswordAttempt {
+  count: number;
+  resetAt: number;
+}
+
+const forgotPasswordAttempts = new Map<string, ForgotPasswordAttempt>();
+
+function checkForgotPasswordRateLimit(phone: string): boolean {
+  const now = Date.now();
+  const record = forgotPasswordAttempts.get(phone);
+
+  if (!record || record.resetAt < now) {
+    forgotPasswordAttempts.set(phone, { count: 1, resetAt: now + 10 * 60 * 1000 });
+    return true;
+  }
+
+  if (record.count >= 3) {
+    return false; // Rate limit exceeded
+  }
+
+  record.count++;
+  return true;
+}
+
+// Cleanup expired rate limit records every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [phone, record] of forgotPasswordAttempts.entries()) {
+    if (record.resetAt < now) {
+      forgotPasswordAttempts.delete(phone);
+    }
+  }
+}, 5 * 60 * 1000);
+
+// ==================== SMS OTP Endpoints ====================
+
+// Send SMS OTP
+router.post('/api/sms/send-otp/', async (req: Request, res: Response) => {
+  try {
+    const { phone } = req.body;
+
+    if (!phone || typeof phone !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Phone number is required'
+      });
+    }
+
+    // Validate phone format (E.164)
+    if (!phone.match(/^\+[1-9]\d{1,14}$/)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid phone number format. Please use E.164 format (e.g., +14155551234)'
+      });
+    }
+
+    // Check rate limiting (max 3 attempts per 5 minutes)
+    const existingSession = smsVerificationStore.get(phone);
+    if (existingSession && existingSession.attempts >= 3) {
+      const remainingTime = Math.ceil((existingSession.expiresAt - Date.now()) / 1000);
+      if (remainingTime > 0) {
+        return res.status(429).json({
+          success: false,
+          message: `Too many OTP requests. Please try again in ${Math.ceil(remainingTime / 60)} minutes.`,
+          retry_after: remainingTime
+        });
+      }
+    }
+
+    await logger.info('Attempting to send SMS OTP', undefined, { phone });
+
+    // Try UnoSend first
+    const unoResult = await unoSendService.sendOtp(phone);
+
+    if (unoResult.success && unoResult.verification_id) {
+      // UnoSend succeeded
+      const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+      smsVerificationStore.set(phone, {
+        phone,
+        verification_id: unoResult.verification_id,
+        provider: 'unosend',
+        expiresAt,
+        attempts: (existingSession?.attempts || 0) + 1,
+        sentAt: Date.now()
+      });
+
+      await logger.success('SMS OTP sent via UnoSend', undefined, { phone });
+
+      return res.json({
+        success: true,
+        message: 'OTP sent via SMS',
+        verification_id: unoResult.verification_id,
+        expires_at: new Date(expiresAt).toISOString(),
+        provider: 'unosend'
+      });
+    } else if (unoResult.fallback_needed) {
+      // UnoSend failed, Firebase fallback should be used by frontend
+      await logger.warning('UnoSend failed, fallback needed', undefined, {
+        phone,
+        error: unoResult.error
+      });
+
+      return res.status(503).json({
+        success: false,
+        message: unoResult.error || 'Primary SMS service unavailable',
+        fallback_needed: true,
+        provider: 'unosend'
+      });
+    } else {
+      // UnoSend failed without fallback needed (e.g., rate limiting, invalid phone)
+      await logger.error('SMS OTP send failed', undefined, {
+        phone,
+        error: unoResult.error
+      });
+
+      return res.status(400).json({
+        success: false,
+        message: unoResult.error || 'Failed to send OTP',
+        provider: 'unosend'
+      });
+    }
+
+  } catch (error: any) {
+    await logger.error('Failed to send SMS OTP', undefined, { error: error?.message });
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to send OTP',
+      fallback_needed: true
+    });
+  }
+});
+
+// Verify SMS OTP
+router.post('/api/sms/verify-otp/', async (req: Request, res: Response) => {
+  try {
+    const { phone, code, verification_id } = req.body;
+
+    if (!phone || !code) {
+      return res.status(400).json({
+        success: false,
+        message: 'Phone number and OTP code are required'
+      });
+    }
+
+    // Validate phone format
+    if (!phone.match(/^\+[1-9]\d{1,14}$/)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid phone number format'
+      });
+    }
+
+    // Validate OTP code (6 digits)
+    if (!code.match(/^\d{6}$/)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid OTP code. Please enter a 6-digit code.'
+      });
+    }
+
+    const session = smsVerificationStore.get(phone);
+
+    if (!session) {
+      return res.status(400).json({
+        success: false,
+        message: 'Verification session not found. Please request a new OTP.'
+      });
+    }
+
+    if (session.expiresAt < Date.now()) {
+      smsVerificationStore.delete(phone);
+      return res.status(400).json({
+        success: false,
+        message: 'OTP has expired. Please request a new one.'
+      });
+    }
+
+    // Only verify via UnoSend if it was sent via UnoSend
+    if (session.provider === 'unosend') {
+      await logger.info('Verifying SMS OTP via UnoSend', undefined, { phone });
+
+      const verifyResult = await unoSendService.verifyOtp(phone, code);
+
+      if (verifyResult.success) {
+        // OTP verified - delete session
+        smsVerificationStore.delete(phone);
+
+        await logger.success('SMS OTP verified via UnoSend', undefined, { phone });
+
+        return res.json({
+          success: true,
+          message: 'Phone verified successfully',
+          phone_verified: true,
+          provider: 'unosend'
+        });
+      } else {
+        await logger.warning('SMS OTP verification failed', undefined, {
+          phone,
+          error: verifyResult.error
+        });
+
+        return res.status(400).json({
+          success: false,
+          message: verifyResult.error || 'Invalid OTP code',
+          attempts_remaining: verifyResult.attempts_remaining,
+          provider: 'unosend'
+        });
+      }
+    } else {
+      // Firebase verification should be handled on frontend
+      // This endpoint is only for UnoSend verification
+      return res.status(400).json({
+        success: false,
+        message: 'This verification session uses Firebase. Please verify on the client side.',
+        provider: session.provider
+      });
+    }
+
+  } catch (error: any) {
+    await logger.error('Failed to verify SMS OTP', undefined, { error: error?.message });
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to verify OTP'
+    });
+  }
+});
+
+// ==================== Password Reset Endpoints ====================
+
+// Helper function to parse phone number into country_code and contact
+function parsePhoneNumber(fullPhone: string): { countryCode: string; contact: string } | null {
+  // Validate E.164 format
+  if (!fullPhone.match(/^\+[1-9]\d{1,14}$/)) {
+    return null;
+  }
+
+  // Remove + prefix
+  const digits = fullPhone.substring(1);
+
+  // Try common country code patterns
+  // Saudi Arabia: +966
+  if (digits.startsWith('966')) {
+    return { countryCode: '966', contact: digits.substring(3) };
+  }
+  // UAE: +971
+  if (digits.startsWith('971')) {
+    return { countryCode: '971', contact: digits.substring(3) };
+  }
+  // Egypt: +20
+  if (digits.startsWith('20')) {
+    return { countryCode: '20', contact: digits.substring(2) };
+  }
+  // Default: try 1-3 digit country codes
+  for (let len = 1; len <= 3; len++) {
+    const code = digits.substring(0, len);
+    const number = digits.substring(len);
+    if (number.length >= 7) { // Minimum valid phone number length
+      return { countryCode: code, contact: number };
+    }
+  }
+
+  return null;
+}
+
+// Step 1: Initiate password reset (send OTP to phone)
+router.post('/api/user/forgot-password/', async (req: Request, res: Response) => {
+  try {
+    const { phone } = req.body;
+
+    if (!phone || typeof phone !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Phone number is required'
+      });
+    }
+
+    // Validate phone format (E.164)
+    if (!phone.match(/^\+[1-9]\d{1,14}$/)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid phone number format. Please use E.164 format (e.g., +966555555555)'
+      });
+    }
+
+    // Check rate limiting
+    if (!checkForgotPasswordRateLimit(phone)) {
+      await logger.warning('Password reset rate limit exceeded', undefined, { phone });
+      return res.status(429).json({
+        success: false,
+        message: 'Too many password reset attempts. Please try again in 10 minutes.'
+      });
+    }
+
+    // Parse phone number
+    const parsed = parsePhoneNumber(phone);
+    if (!parsed) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid phone number format'
+      });
+    }
+
+    // Look up user by phone number (country_code + contact)
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, username, contact, country_code')
+      .eq('country_code', parsed.countryCode)
+      .eq('contact', parsed.contact)
+      .maybeSingle();
+
+    // Generic response for security (don't reveal if account exists)
+    const genericResponse = {
+      success: true,
+      message: 'If this phone number is registered, you will receive a verification code.',
+      // Return a placeholder verification_id for security (user won't know if account exists)
+      verification_id: 'ver_' + Date.now(),
+      expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString()
+    };
+
+    if (userError || !user) {
+      await logger.info('Password reset attempted for non-existent phone', undefined, { phone });
+      // Return generic success to not reveal account existence
+      return res.json(genericResponse);
+    }
+
+    // User exists - send OTP via UnoSend with password reset message
+    try {
+      const otpResult = await unoSendService.sendOtp(phone, 'Tap Trade password reset code: {code}');
+
+      if (otpResult.success && otpResult.verification_id) {
+        // Store verification session (reuse existing SMS verification store)
+        smsVerificationStore.set(phone, {
+          phone,
+          verification_id: otpResult.verification_id,
+          provider: 'unosend',
+          expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
+          attempts: 0,
+          sentAt: Date.now()
+        });
+
+        await logger.info('Password reset OTP sent', user.id, { phone });
+
+        return res.json({
+          success: true,
+          message: 'Verification code sent to your phone.',
+          verification_id: otpResult.verification_id,
+          expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString()
+        });
+      } else {
+        await logger.error('Failed to send password reset OTP', user.id, { phone, error: otpResult.message });
+        // Return generic response even on send failure (security)
+        return res.json(genericResponse);
+      }
+    } catch (smsError: any) {
+      await logger.error('SMS service error during password reset', user.id, { phone, error: smsError?.message });
+      // Return generic response even on error (security)
+      return res.json(genericResponse);
+    }
+
+  } catch (error: any) {
+    await logger.error('Failed to initiate password reset', undefined, { error: error?.message });
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to process password reset request'
+    });
+  }
+});
+
+// Step 2: Verify OTP and generate reset token
+router.post('/api/user/verify-reset-otp/', async (req: Request, res: Response) => {
+  try {
+    const { phone, code, verification_id } = req.body;
+
+    if (!phone || !code || !verification_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Phone number, code, and verification_id are required'
+      });
+    }
+
+    // Get verification session
+    const session = smsVerificationStore.get(phone);
+
+    if (!session) {
+      return res.status(400).json({
+        success: false,
+        message: 'No verification session found. Please request a new code.'
+      });
+    }
+
+    // Check if expired
+    if (session.expiresAt < Date.now()) {
+      smsVerificationStore.delete(phone);
+      return res.status(400).json({
+        success: false,
+        message: 'Verification code has expired. Please request a new code.'
+      });
+    }
+
+    // Verify OTP with UnoSend
+    if (session.provider === 'unosend') {
+      try {
+        const verifyResult = await unoSendService.verifyOtp(phone, code);
+
+        if (verifyResult.success) {
+          // OTP verified - look up user
+          const parsed = parsePhoneNumber(phone);
+          if (!parsed) {
+            return res.status(400).json({
+              success: false,
+              message: 'Invalid phone number format'
+            });
+          }
+
+          const { data: user, error: userError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('country_code', parsed.countryCode)
+            .eq('contact', parsed.contact)
+            .maybeSingle();
+
+          if (userError || !user) {
+            return res.status(404).json({
+              success: false,
+              message: 'User not found'
+            });
+          }
+
+          // Generate reset token (UUID v4)
+          const resetToken = crypto.randomUUID();
+          const expiresAt = Date.now() + 15 * 60 * 1000; // 15 minutes
+
+          // Create password reset session
+          passwordResetSessions.set(resetToken, {
+            phone,
+            resetToken,
+            verifiedAt: Date.now(),
+            expiresAt,
+            used: false
+          });
+
+          // Remove SMS verification session
+          smsVerificationStore.delete(phone);
+
+          await logger.info('Password reset OTP verified', user.id, { phone });
+
+          return res.json({
+            success: true,
+            message: 'Phone verified. You can now reset your password.',
+            reset_token: resetToken,
+            expires_at: new Date(expiresAt).toISOString()
+          });
+        } else {
+          session.attempts++;
+          await logger.warning('Invalid password reset OTP attempt', undefined, { phone });
+
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid verification code. Please try again.',
+            attempts_remaining: Math.max(0, 3 - session.attempts)
+          });
+        }
+      } catch (verifyError: any) {
+        await logger.error('Failed to verify password reset OTP', undefined, { phone, error: verifyError?.message });
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to verify code'
+        });
+      }
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'This verification session uses Firebase. Please verify on the client side.',
+        provider: session.provider
+      });
+    }
+
+  } catch (error: any) {
+    await logger.error('Failed to verify password reset OTP', undefined, { error: error?.message });
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to verify OTP'
+    });
+  }
+});
+
+// Step 3: Reset password with verified token
+const resetPasswordBody = z.object({
+  reset_token: z.string().uuid(),
+  new_password: z.string().min(6, 'Password must be at least 6 characters'),
+});
+
+router.post('/api/user/reset-password/', async (req: Request, res: Response) => {
+  try {
+    const parsed = resetPasswordBody.safeParse(req.body);
+
+    if (!parsed.success) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid request',
+        errors: parsed.error.flatten()
+      });
+    }
+
+    const { reset_token, new_password } = parsed.data;
+
+    // Get reset session
+    const session = passwordResetSessions.get(reset_token);
+
+    if (!session) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired reset token. Please start the password reset process again.'
+      });
+    }
+
+    // Check if expired
+    if (session.expiresAt < Date.now()) {
+      passwordResetSessions.delete(reset_token);
+      return res.status(400).json({
+        success: false,
+        message: 'Reset token has expired. Please start the password reset process again.'
+      });
+    }
+
+    // Check if already used
+    if (session.used) {
+      passwordResetSessions.delete(reset_token);
+      return res.status(400).json({
+        success: false,
+        message: 'This reset token has already been used. Please start a new password reset if needed.'
+      });
+    }
+
+    // Parse phone number to get user
+    const parsed_phone = parsePhoneNumber(session.phone);
+    if (!parsed_phone) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid session data'
+      });
+    }
+
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, username')
+      .eq('country_code', parsed_phone.countryCode)
+      .eq('contact', parsed_phone.contact)
+      .maybeSingle();
+
+    if (userError || !user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(new_password, 10);
+
+    // Update password in database
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ password_hash: hashedPassword })
+      .eq('id', user.id);
+
+    if (updateError) {
+      await logger.error('Failed to update password', user.id, { error: updateError.message });
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to update password'
+      });
+    }
+
+    // Mark token as used and delete
+    session.used = true;
+    passwordResetSessions.delete(reset_token);
+
+    await logger.success('Password reset completed', user.id, { phone: session.phone });
+
+    return res.json({
+      success: true,
+      message: 'Password reset successfully. You can now log in with your new password.'
+    });
+
+  } catch (error: any) {
+    await logger.error('Failed to reset password', undefined, { error: error?.message });
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to reset password'
+    });
+  }
+});
+
+// ==================== Login & Registration ====================
+
 const loginBody = z.object({
   username: z.string().min(1).optional(),
   email: z.string().email().optional(),
@@ -259,13 +948,15 @@ router.post('/api/user/login/', async (req: Request, res: Response) => {
 
   if (error || !user) {
     await logger.warning('Login failed - user not found', undefined, { username: username || email });
-    return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    // Return generic message for security (don't reveal if email exists)
+    return res.status(401).json({ success: false, message: 'Email or password is incorrect' });
   }
 
   const okPass = bcrypt.compareSync(password, String((user as any).password_hash || ''));
   if (!okPass) {
     await logger.warning('Login failed - invalid password', String(user.id), { username: user.username });
-    return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    // Return same generic message for security
+    return res.status(401).json({ success: false, message: 'Email or password is incorrect' });
   }
 
   const token = signUserToken({ sub: String(user.id), username: user.username });
@@ -273,9 +964,143 @@ router.post('/api/user/login/', async (req: Request, res: Response) => {
   return res.json({ success: true, message: 'Logged in', token, data: user });
 });
 
-// Social login/register placeholder (kept for compatibility)
-router.post('/api/user/api/social_login_or_register/', async (_req: Request, res: Response) => {
-  return res.status(501).json({ success: false, message: 'Not implemented on this backend yet' });
+// Social login/register for Google and Apple Sign-In
+const socialLoginBody = z.object({
+  email: z.string().email().optional(),
+  full_name: z.string().optional(),
+  username: z.string().optional(),
+  origin: z.enum(['google', 'apple']),
+  uid: z.string().min(1, 'Firebase UID is required'),
+});
+
+router.post('/api/user/api/social_login_or_register/', async (req: Request, res: Response) => {
+  try {
+    const parsed = socialLoginBody.safeParse(req.body);
+
+    if (!parsed.success) {
+      await logger.warning('Invalid social login payload', undefined, { errors: parsed.error.flatten() });
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid payload',
+        errors: parsed.error.flatten()
+      });
+    }
+
+    const { email, full_name, username, origin, uid } = parsed.data;
+
+    await logger.info(`Social login attempt via ${origin}`, undefined, { email, uid });
+
+    // Check if user already exists by Firebase UID
+    let { data: existingUser, error: lookupError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('firebase_uid', uid)
+      .maybeSingle();
+
+    // If not found by UID, try to find by email (for linking accounts)
+    if (!existingUser && email) {
+      const { data: userByEmail } = await supabase
+        .from('users')
+        .select('*')
+        .ilike('email', email)
+        .maybeSingle();
+
+      if (userByEmail) {
+        // Link existing email account to Firebase UID
+        existingUser = userByEmail;
+        await supabase
+          .from('users')
+          .update({ firebase_uid: uid, social_provider: origin })
+          .eq('id', userByEmail.id);
+
+        await logger.info('Linked existing account to social login', String(userByEmail.id), { email, origin });
+      }
+    }
+
+    if (existingUser) {
+      // User exists - generate token and return
+      const token = signUserToken({ sub: String(existingUser.id), username: existingUser.username || '' });
+
+      await logger.success(`Social login successful via ${origin}`, String(existingUser.id), {
+        email: existingUser.email,
+        username: existingUser.username
+      });
+
+      return res.json({
+        success: true,
+        message: 'Login successful',
+        token,
+        data: {
+          id: existingUser.id,
+          access: token,
+          user: existingUser
+        }
+      });
+    }
+
+    // New user - create account
+    const generatedUsername = username || full_name?.replace(/\s+/g, '_').toLowerCase() || `user_${Date.now()}`;
+
+    // Check if username already exists
+    const { data: usernameCheck } = await supabase
+      .from('users')
+      .select('id')
+      .ilike('username', generatedUsername)
+      .maybeSingle();
+
+    const finalUsername = usernameCheck
+      ? `${generatedUsername}_${Math.random().toString(36).substring(2, 7)}`
+      : generatedUsername;
+
+    const newUserData: any = {
+      email: email || null,
+      username: finalUsername,
+      full_name: full_name || '',
+      firebase_uid: uid,
+      social_provider: origin,
+      is_profile_completed: false,
+      // No password_hash for social login users
+    };
+
+    const { data: newUser, error: createError } = await supabase
+      .from('users')
+      .insert(newUserData)
+      .select('*')
+      .single();
+
+    if (createError || !newUser) {
+      await logger.error('Failed to create social user', undefined, { error: createError?.message, email });
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to create account. Please try again.'
+      });
+    }
+
+    const token = signUserToken({ sub: String(newUser.id), username: newUser.username });
+
+    await logger.success(`New social user created via ${origin}`, String(newUser.id), {
+      email: newUser.email,
+      username: newUser.username
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Account created successfully',
+      token,
+      data: {
+        id: newUser.id,
+        access: token,
+        user: newUser
+      }
+    });
+
+  } catch (error: any) {
+    await logger.error('Social login failed', undefined, { error: error?.message });
+    return res.status(500).json({
+      success: false,
+      message: 'Authentication failed. Please try again.'
+    });
+  }
 });
 
 router.post('/api/user/account/activation/', async (_req: Request, res: Response) => {
@@ -297,12 +1122,44 @@ router.post('/api/user/updateProfile/', requireAuth, upload.single('image'), asy
   console.log('Profile update body:', JSON.stringify(body));
   const update: any = {};
   const allowed = [
-    'email', 'username', 'contact', 'full_name', 'address',
+    'email', 'username', 'contact', 'country_code', 'full_name', 'address',
     'longitude', 'latitude', 'dob', 'gender', 'is_profile_completed',
     'fcm_token', // For push notifications
+    'phone_verified', 'email_verified', // Verification status
   ];
   for (const k of allowed) {
     if (typeof body[k] !== 'undefined') update[k] = body[k];
+  }
+
+  // Parse phone number if contact is being updated and starts with + (full format like +966555555555)
+  if (update.contact && update.contact.startsWith('+')) {
+    const digitsOnly = update.contact.replace(/\D/g, '');
+    if (digitsOnly.length > 9) {
+      // Extract country code (all digits except last 9)
+      update.country_code = digitsOnly.substring(0, digitsOnly.length - 9);
+      // Extract phone number (last 9 digits)
+      update.contact = digitsOnly.substring(digitsOnly.length - 9);
+      console.log(`[Profile Update] Parsed phone: country_code: ${update.country_code}, contact: ${update.contact}`);
+    }
+  }
+
+  // Check if phone number already exists for a different user
+  if (update.contact && update.country_code) {
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('id, username')
+      .eq('contact', update.contact)
+      .eq('country_code', update.country_code)
+      .neq('id', userId) // Exclude current user
+      .maybeSingle();
+
+    if (existingUser) {
+      console.log(`[Profile Update] Phone number already in use by another user: +${update.country_code}${update.contact}`);
+      return res.status(400).json({
+        success: false,
+        message: 'This phone number is already registered to another account. Please use a different number.',
+      });
+    }
   }
 
   // If an image file is uploaded, process it as base64 data URI
@@ -349,26 +1206,53 @@ router.delete('/api/user/delete/', requireAuth, async (req: Request, res: Respon
 });
 
 router.post('/api/user/forgotpassword/', async (_req: Request, res: Response) => {
-  // Placeholder (your PythonAnywhere service can remain for payment; this is auth only)
-  return res.json({ success: true, message: 'If the account exists, reset instructions were sent.' });
+  // Deprecated: Use /api/user/forgot-password/ (with phone OTP verification) instead
+  return res.status(410).json({
+    success: false,
+    message: 'This endpoint is deprecated. Please use /api/user/forgot-password/ with phone verification.',
+    new_endpoint: '/api/user/forgot-password/'
+  });
 });
 
 // ---------- Categories / Interests ----------
-router.get('/getallcategories/', async (_req: Request, res: Response) => {
-  const { data, error } = await supabase.from('categories').select('id, name, description').order('id');
+router.get('/getallcategories/', async (req: Request, res: Response) => {
+  // Get locale from Accept-Language header
+  const acceptLanguage = req.headers['accept-language'] || 'en';
+  const isArabic = acceptLanguage.startsWith('ar');
+
+  const { data, error } = await supabase.from('categories').select('id, name, name_ar, description').order('id');
   if (error) {
     // Fallback dummy values if table doesn't exist yet
     return res.json({ success: true, message: 'OK', data: [{ id: 1, name: 'General', description: '' }] });
   }
-  return res.json({ success: true, message: 'OK', data: data || [] });
+
+  // Return localized name based on locale
+  const localizedData = (data || []).map((cat: any) => ({
+    id: cat.id,
+    name: isArabic && cat.name_ar ? cat.name_ar : cat.name,
+    description: cat.description
+  }));
+
+  return res.json({ success: true, message: 'OK', data: localizedData });
 });
 
-router.get('/getallinterests/', async (_req: Request, res: Response) => {
-  const { data, error } = await supabase.from('interests').select('id, name').order('id');
+router.get('/getallinterests/', async (req: Request, res: Response) => {
+  // Get locale from Accept-Language header
+  const acceptLanguage = req.headers['accept-language'] || 'en';
+  const isArabic = acceptLanguage.startsWith('ar');
+
+  const { data, error } = await supabase.from('interests').select('id, name, name_ar').order('id');
   if (error) {
     return res.json({ success: true, message: 'OK', data: [{ id: 1, name: 'Trading' }] });
   }
-  return res.json({ success: true, message: 'OK', data: data || [] });
+
+  // Return localized name based on locale
+  const localizedData = (data || []).map((interest: any) => ({
+    id: interest.id,
+    name: isArabic && interest.name_ar ? interest.name_ar : interest.name
+  }));
+
+  return res.json({ success: true, message: 'OK', data: localizedData });
 });
 
 router.post('/add-interests/', requireAuth, async (req: Request, res: Response) => {
@@ -414,12 +1298,20 @@ router.post('/add-interests/', requireAuth, async (req: Request, res: Response) 
 
 router.get('/getuserinterests/', requireAuth, async (req: Request, res: Response) => {
   const userId = uid(req);
+  // Get locale from Accept-Language header
+  const acceptLanguage = req.headers['accept-language'] || 'en';
+  const isArabic = acceptLanguage.startsWith('ar');
+
   const { data, error } = await supabase
     .from('user_interests')
-    .select('interest_id, interests(name)')
+    .select('interest_id, interests(name, name_ar)')
     .eq('user_id', userId);
   if (error) return res.json({ success: true, message: 'OK', data: [] });
-  const out = (data || []).map((r: any) => ({ id: r.interest_id, interest_name: r.interests?.name || '' }));
+
+  const out = (data || []).map((r: any) => ({
+    id: r.interest_id,
+    interest_name: isArabic && r.interests?.name_ar ? r.interests.name_ar : (r.interests?.name || '')
+  }));
   return res.json({ success: true, message: 'OK', data: out });
 });
 
@@ -498,6 +1390,10 @@ router.post('/add_products/', requireAuth, upload.any(), async (req: Request, re
 
   // Also check images from body if provided
   let finalImages = imageUrls.length > 0 ? imageUrls : (body.images || []);
+
+  // Remove duplicates using Set to prevent duplicate images in database
+  finalImages = Array.from(new Set(finalImages));
+
   if (finalImages.length > MAX_IMAGES) {
     finalImages = finalImages.slice(0, MAX_IMAGES);
     await logger.warning('Images from body limited to maximum of 4', userId, {
@@ -520,13 +1416,60 @@ router.post('/add_products/', requireAuth, upload.any(), async (req: Request, re
     });
   }
 
+  // Validate description (required, max 500 chars)
+  const description = body.description ?? body.productDescription ?? '';
+  if (description.trim().length === 0) {
+    await logger.warning('Missing required description', userId);
+    return res.status(400).json({
+      success: false,
+      message: 'Product description is required'
+    });
+  }
+  if (description.length > 500) {
+    await logger.warning('Description too long - rejecting', userId, {
+      original_length: description.length,
+    });
+    return res.status(400).json({
+      success: false,
+      message: 'Description is too long (max 500 characters)'
+    });
+  }
+
+  // Validate quantity (1-99 range)
+  const quantity = body.quantity !== undefined ? parseInt(String(body.quantity)) || 1 : 1;
+  if (quantity < 1 || quantity > 99) {
+    await logger.warning('Invalid quantity - must be between 1 and 99', userId, {
+      quantity: quantity,
+    });
+    return res.status(400).json({
+      success: false,
+      message: 'Quantity must be between 1 and 99'
+    });
+  }
+
+  // Validate product condition
+  const allowedConditions = ['New', 'Like New', 'Good', 'Fair', 'Poor'];
+  const condition = body.product_condition ?? body.productCondition ?? 'New';
+  if (!allowedConditions.includes(condition)) {
+    await logger.warning('Invalid product condition', userId, {
+      condition: condition,
+    });
+    return res.status(400).json({
+      success: false,
+      message: `Invalid product condition. Allowed values: ${allowedConditions.join(', ')}`
+    });
+  }
+  body.product_condition = condition;  // Normalize
+
   const insertData: any = {
     user_id: userId,
     category_id: categoryId,
     title: body.title ?? '',
+    description: body.description ?? '',
     min_price: minPrice,
     max_price: maxPrice,
     product_condition: body.product_condition ?? body.productCondition ?? '',
+    quantity: quantity,
     status: body.status ?? 'active',
     image: primaryImageUrl || body.image || '',
     images: finalImages,
@@ -611,6 +1554,10 @@ router.post('/add_user_products/', requireAuth, upload.any(), async (req: Reques
 
   // Also check images from body if provided
   let finalImages = imageUrls.length > 0 ? imageUrls : (body.images || []);
+
+  // Remove duplicates using Set to prevent duplicate images in database
+  finalImages = Array.from(new Set(finalImages));
+
   if (finalImages.length > MAX_IMAGES) {
     finalImages = finalImages.slice(0, MAX_IMAGES);
     await logger.warning('Images from body limited to maximum of 4', userId, {
@@ -633,13 +1580,60 @@ router.post('/add_user_products/', requireAuth, upload.any(), async (req: Reques
     });
   }
 
+  // Validate description (required, max 500 chars)
+  const description = body.description ?? body.productDescription ?? '';
+  if (description.trim().length === 0) {
+    await logger.warning('Missing required description', userId);
+    return res.status(400).json({
+      success: false,
+      message: 'Product description is required'
+    });
+  }
+  if (description.length > 500) {
+    await logger.warning('Description too long - rejecting', userId, {
+      original_length: description.length,
+    });
+    return res.status(400).json({
+      success: false,
+      message: 'Description is too long (max 500 characters)'
+    });
+  }
+
+  // Validate quantity (1-99 range)
+  const quantity = body.quantity !== undefined ? parseInt(String(body.quantity)) || 1 : 1;
+  if (quantity < 1 || quantity > 99) {
+    await logger.warning('Invalid quantity - must be between 1 and 99', userId, {
+      quantity: quantity,
+    });
+    return res.status(400).json({
+      success: false,
+      message: 'Quantity must be between 1 and 99'
+    });
+  }
+
+  // Validate product condition
+  const allowedConditions = ['New', 'Like New', 'Good', 'Fair', 'Poor'];
+  const condition = body.product_condition ?? body.productCondition ?? 'New';
+  if (!allowedConditions.includes(condition)) {
+    await logger.warning('Invalid product condition', userId, {
+      condition: condition,
+    });
+    return res.status(400).json({
+      success: false,
+      message: `Invalid product condition. Allowed values: ${allowedConditions.join(', ')}`
+    });
+  }
+  body.product_condition = condition;  // Normalize
+
   const insertData: any = {
     user_id: userId,
     category_id: categoryId,
     title: body.title ?? '',
+    description: body.description ?? '',
     min_price: minPrice,
     max_price: maxPrice,
     product_condition: body.product_condition ?? body.productCondition ?? '',
+    quantity: quantity,
     status: body.status ?? 'active',
     image: primaryImageUrl || body.image || '',
     images: finalImages,
@@ -661,6 +1655,10 @@ router.get('/getallproducts/', requireAuth, async (req: Request, res: Response) 
   const userId = uid(req);
   await logger.info('Fetching user products', userId);
 
+  // Check locale for category translation
+  const acceptLanguage = req.headers['accept-language'] || 'en';
+  const isArabic = acceptLanguage.startsWith('ar');
+
   // Return only the authenticated user's products
   const { data: products, error } = await supabase
     .from('products')
@@ -675,12 +1673,16 @@ router.get('/getallproducts/', requireAuth, async (req: Request, res: Response) 
 
   console.log(`Found ${products?.length || 0} products for user ${userId}`);
 
-  // Fetch all categories to map IDs to names
+  // Fetch all categories with both English and Arabic names
   const { data: categories } = await supabase
     .from('categories')
-    .select('id, name');
+    .select('id, name, name_ar');
 
-  const categoryMap = new Map((categories || []).map((cat: any) => [Number(cat.id), cat.name]));
+  // Map categories with localized names
+  const categoryMap = new Map((categories || []).map((cat: any) => [
+    Number(cat.id),
+    isArabic && cat.name_ar ? cat.name_ar : cat.name
+  ]));
 
   // Map the data to include category name as a string and convert prices to strings
   const mappedData = (products || []).map((product: any) => {
@@ -691,8 +1693,10 @@ router.get('/getallproducts/', requireAuth, async (req: Request, res: Response) 
       category_id: product.category_id,
       category: categoryName,
       title: product.title || '',
+      description: product.description || '',
       min_price: String(product.min_price ?? 0),
       max_price: String(product.max_price ?? 0),
+      quantity: product.quantity !== undefined ? product.quantity : 1,
       image: product.image || '',
       images: product.images || [],
       product_condition: product.product_condition || '',
@@ -864,12 +1868,49 @@ router.post('/update_products/', requireAuth, upload.any(), async (req: Request,
       });
     }
 
+    // Validate description if provided
+    if (body.description !== undefined) {
+      if (body.description.trim().length === 0) {
+        await logger.warning('Description cannot be empty', userId || undefined, {
+          product_id: productId,
+        });
+        return res.status(400).json({
+          success: false,
+          message: 'Product description is required and cannot be empty'
+        });
+      }
+      if (body.description.length > 500) {
+        await logger.warning('Description too long - truncating to 500 characters', userId || undefined, {
+          original_length: body.description.length,
+          product_id: productId,
+        });
+        body.description = body.description.substring(0, 500);
+      }
+    }
+
+    // Validate quantity if provided (1-99 range)
+    if (body.quantity !== undefined) {
+      const parsedQuantity = parseInt(String(body.quantity));
+      if (parsedQuantity < 1 || parsedQuantity > 99) {
+        await logger.warning('Invalid quantity - must be between 1 and 99', userId || undefined, {
+          quantity: parsedQuantity,
+          product_id: productId,
+        });
+        return res.status(400).json({
+          success: false,
+          message: 'Quantity must be between 1 and 99'
+        });
+      }
+    }
+
     const updateData: any = {
       category_id: categoryId,
       title: body.title !== undefined ? body.title : existingProduct.title,
+      description: body.description !== undefined ? body.description : existingProduct.description,
       min_price: minPrice,
       max_price: maxPrice,
       product_condition: body.product_condition !== undefined ? body.product_condition : existingProduct.product_condition,
+      quantity: body.quantity !== undefined ? parseInt(String(body.quantity)) : existingProduct.quantity,
       status: body.status !== undefined ? body.status : existingProduct.status,
     };
 
@@ -890,7 +1931,8 @@ router.post('/update_products/', requireAuth, upload.any(), async (req: Request,
         updateData.image = primaryImageUrl;
       }
       if (imageUrls.length > 0) {
-        updateData.images = imageUrls;
+        // Remove duplicates before updating
+        updateData.images = Array.from(new Set(imageUrls));
       }
     } else if (existingImagesArray.length > 0) {
       // User explicitly provided existing_images - check if different from DB
@@ -903,7 +1945,8 @@ router.post('/update_products/', requireAuth, upload.any(), async (req: Request,
         });
 
       if (isDifferent) {
-        updateData.images = existingImagesArray;
+        // Remove duplicates before updating
+        updateData.images = Array.from(new Set(existingImagesArray));
         if (existingImagesArray.length > 0 && !primaryImageUrl) {
           updateData.image = existingImagesArray[0];
         }
@@ -911,9 +1954,9 @@ router.post('/update_products/', requireAuth, upload.any(), async (req: Request,
     } else if (primaryImageUrl && primaryImageUrl !== existingProduct.image) {
       // Only primary image changed
       updateData.image = primaryImageUrl;
-      // Keep existing images array
+      // Keep existing images array (deduplicated)
       if (existingDbImages.length > 0) {
-        updateData.images = existingDbImages;
+        updateData.images = Array.from(new Set(existingDbImages));
       }
     }
 
@@ -991,12 +2034,153 @@ router.post('/update_products/', requireAuth, upload.any(), async (req: Request,
   }
 });
 
-router.delete('/delete_products/', requireAuth, async (req: Request, res: Response) => {
-  const productId = Number((req.query.id || req.body?.id) ?? 0);
+router.delete('/delete_products/:id/', requireAuth, async (req: Request, res: Response) => {
+  const productId = Number(req.params.id || req.query.id || req.body?.id || 0);
   if (!productId) return res.status(400).json({ success: false, message: 'id is required' });
-  const { error } = await supabase.from('products').delete().eq('id', productId);
-  if (error) return res.status(500).json({ success: false, message: 'Failed to delete product' });
-  return res.json({ success: true, message: 'Deleted' });
+
+  const userId = uid(req);
+
+  try {
+    // Verify the product belongs to the user before deleting
+    const { data: product, error: fetchError } = await supabase
+      .from('products')
+      .select('user_id')
+      .eq('id', productId)
+      .single();
+
+    if (fetchError || !product) {
+      return res.status(404).json({ success: false, message: 'Product not found' });
+    }
+
+    if (product.user_id !== userId) {
+      return res.status(403).json({ success: false, message: 'You can only delete your own products' });
+    }
+
+    await logger.info('Starting product deletion with cascade', userId, { product_id: productId });
+
+    // Step 1: Find all matches related to this product
+    const { data: relatedMatches } = await supabase
+      .from('matches')
+      .select('id')
+      .or(`user1_product_id.eq.${productId},user2_product_id.eq.${productId}`);
+
+    const matchIds = (relatedMatches || []).map(m => m.id);
+
+    if (matchIds.length > 0) {
+      // Step 2: Delete all messages for these matches
+      const { error: messagesError } = await supabase
+        .from('messages')
+        .delete()
+        .in('match_id', matchIds);
+
+      if (messagesError) {
+        await logger.error('Failed to delete messages', userId, { error: messagesError.message, product_id: productId });
+      } else {
+        await logger.info('Deleted messages for matches', userId, { match_count: matchIds.length, product_id: productId });
+      }
+
+      // Step 3: Delete the matches themselves
+      const { error: matchesError } = await supabase
+        .from('matches')
+        .delete()
+        .in('id', matchIds);
+
+      if (matchesError) {
+        await logger.error('Failed to delete matches', userId, { error: matchesError.message, product_id: productId });
+      } else {
+        await logger.info('Deleted matches', userId, { match_count: matchIds.length, product_id: productId });
+      }
+    }
+
+    // Step 4: Delete all trade_requests related to this product
+    const { error: tradeRequestsError } = await supabase
+      .from('trade_requests')
+      .delete()
+      .or(`user_product_id.eq.${productId},other_product_id.eq.${productId}`);
+
+    if (tradeRequestsError) {
+      await logger.error('Failed to delete trade requests', userId, { error: tradeRequestsError.message, product_id: productId });
+    } else {
+      await logger.info('Deleted trade requests for product', userId, { product_id: productId });
+    }
+
+    // Step 5: Delete match_feedback (likes/dislikes) related to this product
+    const { error: feedbackError } = await supabase
+      .from('match_feedback')
+      .delete()
+      .or(`user_product_id.eq.${productId},other_product_id.eq.${productId}`);
+
+    if (feedbackError) {
+      await logger.warning('Failed to delete match feedback', userId, { error: feedbackError.message, product_id: productId });
+    }
+
+    // Step 6: Finally, delete the product itself
+    const { error } = await supabase.from('products').delete().eq('id', productId);
+    if (error) {
+      await logger.error('Failed to delete product', userId, { error: error.message, product_id: productId });
+      return res.status(500).json({ success: false, message: 'Failed to delete product' });
+    }
+
+    await logger.success('Product deleted successfully with all related data', userId, {
+      product_id: productId,
+      deleted_matches: matchIds.length
+    });
+
+    return res.json({
+      success: true,
+      message: 'Product deleted successfully',
+      deleted_matches: matchIds.length
+    });
+  } catch (error: any) {
+    await logger.error('Error during product deletion', userId, { error: error.message, product_id: productId });
+    return res.status(500).json({
+      success: false,
+      message: 'An error occurred while deleting the product',
+      error: error.message
+    });
+  }
+});
+
+// ---------- Activate Product ----------
+router.post('/activate_product/:id/', requireAuth, async (req: Request, res: Response) => {
+  const userId = uid(req);
+  const productId = Number(req.params.id);
+
+  if (!productId || isNaN(productId)) {
+    return res.status(400).json({ success: false, message: 'Invalid product ID' });
+  }
+
+  // Verify product ownership
+  const { data: product, error: fetchErr } = await supabase
+    .from('products')
+    .select('id, user_id, status')
+    .eq('id', productId)
+    .maybeSingle();
+
+  if (fetchErr || !product) {
+    return res.status(404).json({ success: false, message: 'Product not found' });
+  }
+
+  if (product.user_id !== userId) {
+    return res.status(403).json({ success: false, message: 'Not your product' });
+  }
+
+  if (product.status === 'active') {
+    return res.json({ success: true, message: 'Product is already active' });
+  }
+
+  const { error: updateErr } = await supabase
+    .from('products')
+    .update({ status: 'active' })
+    .eq('id', productId);
+
+  if (updateErr) {
+    await logger.error('Failed to activate product', userId, { error: updateErr.message, product_id: productId });
+    return res.status(500).json({ success: false, message: 'Failed to activate product' });
+  }
+
+  await logger.info('Product activated', userId, { product_id: productId });
+  return res.json({ success: true, message: 'Product activated successfully' });
 });
 
 // ---------- Trade Preferences ----------
@@ -1005,8 +2189,15 @@ router.post('/api/trade/preferences/', requireAuth, async (req: Request, res: Re
   const tradeRadius = String(req.body?.trade_radius ?? req.body?.tradeRadius ?? '');
   const interests = Array.isArray(req.body?.interests) ? req.body.interests : [];
 
-  // Upsert preference row
-  await supabase.from('trade_preferences').upsert({ user_id: userId, trade_radius: tradeRadius });
+  // Extract meeting preference field with default
+  const meetingPreference = String(req.body?.meeting_preference ?? 'public_place');
+
+  // Upsert preference row with meeting preference
+  await supabase.from('trade_preferences').upsert({
+    user_id: userId,
+    trade_radius: tradeRadius,
+    meeting_preference: meetingPreference,
+  });
 
   // Replace interests join if available
   if (interests.length) {
@@ -1021,17 +2212,26 @@ router.post('/api/trade/preferences/', requireAuth, async (req: Request, res: Re
 
 router.get('/api/trade/getuserpreferences/', requireAuth, async (req: Request, res: Response) => {
   const userId = uid(req);
-  const pref = await supabase.from('trade_preferences').select('trade_radius').eq('user_id', userId).maybeSingle();
+
+  // Select fields including meeting preference
+  const pref = await supabase
+    .from('trade_preferences')
+    .select('trade_radius, meeting_preference')
+    .eq('user_id', userId)
+    .maybeSingle();
+
   const ints = await supabase
     .from('trade_preference_interests')
     .select('interest_id, interests(name)')
     .eq('user_id', userId);
 
   const interests = (ints.data || []).map((r: any) => ({ id: r.interest_id, interest_name: r.interests?.name || '' }));
+
   return res.json({
     success: true,
     message: 'OK',
     trade_radius: (pref.data as any)?.trade_radius ?? '',
+    meeting_preference: (pref.data as any)?.meeting_preference ?? 'public_place',
     interests,
   });
 });
@@ -1109,7 +2309,8 @@ router.get('/api/trade/api/nearby-users/', requireAuth, async (req: Request, res
       .from('products')
       .select('*, users!inner(id, username, latitude, longitude)')
       .neq('user_id', userId)
-      .eq('status', 'active');
+      .eq('status', 'active')
+      .gt('quantity', 0);
 
     if (!otherProducts || otherProducts.length === 0) {
       return res.json({
@@ -1173,9 +2374,12 @@ router.get('/api/trade/api/nearby-users/', requireAuth, async (req: Request, res
           user_product: {
             id: userProduct.id,
             title: userProduct.title || '',
+            description: userProduct.description || '',
             min_price: String(userProduct.min_price || '0'),
             max_price: String(userProduct.max_price || '0'),
+            quantity: userProduct.quantity || 1,
             image: userProduct.image || '',
+            images: userProduct.images || [],
             product_condition: userProduct.product_condition || '',
             status: userProduct.status || 'active',
             category: userProduct.category_id || 0,
@@ -1184,9 +2388,12 @@ router.get('/api/trade/api/nearby-users/', requireAuth, async (req: Request, res
           other_product: {
             id: otherProduct.id,
             title: otherProduct.title || '',
+            description: otherProduct.description || '',
             min_price: String(otherProduct.min_price || '0'),
             max_price: String(otherProduct.max_price || '0'),
+            quantity: otherProduct.quantity || 1,
             image: otherProduct.image || '',
+            images: otherProduct.images || [],
             product_condition: otherProduct.product_condition || '',
             status: otherProduct.status || 'active',
             category: otherProduct.category_id || 0,
@@ -1574,6 +2781,176 @@ router.get('/api/trade/matchfeedback/user/', requireAuth, async (req: Request, r
   return res.json({ success: true, message: 'OK', data: transformedData });
 });
 
+// GET /api/trade/disliked-products/ - Fetch all disliked products (refused matches)
+router.get('/api/trade/disliked-products/', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = uid(req);
+    await logger.info('Fetching disliked products history', userId);
+
+    // Get all disliked feedback records for user
+    const { data: dislikedFeedback, error } = await supabase
+      .from('match_feedback')
+      .select('id, user_product_id, other_product_id, nearby_user_id, created_at')
+      .eq('user_id', userId)
+      .eq('has_dislike', true)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      await logger.error('Error fetching disliked products', userId, { error: error.message });
+      return res.status(500).json({ success: false, message: 'Failed to fetch disliked products' });
+    }
+
+    if (!dislikedFeedback || dislikedFeedback.length === 0) {
+      return res.json({ success: true, message: 'OK', data: [] });
+    }
+
+    // Enrich with product and user details
+    const enrichedData = await Promise.all(
+      dislikedFeedback.map(async (feedback) => {
+        // Fetch user's product
+        const { data: userProduct } = await supabase
+          .from('products')
+          .select('id, title, min_price, max_price, image, product_condition, status, category_id')
+          .eq('id', feedback.user_product_id)
+          .maybeSingle();
+
+        // Fetch other user's product
+        const { data: otherProduct } = await supabase
+          .from('products')
+          .select('id, title, min_price, max_price, image, product_condition, status, category_id, user_id')
+          .eq('id', feedback.other_product_id)
+          .maybeSingle();
+
+        // Fetch other user info
+        const { data: otherUser } = await supabase
+          .from('users')
+          .select('id, username, first_name, last_name, latitude, longitude')
+          .eq('id', feedback.nearby_user_id)
+          .maybeSingle();
+
+        // Calculate cooldown status
+        const dislikedAt = new Date(feedback.created_at);
+        const now = new Date();
+        const cooldownMs = 48 * 60 * 60 * 1000; // 2 days in milliseconds
+        const elapsedMs = now.getTime() - dislikedAt.getTime();
+        const canReSwipe = elapsedMs >= cooldownMs;
+        const timeUntilAvailable = canReSwipe ? 0 : cooldownMs - elapsedMs;
+
+        return {
+          id: feedback.id,
+          user_product: userProduct ? {
+            id: userProduct.id,
+            title: userProduct.title,
+            min_price: userProduct.min_price,
+            max_price: userProduct.max_price,
+            image: userProduct.image,
+            product_condition: userProduct.product_condition,
+            status: userProduct.status,
+            category: userProduct.category_id
+          } : null,
+          other_product: otherProduct ? {
+            id: otherProduct.id,
+            title: otherProduct.title,
+            min_price: otherProduct.min_price,
+            max_price: otherProduct.max_price,
+            image: otherProduct.image,
+            product_condition: otherProduct.product_condition,
+            status: otherProduct.status,
+            category: otherProduct.category_id,
+            user_id: otherProduct.user_id
+          } : null,
+          other_user: otherUser ? {
+            id: otherUser.id,
+            username: otherUser.username,
+            first_name: otherUser.first_name,
+            last_name: otherUser.last_name,
+            full_name: `${otherUser.first_name || ''} ${otherUser.last_name || ''}`.trim() || otherUser.username
+          } : null,
+          disliked_at: feedback.created_at,
+          can_re_swipe: canReSwipe,
+          time_until_available: timeUntilAvailable
+        };
+      })
+    );
+
+    // Filter out records where products or users no longer exist
+    const validData = enrichedData.filter(d => d.user_product && d.other_product && d.other_user);
+
+    await logger.success('Disliked products fetched', userId, { count: validData.length });
+
+    return res.json({
+      success: true,
+      message: 'OK',
+      data: validData
+    });
+  } catch (error: any) {
+    console.error('Error in get disliked products:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+});
+
+// DELETE /api/trade/disliked-products/:feedbackId/ - Remove a dislike record
+router.delete('/api/trade/disliked-products/:feedbackId/', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = uid(req);
+    const feedbackId = Number(req.params.feedbackId);
+
+    if (!feedbackId) {
+      return res.status(400).json({ success: false, message: 'Feedback ID is required' });
+    }
+
+    await logger.info('Removing dislike record', userId, { feedback_id: feedbackId });
+
+    // Verify the feedback belongs to the user
+    const { data: feedback, error: fetchError } = await supabase
+      .from('match_feedback')
+      .select('user_id, other_product_id')
+      .eq('id', feedbackId)
+      .single();
+
+    if (fetchError || !feedback) {
+      return res.status(404).json({ success: false, message: 'Dislike record not found' });
+    }
+
+    if (feedback.user_id !== userId) {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
+
+    // Delete the feedback record
+    const { error } = await supabase
+      .from('match_feedback')
+      .delete()
+      .eq('id', feedbackId);
+
+    if (error) {
+      await logger.error('Failed to remove dislike', userId, { error: error.message });
+      return res.status(500).json({ success: false, message: 'Failed to remove dislike' });
+    }
+
+    await logger.success('Dislike record removed', userId, {
+      feedback_id: feedbackId,
+      product_id: feedback.other_product_id
+    });
+
+    return res.json({
+      success: true,
+      message: 'Dislike removed successfully',
+      product_id: feedback.other_product_id
+    });
+  } catch (error: any) {
+    console.error('Error removing dislike:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+});
+
 // GET /api/trade/trade-requests/:userId/ - Fetch all trade requests for a user
 router.get('/api/trade/trade-requests/:userId/', requireAuth, async (req: Request, res: Response) => {
   try {
@@ -1860,7 +3237,7 @@ router.post('/api/trade/mark-complete/:tradeRequestId/', requireAuth, async (req
         .maybeSingle();
 
       // Fetch product info for the notification
-      const productId = isRequester ? tradeRequest.receiver_product_id : tradeRequest.requester_product_id;
+      const productId = isRequester ? tradeRequest.other_product_id : tradeRequest.user_product_id;
       const { data: product } = await supabase
         .from('products')
         .select('title')
@@ -1981,7 +3358,7 @@ router.post('/api/trade/confirm-complete/:tradeRequestId/', requireAuth, async (
         const { data: product } = await supabase
           .from('products')
           .select('title')
-          .eq('id', tradeRequest.requester_product_id)
+          .eq('id', tradeRequest.user_product_id)
           .maybeSingle();
 
         const productTitle = product?.title || 'a product';

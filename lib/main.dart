@@ -1,8 +1,12 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:taptrade/l10n/app_localizations.dart';
 import 'package:get/get.dart';
+import 'package:taptrade/Controller/languageController.dart';
 import 'package:taptrade/Screens/Splash/splashScreen.dart';
+import 'package:taptrade/Services/LocalizationService/localization_service.dart';
 
 import 'Const/appConfig.dart';
 import 'Const/controllerBinding.dart';
@@ -26,11 +30,17 @@ Future<void> main() async {
   await LocationService.instance.checkPermission((){});
   LocationService.instance.startLocationUpdates();
   await SoundManager().loadSounds();
-  runApp( const MyApp());
+  
+  // Load saved locale before running app
+  final savedLocale = await LocalizationService.instance.getSavedLocale();
+  
+  runApp(MyApp(initialLocale: savedLocale));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final Locale initialLocale;
+  
+  const MyApp({super.key, required this.initialLocale});
 
   // This widget is the root of your application.
   @override
@@ -40,7 +50,21 @@ class MyApp extends StatelessWidget {
       initialBinding: ControllerBinding(),
       navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
+      
+      // Localization configuration
+      locale: initialLocale,
+      fallbackLocale: const Locale('en'),
+      supportedLocales: LocalizationService.supportedLocales,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      
       theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      themeMode: ThemeMode.light, // Force light mode (change back to ThemeMode.system when dark mode is ready)
       home: const SplashScreen(),
       // Suppress route information warnings (for Firebase reCAPTCHA)
       logWriterCallback: (String text, {bool isError = false}) {
@@ -57,5 +81,3 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-
-

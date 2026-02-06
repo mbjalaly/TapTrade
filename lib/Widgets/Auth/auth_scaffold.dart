@@ -52,9 +52,9 @@ class AuthScaffold extends StatelessWidget {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Colors.white.withOpacity(0.3),
-                      Colors.white.withOpacity(0.6),
-                      Colors.white.withOpacity(0.95),
+                      AppColors.overlayStart(context),
+                      AppColors.overlayMid(context),
+                      AppColors.overlayEnd(context),
                     ],
                     stops: const [0.0, 0.3, 1.0],
                   ),
@@ -72,7 +72,7 @@ class AuthScaffold extends StatelessWidget {
                     _buildProgressBar(),
 
                   // Back button and header
-                  _buildHeader(),
+                  _buildHeader(context),
 
                   // Main content area
                   Expanded(
@@ -134,7 +134,7 @@ class AuthScaffold extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
@@ -146,7 +146,7 @@ class AuthScaffold extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.contentBg(context),
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
@@ -156,9 +156,9 @@ class AuthScaffold extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.arrow_back_ios_new_rounded,
-                  color: AppColors.darkBlue,
+                  color: AppColors.primaryText(context),
                   size: 20,
                 ),
               ),
@@ -172,7 +172,7 @@ class AuthScaffold extends StatelessWidget {
             Text(
               'Step $currentStep of $totalSteps',
               style: TextStyle(
-                color: AppColors.darkBlue.withOpacity(0.6),
+                color: AppColors.secondaryText(context),
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
@@ -206,10 +206,10 @@ class AuthCard extends StatelessWidget {
           width: double.infinity,
           padding: padding ?? const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.85),
+            color: AppColors.glassBg(context),
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: Colors.white.withOpacity(0.5),
+              color: AppColors.glassBorder(context),
               width: 1.5,
             ),
             boxShadow: [
@@ -266,7 +266,7 @@ class AuthTextField extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            color: hasError ? AppColors.errorColor : AppColors.darkBlue,
+            color: hasError ? AppColors.errorColor : AppColors.primaryText(context),
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
@@ -279,18 +279,18 @@ class AuthTextField extends StatelessWidget {
           autofocus: autofocus,
           cursorColor: hasError ? AppColors.errorColor : AppColors.primaryColor,
           onChanged: onChanged,
-          style: const TextStyle(
-            color: AppColors.darkBlue,
+          style: TextStyle(
+            color: AppColors.primaryText(context),
             fontSize: 16,
           ),
           decoration: InputDecoration(
             filled: true,
-            fillColor: hasError 
+            fillColor: hasError
                 ? AppColors.errorColor.withOpacity(0.05)
-                : AppColors.darkBlue.withOpacity(0.05),
+                : AppColors.fieldBg(context),
             hintText: hint,
             hintStyle: TextStyle(
-              color: AppColors.darkBlue.withOpacity(0.4),
+              color: AppColors.hintText(context),
             ),
             suffixIcon: suffixIcon ??
                 (onToggleObscure != null
@@ -299,7 +299,7 @@ class AuthTextField extends StatelessWidget {
                           obscureText
                               ? Icons.visibility_off_outlined
                               : Icons.visibility_outlined,
-                          color: AppColors.darkBlue.withOpacity(0.5),
+                          color: AppColors.secondaryText(context),
                         ),
                         onPressed: onToggleObscure,
                       )
@@ -310,21 +310,21 @@ class AuthTextField extends StatelessWidget {
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: hasError 
+              borderSide: hasError
                   ? const BorderSide(color: AppColors.errorColor, width: 1.5)
                   : BorderSide.none,
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: hasError 
+              borderSide: hasError
                   ? const BorderSide(color: AppColors.errorColor, width: 1.5)
                   : BorderSide.none,
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
               borderSide: BorderSide(
-                color: hasError 
-                    ? AppColors.errorColor 
+                color: hasError
+                    ? AppColors.errorColor
                     : AppColors.primaryColor.withOpacity(0.5),
                 width: 2,
               ),
@@ -361,7 +361,7 @@ class AuthTextField extends StatelessWidget {
           Text(
             helperText!,
             style: TextStyle(
-              color: AppColors.darkBlue.withOpacity(0.5),
+              color: AppColors.secondaryText(context),
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),

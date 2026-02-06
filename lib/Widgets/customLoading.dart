@@ -48,7 +48,7 @@ class _LoadingBox extends StatelessWidget {
       height: 100,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.contentBg(context),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Center(

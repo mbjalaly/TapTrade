@@ -4,6 +4,7 @@ import 'package:swipe_cards/swipe_cards.dart';
 import 'package:taptrade/Const/globleKey.dart';
 import 'package:taptrade/Controller/productController.dart';
 import 'package:taptrade/Controller/userController.dart';
+import 'package:taptrade/l10n/app_localizations.dart';
 import 'package:taptrade/Models/MatchProduct/matchProduct.dart';
 import 'package:taptrade/Services/IntegrationServices/productService.dart';
 import 'package:taptrade/Services/IntegrationServices/profileService.dart';
@@ -40,14 +41,35 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   bool _dragLeft = false;
   bool _dragRight = false;
   double _dragAccumX = 0;
-  
+  bool _isSwipeProcessing = false;
+  DateTime? _lastSwipeTime;
+
   // Product selection radio list
   List<int> selectedProductIds = [];
   List<dynamic> userProducts = [];
   bool showProductSelector = false;
   void _triggerSwipe(bool isRight) {
+    // Prevent spam clicking - return if already processing a swipe
+    if (_isSwipeProcessing) return;
+
+    // Enforce minimum 600ms cooldown between swipes to prevent rapid clicking
+    final now = DateTime.now();
+    if (_lastSwipeTime != null) {
+      final timeSinceLastSwipe = now.difference(_lastSwipeTime!);
+      if (timeSinceLastSwipe.inMilliseconds < 600) {
+        return; // Ignore clicks that are too fast
+      }
+    }
+
     final current = matchEngine?.currentItem;
     if (current == null) return;
+
+    // Check if there are any swipe items left
+    if (swipeItems.isEmpty) return;
+
+    // Update last swipe time
+    _lastSwipeTime = now;
+
     if (isRight) {
       current.like();
       setState(() { _highlightRight = true; _highlightLeft = false; });
@@ -143,8 +165,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       print("ERROR syncing location: $e");
       // Don't block UX, but log the error
       NotificationService.info(
-        title: 'Location access',
-        message: 'Unable to access your location. Products may not be accurate.',
+        title: AppLocalizations.of(context)?.locationAccess ?? 'Location access',
+        message: AppLocalizations.of(context)?.unableToAccessLocation ?? 'Unable to access your location. Products may not be accurate.',
       );
     }
   }
@@ -214,10 +236,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       print("=== FETCH COMPLETE: ${swipeItems.length} swipe items ready ===");
     } catch (e) {
       print("ERROR occurred while fetching match products: $e");
-      NotificationService.error(
-        title: 'Error loading products',
-        message: 'Please check your internet connection and try again',
-      );
+      // Only show error if products actually failed to load
+      if (productController.matchedProduct.value.data == null ||
+          productController.matchedProduct.value.data!.isEmpty) {
+        NotificationService.error(
+          title: AppLocalizations.of(context)?.errorLoadingProducts ?? 'Error loading products',
+          message: AppLocalizations.of(context)?.checkInternetConnection ?? 'Please check your internet connection and try again',
+        );
+      }
     } finally {
       // Only call setState if the widget is still mounted
       if (mounted) {
@@ -348,55 +374,85 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
       swipeItems.add(SwipeItem(
         content: productsToShow[i],
-        likeAction: () {
+        likeAction: () async {
+          // Prevent multiple simultaneous swipes
+          if (_isSwipeProcessing) return;
+
           // Block making deals with own product
           if ((productsToShow[i].otherProduct?.user ?? '') == currentUserId) {
             return;
           }
 
-          Map<String, dynamic> body = {
-            "user": productsToShow[i].userProduct?.user ?? '',
-            "nearby_user": productsToShow[i].otherProduct?.user ?? '',
-            "user_product": productsToShow[i].userProduct?.id ?? '',
-            "nearby_user_product": productsToShow[i].otherProduct?.id ?? '',
-            "feedback": "like",
-            "has_like": true,
-            "has_dislike": false
-          };
-          SoundManager().play("bazaarSwipeRight");
-          likeDislike(body);
-          setState(() {
-            _highlightRight = true;
-            _highlightLeft = false;
-          });
-          Future.delayed(const Duration(milliseconds: 500), () {
-            if (mounted) setState(() { _highlightRight = false; });
-          });
+          try {
+            setState(() => _isSwipeProcessing = true);
+
+            Map<String, dynamic> body = {
+              "user": productsToShow[i].userProduct?.user ?? '',
+              "nearby_user": productsToShow[i].otherProduct?.user ?? '',
+              "user_product": productsToShow[i].userProduct?.id ?? '',
+              "nearby_user_product": productsToShow[i].otherProduct?.id ?? '',
+              "feedback": "like",
+              "has_like": true,
+              "has_dislike": false
+            };
+
+            SoundManager().play("bazaarSwipeRight");
+            await likeDislike(body); // NOW AWAIT THE OPERATION
+
+            if (mounted) {
+              setState(() {
+                _highlightRight = true;
+                _highlightLeft = false;
+              });
+              Future.delayed(const Duration(milliseconds: 500), () {
+                if (mounted) setState(() { _highlightRight = false; });
+              });
+            }
+          } finally {
+            if (mounted) {
+              setState(() => _isSwipeProcessing = false);
+            }
+          }
         },
-        nopeAction: () {
+        nopeAction: () async {
+          // Prevent multiple simultaneous swipes
+          if (_isSwipeProcessing) return;
+
           // Block making deals with own product
           if ((productsToShow[i].otherProduct?.user ?? '') == currentUserId) {
             return;
           }
 
-          Map<String, dynamic> body = {
-            "user": productsToShow[i].userProduct?.user ?? '',
-            "nearby_user": productsToShow[i].otherProduct?.user ?? '',
-            "user_product": productsToShow[i].userProduct?.id ?? '',
-            "nearby_user_product": productsToShow[i].otherProduct?.id ?? '',
-            "feedback": "dislike",
-            "has_like": false,
-            "has_dislike": true
-          };
-          SoundManager().play("bazaarSwipeLeft");
-          likeDislike(body);
-          setState(() {
-            _highlightLeft = true;
-            _highlightRight = false;
-          });
-          Future.delayed(const Duration(milliseconds: 500), () {
-            if (mounted) setState(() { _highlightLeft = false; });
-          });
+          try {
+            setState(() => _isSwipeProcessing = true);
+
+            Map<String, dynamic> body = {
+              "user": productsToShow[i].userProduct?.user ?? '',
+              "nearby_user": productsToShow[i].otherProduct?.user ?? '',
+              "user_product": productsToShow[i].userProduct?.id ?? '',
+              "nearby_user_product": productsToShow[i].otherProduct?.id ?? '',
+              "feedback": "dislike",
+              "has_like": false,
+              "has_dislike": true
+            };
+
+            SoundManager().play("bazaarSwipeLeft");
+            await likeDislike(body); // NOW AWAIT THE OPERATION
+
+            if (mounted) {
+              setState(() {
+                _highlightLeft = true;
+                _highlightRight = false;
+              });
+              Future.delayed(const Duration(milliseconds: 500), () {
+                if (mounted) setState(() { _highlightLeft = false; });
+              });
+            }
+          } finally {
+            if (mounted) {
+              setState(() => _isSwipeProcessing = false);
+            }
+          }
         },
       ));
     }
@@ -418,36 +474,36 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (swipeItems.isNotEmpty) {
       if (usingFallback) {
         NotificationService.info(
-          title: 'No new products nearby',
-          message: 'Showing ${swipeItems.length} products you already liked',
+          title: AppLocalizations.of(context)?.noNewProductsNearby ?? 'No new products nearby',
+          message: AppLocalizations.of(context)?.showingAlreadyLikedProducts(swipeItems.length) ?? 'Showing ${swipeItems.length} products you already liked',
         );
       } else {
         NotificationService.success(
-          title: 'Deals near you',
-          message: 'Swipe to explore ${swipeItems.length} items',
+          title: AppLocalizations.of(context)?.dealsNearYou ?? 'Deals near you',
+          message: AppLocalizations.of(context)?.swipeToExploreItems(swipeItems.length) ?? 'Swipe to explore ${swipeItems.length} items',
         );
       }
     } else {
       // Provide helpful feedback based on why no products are showing
       if (userProducts.isEmpty) {
         NotificationService.info(
-          title: 'Add your first product',
-          message: 'List products to start trading with others nearby',
+          title: AppLocalizations.of(context)?.addYourFirstProduct ?? 'Add your first product',
+          message: AppLocalizations.of(context)?.listProductsToStartTrading ?? 'List products to start trading with others nearby',
         );
       } else if (listResponse.isEmpty && alreadyLikedResponse.isEmpty) {
         NotificationService.info(
-          title: 'No nearby trades',
-          message: 'Try increasing your search radius in preferences',
+          title: AppLocalizations.of(context)?.noNearbyTrades ?? 'No nearby trades',
+          message: AppLocalizations.of(context)?.tryIncreasingSearchRadius ?? 'Try increasing your search radius in preferences',
         );
       } else if (skippedProductFilter > 0 || skippedCategoryFilter > 0 || skippedInterestFilter > 0) {
         NotificationService.info(
-          title: 'All products filtered',
-          message: 'Try adjusting your filters to see more trades',
+          title: AppLocalizations.of(context)?.allProductsFiltered ?? 'All products filtered',
+          message: AppLocalizations.of(context)?.tryAdjustingFilters ?? 'Try adjusting your filters to see more trades',
         );
       } else {
         NotificationService.info(
-          title: 'No matches yet',
-          message: 'Check back soon for new trading opportunities',
+          title: AppLocalizations.of(context)?.noMatchesYet ?? 'No matches yet',
+          message: AppLocalizations.of(context)?.checkBackSoon ?? 'Check back soon for new trading opportunities',
         );
       }
     }
@@ -457,7 +513,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
     return Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.backgroundColor(context),
         body: SafeArea(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -471,7 +527,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     AppText(
-                      text: "BAZAAR",
+                      text: AppLocalizations.of(context)?.bazaar ?? "BAZAAR",
                       fontSize: size.width * 0.08,
                       textcolor: AppColors.darkBlue,
                       fontWeight: FontWeight.w700,
@@ -495,7 +551,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                 showProductSelector = !showProductSelector;
                               });
                             },
-                            tooltip: showProductSelector ? 'Close product selector' : 'Select products',
+                            tooltip: showProductSelector ? (AppLocalizations.of(context)?.closeProductSelector ?? 'Close product selector') : (AppLocalizations.of(context)?.selectProducts ?? 'Select products'),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -506,12 +562,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: IconButton(
-                            icon: const Icon(Icons.settings_rounded, color: AppColors.primaryColor),
+                            icon: const Icon(Icons.filter_list, color: AppColors.primaryColor),
                             onPressed: () async {
                               await Get.to(() => SearchFilterScreen());
                               await getData();
                             },
-                            tooltip: 'Search filters',
+                            tooltip: AppLocalizations.of(context)?.searchFiltersTooltip ?? 'Search filters',
                           ),
                         ),
                       ],
@@ -526,7 +582,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   margin: const EdgeInsets.symmetric(horizontal: 20),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.contentBg(context),
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
@@ -540,19 +596,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       AppText(
-                        text: "Select Products to Trade",
+                        text: AppLocalizations.of(context)?.selectProductsToTrade ?? "Select Products to Trade",
                         fontSize: size.width * 0.045,
-                        textcolor: AppColors.primaryTextColor,
+                        textcolor: AppColors.primaryText(context),
                         fontWeight: FontWeight.w600,
                       ),
                       const SizedBox(height: 12),
                       if (userProducts.isEmpty)
-                        const Center(
+                        Center(
                           child: Padding(
-                            padding: EdgeInsets.all(20),
+                            padding: const EdgeInsets.all(20),
                             child: Text(
-                              'No products available',
-                              style: TextStyle(color: Colors.grey),
+                              AppLocalizations.of(context)?.noProductsAvailable ?? 'No products available',
+                              style: TextStyle(color: AppColors.greyText(context)),
                             ),
                           ),
                         )
@@ -580,12 +636,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                 decoration: BoxDecoration(
                                   color: isSelected 
                                       ? AppColors.primaryColor.withOpacity(0.2)
-                                      : Colors.grey.withOpacity(0.1),
+                                      : AppColors.greyBg(context).withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(8),
                                   border: Border.all(
                                     color: isSelected 
                                         ? AppColors.primaryColor 
-                                        : Colors.grey.withOpacity(0.3),
+                                        : AppColors.outlineColor(context).withOpacity(0.3),
                                     width: isSelected ? 2 : 1,
                                   ),
                                 ),
@@ -597,16 +653,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                       height: 40,
                                       decoration: BoxDecoration(
                                         borderRadius: BorderRadius.circular(6),
-                                        color: Colors.grey.withOpacity(0.2),
+                                        color: AppColors.greyBg(context).withOpacity(0.2),
                                       ),
                                       child: ClipRRect(
                                         borderRadius: BorderRadius.circular(6),
                                         child: buildProductImage(
                                           imageUrl: product.image,
                                           fit: BoxFit.cover,
-                                          errorWidget: const Icon(
+                                          errorWidget: Icon(
                                             Icons.image_not_supported,
-                                            color: Colors.grey,
+                                            color: AppColors.greyText(context),
                                             size: 20,
                                           ),
                                         ),
@@ -616,10 +672,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                     // Product title
                                     Expanded(
                                       child: Text(
-                                        product.title ?? "Product ${product.id}",
+                                        product.title ?? (AppLocalizations.of(context)?.productFallback ?? "Product {id}").toString().replaceAll('{id}', '${product.id}'),
                                         style: TextStyle(
                                           fontSize: size.width * 0.035,
-                                          color: AppColors.primaryTextColor,
+                                          color: AppColors.primaryText(context),
                                           fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                                         ),
                                         maxLines: 2,
@@ -650,7 +706,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                               });
                               getData();
                             },
-                            child: const Text('Select All'),
+                            child: Text(AppLocalizations.of(context)?.selectAll ?? 'Select All'),
                           ),
                           TextButton(
                             onPressed: () {
@@ -659,7 +715,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                               });
                               getData();
                             },
-                            child: const Text('Clear All'),
+                            child: Text(AppLocalizations.of(context)?.clearAll ?? 'Clear All'),
                           ),
                         ],
                       ),
@@ -709,8 +765,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           NearbyUser? nearbyUser = card.nearbyUser;
 
                           if (userProduct == null || otherProduct == null) {
-                            return const Center(
-                              child: Text('No product data available'),
+                            return Center(
+                              child: Text(AppLocalizations.of(context)?.noProductDataAvailable ?? 'No product data available'),
                             );
                           }
                           return Center(
@@ -776,7 +832,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                                           style: TextStyle(
                                                               fontFamily: 'Cinzel',
                                                               fontWeight: FontWeight.bold,
-                                                              color: AppColors.primaryTextColor,
+                                                              color: AppColors.primaryText(context),
                                                               fontSize: size.width * 0.045),
                                                         ),
                                                       ),
@@ -820,7 +876,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                                           style: TextStyle(
                                                               fontFamily: 'Cinzel',
                                                               fontWeight: FontWeight.bold,
-                                                              color: AppColors.primaryTextColor,
+                                                              color: AppColors.primaryText(context),
                                                               fontSize: size.width * 0.045),
                                                         ),
                                                       ),
@@ -851,40 +907,41 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                                 ],
                                               ),
                                             ),
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              mainAxisAlignment: MainAxisAlignment.end,
-                                              children: [
-                                                Row(
-                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                  children: [
-                                                    AppText(
-                                                      text: "Let’s Trade ?",
-                                                      fontWeight: FontWeight.w900,
-                                                      fontSize: size.width * 0.065,
-                                                      textcolor: Colors.white,
-                                                    ),
-                                                  ],
-                                                ),
-                                                Row(
-                                                  children: [
-                                                    const Icon(
-                                                      Icons.location_on_outlined,
-                                                      color: Colors.white,
-                                                      size: 22,
-                                                    ),
-                                                    const SizedBox(
-                                                      width: 3,
-                                                    ),
-                                                    AppText(
-                                                      text: "${calculateDistance(nearbyUser?.latitude ?? 0.0, nearbyUser?.longitude ?? 0.0).toStringAsFixed(1)} km away",
-                                                      fontWeight: FontWeight.w400,
-                                                      fontSize: size.width * 0.038,
-                                                      textcolor: Colors.white,
-                                                    ),
-                                                  ],
-                                                )
-                                              ],
+                                            child: FittedBox(
+                                              fit: BoxFit.scaleDown,
+                                              alignment: AlignmentDirectional.bottomEnd,
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.end,
+                                                mainAxisAlignment: MainAxisAlignment.end,
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  AppText(
+                                                    text: AppLocalizations.of(context)?.letsTrade ?? "Let's Trade?",
+                                                    fontWeight: FontWeight.w900,
+                                                    fontSize: size.width * 0.065,
+                                                    textcolor: Colors.white,
+                                                  ),
+                                                  Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      const Icon(
+                                                        Icons.location_on_outlined,
+                                                        color: Colors.white,
+                                                        size: 22,
+                                                      ),
+                                                      const SizedBox(
+                                                        width: 3,
+                                                      ),
+                                                      AppText(
+                                                        text: AppLocalizations.of(context)?.kmAway(calculateDistance(nearbyUser?.latitude ?? 0.0, nearbyUser?.longitude ?? 0.0).toStringAsFixed(1)) ?? "${calculateDistance(nearbyUser?.latitude ?? 0.0, nearbyUser?.longitude ?? 0.0).toStringAsFixed(1)} km away",
+                                                        fontWeight: FontWeight.w400,
+                                                        fontSize: size.width * 0.038,
+                                                        textcolor: Colors.white,
+                                                      ),
+                                                    ],
+                                                  )
+                                                ],
+                                              ),
                                             ),
                                           ),
                                         ),
@@ -919,28 +976,27 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       );
                     } else {
                       if (isLoading) {
-                        return const Center(
+                        return Center(
                           child: CircularProgressIndicator(
-                            color: AppColors.primaryTextColor,
+                            color: AppColors.primaryText(context),
                           ),
                         );
                       } else {
                         // Show appropriate empty state based on the situation
-                        String title = 'No matches found nearby';
-                        String message = 'Try increasing your search radius or adding more interests to discover more products.';
-                        IconData icon = Icons.tune_rounded;
-                        String buttonText = 'Adjust search preferences';
+                        String title = AppLocalizations.of(context)?.noMatchesNearby ?? 'No matches found nearby';
+                        String message = AppLocalizations.of(context)?.noMatchesNearbyMessage ?? 'Try increasing your search radius or adding more interests to discover more products.';
+                        IconData icon = Icons.filter_list;
+                        String buttonText = AppLocalizations.of(context)?.adjustSearchPreferences ?? 'Adjust search preferences';
                         VoidCallback? onPressed = () async {
-                          final profile = userController.userProfile.value;
-                          await Get.to(() => TradePreferences(profileData: profile));
+                          await Get.to(() => SearchFilterScreen());
                           await getData();
                         };
 
                         if (userProducts.isEmpty) {
-                          title = 'No products to trade';
-                          message = 'Add your first product to start trading with others nearby.';
+                          title = AppLocalizations.of(context)?.noProductsToTrade ?? 'No products to trade';
+                          message = AppLocalizations.of(context)?.noProductsToTradeMessage ?? 'Add your first product to start trading with others nearby.';
                           icon = Icons.add_circle_outline;
-                          buttonText = 'Add a product';
+                          buttonText = AppLocalizations.of(context)?.addAProduct ?? 'Add a product';
                           onPressed = () async {
                             // Navigate to add product screen
                             await getData();
@@ -954,13 +1010,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                               Icon(
                                 userProducts.isEmpty ? Icons.inventory_2_outlined : Icons.location_off_outlined,
                                 size: 64,
-                                color: AppColors.primaryTextColor.withOpacity(0.3),
+                                color: AppColors.primaryText(context).withOpacity(0.3),
                               ),
                               const SizedBox(height: 16),
                               Text(
                                 title,
-                                style: const TextStyle(
-                                  color: AppColors.primaryTextColor,
+                                style: TextStyle(
+                                  color: AppColors.primaryText(context),
                                   fontWeight: FontWeight.w700,
                                   fontSize: 18,
                                 ),
@@ -971,8 +1027,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                 child: Text(
                                   message,
                                   textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    color: AppColors.primaryTextColor,
+                                  style: TextStyle(
+                                    color: AppColors.primaryText(context),
                                     fontSize: 14,
                                   ),
                                 ),
@@ -981,7 +1037,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                               ElevatedButton.icon(
                                 onPressed: onPressed,
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.primaryTextColor,
+                                  backgroundColor: AppColors.primaryText(context),
                                   foregroundColor: Colors.white,
                                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -996,7 +1052,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                     await getData();
                                   },
                                   icon: const Icon(Icons.refresh_rounded),
-                                  label: const Text('Refresh'),
+                                  label: Text(AppLocalizations.of(context)?.refresh ?? 'Refresh'),
                                 ),
                               ],
                             ],
@@ -1010,7 +1066,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8),
-              child: Row(
+              child: Directionality(
+                textDirection: TextDirection.ltr,
+                child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   GestureDetector(
@@ -1040,6 +1098,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   ),
                   ),
                 ],
+              ),
               ),
             ),
             ],

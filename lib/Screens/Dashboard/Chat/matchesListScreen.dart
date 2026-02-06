@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:taptrade/Const/globleKey.dart';
+import 'package:taptrade/l10n/app_localizations.dart';
 import 'package:taptrade/Models/ChatModels/matchModel.dart';
 import 'package:taptrade/Models/ChatModels/myProductMatchGroup.dart';
 import 'package:taptrade/Helpers/matchGroupingHelper.dart';
@@ -70,14 +71,14 @@ class _MatchesListScreenState extends State<MatchesListScreen> {
     final size = MediaQuery.of(context).size;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.backgroundColor(context),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.backgroundColor(context),
         elevation: 0,
         automaticallyImplyLeading: false, // Remove back button
         title: AppText(
-          text: 'Matches',
-          textcolor: AppColors.primaryTextColor,
+          text: AppLocalizations.of(context)?.matches ?? 'Matches',
+          textcolor: AppColors.primaryText(context),
           fontSize: size.width * 0.05,
           fontWeight: FontWeight.bold,
         ),
@@ -110,14 +111,14 @@ class _MatchesListScreenState extends State<MatchesListScreen> {
           Icon(
             Icons.favorite_outline,
             size: size.width * 0.2,
-            color: AppColors.greyTextColor,
+            color: AppColors.greyText(context),
           ),
           SizedBox(height: size.height * 0.02),
           Text(
-            'No matches yet',
+            AppLocalizations.of(context)?.noMatchesYet ?? 'No matches yet',
             style: TextStyle(
               fontSize: size.width * 0.05,
-              color: AppColors.primaryTextColor,
+              color: AppColors.primaryText(context),
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -125,10 +126,10 @@ class _MatchesListScreenState extends State<MatchesListScreen> {
           Padding(
             padding: EdgeInsets.symmetric(horizontal: size.width * 0.15),
             child: Text(
-              'Keep swiping to find people who want to trade with you!',
+              AppLocalizations.of(context)?.keepSwipingToFindMatches ?? 'Keep swiping to find people who want to trade with you!',
               style: TextStyle(
                 fontSize: size.width * 0.035,
-                color: AppColors.greyTextColor,
+                color: AppColors.greyText(context),
               ),
               textAlign: TextAlign.center,
             ),
@@ -150,7 +151,7 @@ class _MatchesListScreenState extends State<MatchesListScreen> {
         side: BorderSide(
           color: totalUnread > 0
               ? AppColors.primaryColor.withValues(alpha: 0.3)
-              : AppColors.outline,
+              : AppColors.outlineColor(context),
           width: totalUnread > 0 ? 1.5 : 1,
         ),
       ),
@@ -200,7 +201,7 @@ class _MatchesListScreenState extends State<MatchesListScreen> {
                     style: TextStyle(
                       fontSize: size.width * 0.04,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.primaryTextColor,
+                      color: AppColors.primaryText(context),
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -224,7 +225,7 @@ class _MatchesListScreenState extends State<MatchesListScreen> {
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
-                          '${group.matchCount} ${group.matchCount == 1 ? 'match' : 'matches'}',
+                          '${group.matchCount} ${group.matchCount == 1 ? (AppLocalizations.of(context)?.matchWord ?? 'match') : (AppLocalizations.of(context)?.matchesWord ?? 'matches')}',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: size.width * 0.028,
@@ -239,7 +240,7 @@ class _MatchesListScreenState extends State<MatchesListScreen> {
                           _formatMatchTime(group.lastActivity),
                           style: TextStyle(
                             fontSize: size.width * 0.028,
-                            color: AppColors.greyTextColor,
+                            color: AppColors.greyText(context),
                           ),
                         ),
                       ],
@@ -273,7 +274,7 @@ class _MatchesListScreenState extends State<MatchesListScreen> {
               group.isExpanded
                   ? Icons.keyboard_arrow_up
                   : Icons.keyboard_arrow_down,
-              color: AppColors.primaryTextColor,
+              color: AppColors.primaryText(context),
               size: 28,
             ),
           ],
@@ -287,7 +288,7 @@ class _MatchesListScreenState extends State<MatchesListScreen> {
     return Container(
       decoration: BoxDecoration(
         border: Border(
-          top: BorderSide(color: AppColors.outline, width: 1),
+          top: BorderSide(color: AppColors.outlineColor(context), width: 1),
         ),
       ),
       child: Column(
@@ -320,7 +321,7 @@ class _MatchesListScreenState extends State<MatchesListScreen> {
               ? AppColors.primaryColor.withValues(alpha: 0.05)
               : Colors.transparent,
           border: Border(
-            bottom: BorderSide(color: AppColors.outline, width: 0.5),
+            bottom: BorderSide(color: AppColors.outlineColor(context), width: 0.5),
           ),
         ),
         child: Row(
@@ -347,7 +348,7 @@ class _MatchesListScreenState extends State<MatchesListScreen> {
                     style: TextStyle(
                       fontSize: size.width * 0.035,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.primaryTextColor,
+                      color: AppColors.primaryText(context),
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -360,7 +361,7 @@ class _MatchesListScreenState extends State<MatchesListScreen> {
                     match.otherUser?.username ?? 'User',
                     style: TextStyle(
                       fontSize: size.width * 0.03,
-                      color: AppColors.greyTextColor,
+                      color: AppColors.greyText(context),
                     ),
                   ),
 
@@ -374,8 +375,8 @@ class _MatchesListScreenState extends State<MatchesListScreen> {
                     style: TextStyle(
                       fontSize: size.width * 0.03,
                       color: hasUnread
-                          ? AppColors.primaryTextColor
-                          : AppColors.greyTextColor,
+                          ? AppColors.primaryText(context)
+                          : AppColors.greyText(context),
                       fontWeight: hasUnread
                           ? FontWeight.w500
                           : FontWeight.normal,
@@ -412,7 +413,7 @@ class _MatchesListScreenState extends State<MatchesListScreen> {
             // Chevron
             Icon(
               Icons.chevron_right,
-              color: AppColors.greyTextColor,
+              color: AppColors.greyText(context),
               size: 20,
             ),
           ],
@@ -428,7 +429,7 @@ class _MatchesListScreenState extends State<MatchesListScreen> {
       height: size,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(6),
-        color: AppColors.surfaceVariant,
+        color: AppColors.surfaceVariantColor(context),
       ),
       child: imageUrl.isNotEmpty
           ? Image.network(
@@ -436,12 +437,12 @@ class _MatchesListScreenState extends State<MatchesListScreen> {
               fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => Icon(
                 Icons.image,
-                color: AppColors.greyTextColor,
+                color: AppColors.greyText(context),
               ),
             )
           : Icon(
               Icons.shopping_bag,
-              color: AppColors.greyTextColor,
+              color: AppColors.greyText(context),
             ),
     );
   }

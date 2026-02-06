@@ -10,6 +10,7 @@ import 'package:taptrade/Utills/showMessages.dart';
 import 'package:taptrade/Widgets/customButtom.dart';
 import 'package:taptrade/Widgets/customText.dart';
 import 'package:taptrade/Widgets/customTextField.dart';
+import 'package:taptrade/l10n/app_localizations.dart';
 
 class PhoneSignInScreen extends StatefulWidget {
   PhoneSignInScreen({Key? key, required this.requestModel}) : super(key: key);
@@ -31,10 +32,11 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
   
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.backgroundColor(context),
         body: SafeArea(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -58,7 +60,7 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
                 padding: EdgeInsets.only(
                     left: Get.width * 0.065, top: Get.height * 0.03),
                 child: AppText(
-                  text: "Contact",
+                  text: l10n.contact,
                   fontSize: Get.width * 0.065,
                   textcolor: AppColors.darkBlue,
                   fontWeight: FontWeight.w500,
@@ -80,20 +82,20 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
                             'IL',
                           ],
                           context: context,
-                          countryListTheme: const CountryListThemeData(
+                          countryListTheme: CountryListThemeData(
                             flagSize: 25,
-                            backgroundColor: Colors.white,
+                            backgroundColor: AppColors.backgroundColor(context),
                             bottomSheetHeight: 500,
                             // Optional. Country list modal height
                             //Optional. Sets the border radius for the bottomsheet.
-                            borderRadius: BorderRadius.only(
+                            borderRadius: const BorderRadius.only(
                               topLeft: Radius.circular(20.0),
                               topRight: Radius.circular(20.0),
                             ),
                             //Optional. Styles the search field.
                             inputDecoration: InputDecoration(
-                              labelText: 'Search',
-                              hintText: 'Start typing to search',
+                              labelText: l10n.search,
+                              hintText: l10n.startTypingToSearch,
                               prefixIcon: Icon(Icons.search),
                             ),
                           ),
@@ -109,7 +111,7 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
                       child: Center(
                           child: AppText(
                         text: "$countryFlag $countryCode",
-                        textcolor: Colors.black,
+                        textcolor: AppColors.textOnBg(context),
                         fontSize: Get.width * 0.035,
                       )),
                     ),
@@ -127,8 +129,8 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
               Padding(
                 padding: EdgeInsets.only(
                     left: Get.width * 0.065, right: Get.width * 0.065),
-                child: const Divider(
-                  color: Colors.black,
+                child: Divider(
+                  color: AppColors.outlineColor(context),
                 ),
               ),
               Padding(
@@ -148,7 +150,7 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
                 child: AppText(
                   text: "Learn what happens when your number changes.",
                   fontSize: Get.width * 0.03,
-                  textcolor: Colors.black,
+                  textcolor: AppColors.textOnBg(context),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -159,7 +161,7 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
                 child: AppButton(
                   onPressed: () async {
                     if (phoneCon.text.trim().isEmpty) {
-                      ShowMessage.notify(context, "Please Add Your Phone Number");
+                      ShowMessage.notify(context, l10n.pleaseAddPhoneNumber);
                       return;
                     }
                     
@@ -180,7 +182,7 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
                         setState(() {
                           isLoading = false;
                         });
-                        ShowMessage.notify(context, "OTP sent to $fullPhoneNumber");
+                        ShowMessage.notify(context, l10n.otpSentTo(fullPhoneNumber));
                         
                         // Navigate to OTP verification screen
                         Get.to(VerifyOtpScreen(
@@ -194,7 +196,7 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
                         setState(() {
                           isLoading = false;
                         });
-                        ShowMessage.notify(context, "Phone verified automatically!");
+                        ShowMessage.notify(context, l10n.phoneVerifiedAuto);
                         
                         // Navigate to OTP screen (it will handle the auto-verified credential)
                         Get.to(VerifyOtpScreen(
@@ -211,12 +213,12 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
                         showDialog(
                           context: context,
                           builder: (context) => AlertDialog(
-                            title: const Text('OTP Error'),
+                            title: Text(l10n.otpError),
                             content: Text(error),
                             actions: [
                               TextButton(
                                 onPressed: () => Navigator.pop(context),
-                                child: const Text('OK'),
+                                child: Text(l10n.ok),
                               ),
                             ],
                           ),
@@ -225,7 +227,7 @@ class _PhoneSignInScreenState extends State<PhoneSignInScreen> {
                     );
                   },
                   isLoading: isLoading,
-                  text: "CONTINUE",
+                  text: l10n.continueButton,
                   fontSize: Get.width * 0.043,
                   width: Get.width * 0.88,
                 ),

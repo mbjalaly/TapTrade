@@ -183,7 +183,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
     bool isTab = DeviceTypeHelper.isTablet(context);
     
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.backgroundColor(context),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -273,7 +273,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                       alignment: Alignment.topLeft,
                       child: Icon(
                         Icons.arrow_back,
-                        color: AppColors.primaryTextColor,
+                        color: AppColors.primaryText(context),
                         size: size.width * 0.1,
                       ),
                     ),
@@ -378,7 +378,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                     padding: const EdgeInsets.all(2),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.contentBg(context),
                         borderRadius: BorderRadius.circular(50),
                       ),
                       child: Padding(
@@ -408,7 +408,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                                       currentAddress,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(fontSize: 14, color: Colors.black),
+                                      style: TextStyle(fontSize: 14, color: AppColors.textOnBg(context)),
                                     ),
                             ),
                             SvgPicture.asset("assets/svgs/location.svg"),
@@ -503,7 +503,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                     Slider(
                       thumbColor: AppColors.secondaryColor,
                       value: radius,
-                      activeColor: AppColors.primaryTextColor,
+                      activeColor: AppColors.primaryText(context),
                       inactiveColor: AppColors.primaryColor,
                       min: 5, // Minimum 5km
                       max: 500,

@@ -7,7 +7,6 @@ import 'package:taptrade/Models/LikedProduct/likedProduct.dart';
 import 'package:taptrade/Models/MatchProduct/matchProduct.dart';
 import 'package:taptrade/Models/MyProductModel/myProductModel.dart';
 import 'package:taptrade/Models/TradeModel/tradeModel.dart';
-import 'package:taptrade/Models/MatchProduct/matchProduct.dart';
 import 'package:taptrade/Models/ChatModels/matchModel.dart';
 import 'package:taptrade/Screens/Dashboard/Match/matchDeal.dart';
 import 'package:taptrade/Screens/Dashboard/Chat/chatScreen.dart';
@@ -18,6 +17,7 @@ import 'package:taptrade/Services/logService.dart';
 import 'package:taptrade/Utills/showMessages.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:taptrade/Services/NotificationService/notification_service.dart';
+import 'package:taptrade/Services/CooldownService/cooldownService.dart';
 import 'package:taptrade/Const/globleKey.dart';
 import 'package:taptrade/Widgets/matchPopupDialog.dart';
  
@@ -218,7 +218,7 @@ class ProductService {
         Map<String, dynamic> errorMessageJson = json.decode(e.message);
         String errorMessage =
             errorMessageJson['error'] ?? 'An error occurred';
-        ShowMessage.inDialog(context,errorMessage.capitalizeFirst.toString(), true);
+        // ShowMessage.inDialog(context,errorMessage.capitalizeFirst.toString(), true);
 
         return ApiResponse.error(errorMessage);
       } else {
@@ -261,8 +261,62 @@ class ProductService {
         Map<String, dynamic> errorMessageJson = json.decode(e.message);
         String errorMessage =
             errorMessageJson['error'] ?? 'An error occurred';
-        ShowMessage.inDialog(context,errorMessage.capitalizeFirst.toString(), true);
+        // ShowMessage.inDialog(context,errorMessage.capitalizeFirst.toString(), true);
 
+        return ApiResponse.error(errorMessage);
+      } else {
+        return ApiResponse.error(e.toString());
+      }
+    }
+  }
+
+  /// Get all products the user has disliked (refused)
+  Future<ApiResponse<dynamic>> getDislikedProducts(BuildContext context) async {
+    try {
+      final result = await ApiService.getRequestData(
+        ApiEndPoint.dislikedProducts,
+        context,
+        useToken: true,
+      );
+      return ApiResponse.completed(result);
+    } catch (e) {
+      printLog("ApiException: $e");
+      if (e is ApiException) {
+        printLog("ApiException: ${e.message}");
+        Map<String, dynamic> errorMessageJson = json.decode(e.message);
+        String errorMessage = errorMessageJson['error'] ?? 'An error occurred';
+        ShowMessage.inDialog(context, errorMessage.capitalizeFirst.toString(), true);
+        return ApiResponse.error(errorMessage);
+      } else {
+        return ApiResponse.error(e.toString());
+      }
+    }
+  }
+
+  /// Remove a dislike record (re-enable product for swiping)
+  Future<ApiResponse<dynamic>> removeDislike(
+    BuildContext context,
+    int feedbackId,
+    int productId,
+  ) async {
+    try {
+      final result = await ApiService.deleteRequestData(
+        '${ApiEndPoint.removeDislike}$feedbackId/',
+        context,
+        sendToken: true,
+      );
+
+      // Also clear from local cooldown service
+      await CooldownService.instance.clearCooldownForProduct(productId);
+
+      return ApiResponse.completed(result);
+    } catch (e) {
+      printLog("ApiException: $e");
+      if (e is ApiException) {
+        printLog("ApiException: ${e.message}");
+        Map<String, dynamic> errorMessageJson = json.decode(e.message);
+        String errorMessage = errorMessageJson['error'] ?? 'An error occurred';
+        ShowMessage.inDialog(context, errorMessage.capitalizeFirst.toString(), true);
         return ApiResponse.error(errorMessage);
       } else {
         return ApiResponse.error(e.toString());
@@ -305,13 +359,45 @@ class ProductService {
     }
   }
 
+  Future<ApiResponse<dynamic>> activateProduct(
+      BuildContext context,
+      int productId,
+      )
+  async {
+    try{
+      final result = await ApiService.postRequestData(
+        ApiEndPoint.activateProduct(productId),
+        {},
+        context,
+        sendToken: true,
+      );
+      return ApiResponse.completed(result);
+    }catch (e) {
+      printLog("ApiException: ${e}");
+      if (e is ApiException) {
+        printLog("ApiException: ${e.message}");
+        try {
+          Map<String, dynamic> errorMessageJson = json.decode(e.message);
+          String errorMessage = errorMessageJson['message'] ?? errorMessageJson['error'] ?? 'Failed to activate product';
+          ShowMessage.inDialog(context, errorMessage, true);
+          return ApiResponse.error(errorMessage);
+        } catch (_) {
+          ShowMessage.inDialog(context, e.message, true);
+          return ApiResponse.error(e.message);
+        }
+      } else {
+        return ApiResponse.error(e.toString());
+      }
+    }
+  }
+
   Future<ApiResponse<dynamic>> deleteMyProduct(
       BuildContext context,
       String id,
       )
   async {
     try{
-      final result = await ApiService.deleteRequestData(ApiEndPoint.deleteProduct+'$id/', context);
+      final result = await ApiService.deleteRequestData(ApiEndPoint.deleteProduct+'$id/', context, sendToken: true);
       return ApiResponse.completed(result);
     }catch (e) {
       printLog("ApiException: ${e}");

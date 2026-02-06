@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:taptrade/Models/SignUpRequestModel/signUpRequestModel.dart';
-import 'package:taptrade/Screens/Auth/CreateAccount/verifyEmailOtp.dart';
+import 'package:taptrade/Screens/Auth/CreateAccount/createPhoneNumber.dart';
 import 'package:taptrade/Services/IntegrationServices/authService.dart';
-import 'package:taptrade/Services/IntegrationServices/firebaseEmailAuthService.dart';
 import 'package:taptrade/Utills/appColors.dart';
-import 'package:taptrade/Utills/showMessages.dart';
 import 'package:taptrade/Widgets/Auth/auth_scaffold.dart';
 
 class CreateEmailScreen extends StatefulWidget {
@@ -45,40 +43,6 @@ class _CreateEmailScreenState extends State<CreateEmailScreen> {
     return null;
   }
 
-  Future<void> _sendVerificationEmail(String email) async {
-    setState(() => isLoading = true);
-
-    final password = widget.requestModel.password ?? '';
-
-    if (password.isEmpty) {
-      setState(() {
-        isLoading = false;
-        emailError = 'Password is required. Please go back and try again.';
-      });
-      return;
-    }
-
-    final userCredential =
-        await FirebaseEmailAuthService.instance.createUserAndSendVerification(
-      email: email,
-      password: password,
-      context: context,
-    );
-
-    setState(() => isLoading = false);
-
-    if (userCredential != null) {
-      ShowMessage.notify(context, 'Verification email sent to $email');
-      widget.requestModel.email = email;
-
-      Get.to(() => VerifyEmailOtpScreen(
-            requestModel: widget.requestModel,
-            email: email,
-            userCredential: userCredential,
-          ));
-    }
-  }
-
   Future<void> _handleContinue() async {
     final validation = _validateEmail(emailCon.text.trim());
     if (validation != null) {
@@ -91,9 +55,9 @@ class _CreateEmailScreenState extends State<CreateEmailScreen> {
       emailError = null;
     });
 
+    // Check if email already exists
     String checkEmail = "email=${emailCon.text.trim()}";
-    final result =
-        await AuthService.instance.checkUserNameAndEmail(context, checkEmail);
+    final result = await AuthService.instance.checkUserNameAndEmail(context, checkEmail);
 
     setState(() => isLoading = false);
 
@@ -106,7 +70,9 @@ class _CreateEmailScreenState extends State<CreateEmailScreen> {
       bool exists = result['exists'] ?? false;
 
       if (!exists) {
-        await _sendVerificationEmail(emailCon.text.trim());
+        // Email is available, save it and continue to phone number
+        widget.requestModel.email = emailCon.text.trim();
+        Get.to(() => CreatePhoneNumberScreen(requestModel: widget.requestModel));
       } else {
         setState(() => emailError = 'This email is already registered');
       }
@@ -121,7 +87,7 @@ class _CreateEmailScreenState extends State<CreateEmailScreen> {
       showBackButton: true,
       showProgress: true,
       currentStep: 4,
-      totalSteps: 4,
+      totalSteps: 5,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -133,17 +99,17 @@ class _CreateEmailScreenState extends State<CreateEmailScreen> {
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w800,
-              color: AppColors.darkBlue,
+              color: AppColors.primaryText(context),
             ),
           ),
 
           const SizedBox(height: 12),
 
           Text(
-            'We\'ll send you a verification link to confirm your account.',
+            'We\'ll use this to keep you updated about your trades.',
             style: TextStyle(
               fontSize: 15,
-              color: AppColors.darkBlue.withOpacity(0.6),
+              color: AppColors.secondaryText(context),
               height: 1.5,
             ),
           ),
@@ -168,7 +134,7 @@ class _CreateEmailScreenState extends State<CreateEmailScreen> {
                 const SizedBox(height: 32),
 
                 AuthPrimaryButton(
-                  text: 'Send Verification',
+                  text: 'Continue',
                   isLoading: isLoading,
                   onPressed: _handleContinue,
                 ),
@@ -177,6 +143,20 @@ class _CreateEmailScreenState extends State<CreateEmailScreen> {
           ),
 
           const SizedBox(height: 24),
+
+          // Info note
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              'No verification needed. We just need your email to contact you about your trades.',
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.secondaryText(context),
+                height: 1.4,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
         ],
       ),
     );

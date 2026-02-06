@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:taptrade/Services/LocationService/locationService.dart';
 import 'package:taptrade/Utills/appColors.dart';
+import 'package:taptrade/l10n/app_localizations.dart';
 
 class LocationPickerScreen extends StatefulWidget {
   const LocationPickerScreen({Key? key, this.initialPosition}) : super(key: key);
@@ -56,11 +57,11 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
     final LatLng initPos = _center ?? _getLatLngFromService();
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.backgroundColor(context),
         elevation: 0,
-        title: const Text('Pick Location', style: TextStyle(color: AppColors.primaryTextColor, fontWeight: FontWeight.w700)),
+        title: Text(AppLocalizations.of(context)?.pickLocation ?? 'Pick Location', style: TextStyle(color: AppColors.primaryText(context), fontWeight: FontWeight.w700)),
         leading: IconButton(
-          icon: const Icon(Icons.close_rounded, color: AppColors.primaryTextColor),
+          icon: Icon(Icons.close_rounded, color: AppColors.primaryText(context)),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
@@ -72,14 +73,14 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                 'address': _address,
               });
             },
-            child: const Text('Use', style: TextStyle(color: AppColors.primaryTextColor, fontWeight: FontWeight.w700)),
+            child: Text(AppLocalizations.of(context)?.use ?? 'Use', style: TextStyle(color: AppColors.primaryText(context), fontWeight: FontWeight.w700)),
           ),
         ],
       ),
       body: Stack(
         children: [
           if (_loading)
-            const Center(child: CircularProgressIndicator(color: AppColors.primaryTextColor))
+            Center(child: CircularProgressIndicator(color: AppColors.primaryText(context)))
           else
             GoogleMap(
               initialCameraPosition: CameraPosition(target: initPos, zoom: 12),
@@ -104,7 +105,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
             right: 16,
             bottom: 24,
             child: Material(
-              color: Colors.white,
+              color: AppColors.contentBg(context),
               elevation: 2,
               borderRadius: BorderRadius.circular(12),
               child: Padding(
@@ -112,7 +113,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                 child: Text(
                   _address.isEmpty ? 'Move the map to choose a location' : _address,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: AppColors.primaryTextColor),
+                  style: TextStyle(color: AppColors.primaryText(context)),
                 ),
               ),
             ),

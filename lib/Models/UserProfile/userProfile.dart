@@ -27,6 +27,7 @@ class UserData {
   String? email;
   String? username;
   String? contact;
+  String? countryCode;
   String? userType;
   bool? isActive;
   bool? isAdmin;
@@ -42,12 +43,15 @@ class UserData {
   String? dob;
   String? gender;
   bool? isProfileComplete;
+  bool? phoneVerified;
+  bool? emailVerified;
 
   UserData(
       {this.id,
         this.email,
         this.username,
         this.contact,
+        this.countryCode,
         this.userType,
         this.isActive,
         this.isAdmin,
@@ -63,6 +67,8 @@ class UserData {
         this.dob,
         this.gender,
         this.isProfileComplete,
+        this.phoneVerified,
+        this.emailVerified,
       });
 
   UserData.fromJson(Map<String, dynamic> json) {
@@ -70,6 +76,7 @@ class UserData {
     email = json['email']?.toString() ?? '';
     username = json['username']?.toString() ?? '';
     contact = json['contact']?.toString() ?? '';
+    countryCode = json['country_code']?.toString() ?? '';
     userType = json['user_type']?.toString() ?? '';
     isActive = json['is_active'] ?? false;
     isAdmin = json['is_admin'] ?? false;
@@ -85,6 +92,8 @@ class UserData {
     dob = json['dob']?.toString() ?? '';
     gender = json['gender']?.toString() ?? '';
     isProfileComplete = json['is_profile_completed'] ?? false;
+    phoneVerified = json['phone_verified'] ?? false;
+    emailVerified = json['email_verified'] ?? false;
   }
 
   Map<String, dynamic> toJson() {
@@ -93,6 +102,7 @@ class UserData {
     data['email'] = email ?? '';
     data['username'] = username ?? '';
     data['contact'] = contact ?? '';
+    data['country_code'] = countryCode ?? '';
     data['user_type'] = userType ?? '';
     data['is_active'] = isActive ?? false;
     data['is_admin'] = isAdmin ?? false;
@@ -108,6 +118,8 @@ class UserData {
     data['dob'] = dob ?? '';
     data['gender'] = gender ?? '';
     data['is_profile_completed'] = isProfileComplete ?? false;
+    data['phone_verified'] = phoneVerified ?? false;
+    data['email_verified'] = emailVerified ?? false;
     return data;
   }
 

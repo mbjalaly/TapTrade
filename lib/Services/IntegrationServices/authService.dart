@@ -49,9 +49,14 @@ class AuthService {
         ShowMessage.inDialog(context, errorMessage.capitalizeFirst.toString(), true);
         return ApiResponse.error(errorMessage);
       } catch (parseError) {
-        // If JSON parsing fails, show the raw message
-        ShowMessage.inDialog(context, 'An error occurred. Please try again.', true);
-        return ApiResponse.error('An error occurred');
+        // If JSON parsing fails, use the raw message if it's not empty, otherwise default error
+        String rawMessage = e.message.toString();
+        // Clean up common prefixes if present
+        rawMessage = rawMessage.replaceAll('Exception:', '').trim();
+        
+        String finalError = rawMessage.isNotEmpty ? rawMessage : 'An error occurred';
+        ShowMessage.inDialog(context, finalError, true);
+        return ApiResponse.error(finalError);
       }
     } else {
       return ApiResponse.error(e.toString());
@@ -107,6 +112,106 @@ class AuthService {
       } else {
         return ApiResponse.error(e.toString());
       }
+    }
+  }
+
+  /// Send password reset OTP to user's phone number
+  /// This initiates the password reset flow by sending a verification code
+  /// Returns success status and verification_id for the next step
+  Future<ApiResponse<dynamic>> sendPasswordResetOtp(
+    BuildContext context,
+    String phoneNumber,
+  ) async {
+    try {
+      printLog("AuthService: Sending password reset OTP to $phoneNumber");
+
+      Map<String, dynamic> body = {
+        'phone': phoneNumber,
+      };
+
+      final result = await ApiService.postRequestData(
+        ApiEndPoint.forgotPassword,
+        body,
+        context,
+        sendToken: false, // No auth required for password reset initiation
+      );
+
+      printLog("AuthService: Password reset OTP sent - ${result['message']}");
+      return ApiResponse.completed(result);
+    } catch (e) {
+      return _handleApiError(e, context);
+    }
+  }
+
+  /// Verify password reset OTP and get reset token
+  /// This verifies the OTP code and returns a reset_token for the final step
+  /// Returns success status and reset_token
+  Future<ApiResponse<dynamic>> verifyPasswordResetOtp(
+    BuildContext context,
+    String phoneNumber,
+    String code,
+    String verificationId,
+  ) async {
+    try {
+      printLog("AuthService: Verifying password reset OTP for $phoneNumber");
+
+      Map<String, dynamic> body = {
+        'phone': phoneNumber,
+        'code': code,
+        'verification_id': verificationId,
+      };
+
+      final result = await ApiService.postRequestData(
+        ApiEndPoint.verifyResetOtp,
+        body,
+        context,
+        sendToken: false, // No auth required for OTP verification
+      );
+
+      if (result['success'] == true && result['reset_token'] != null) {
+        printLog("AuthService: Password reset OTP verified successfully");
+        return ApiResponse.completed(result);
+      } else {
+        printLog("AuthService: Password reset OTP verification failed: ${result['message']}");
+        return ApiResponse.error(result['message'] ?? 'Verification failed');
+      }
+    } catch (e) {
+      return _handleApiError(e, context);
+    }
+  }
+
+  /// Reset password with verified reset token
+  /// This is the final step that updates the user's password
+  /// Returns success status
+  Future<ApiResponse<dynamic>> resetPassword(
+    BuildContext context,
+    String resetToken,
+    String newPassword,
+  ) async {
+    try {
+      printLog("AuthService: Resetting password with token");
+
+      Map<String, dynamic> body = {
+        'reset_token': resetToken,
+        'new_password': newPassword,
+      };
+
+      final result = await ApiService.postRequestData(
+        ApiEndPoint.resetPassword,
+        body,
+        context,
+        sendToken: false, // No auth required, using reset_token instead
+      );
+
+      if (result['success'] == true) {
+        printLog("AuthService: Password reset successfully");
+        return ApiResponse.completed(result);
+      } else {
+        printLog("AuthService: Password reset failed: ${result['message']}");
+        return ApiResponse.error(result['message'] ?? 'Password reset failed');
+      }
+    } catch (e) {
+      return _handleApiError(e, context);
     }
   }
 
@@ -241,6 +346,41 @@ class AuthService {
         'success': false,
         'exists': true, // Assume exists on error to prevent proceeding
       };
+    }
+  }
+
+  /// Verify phone OTP via UnoSend backend
+  /// This method coordinates with the backend SMS verification system
+  /// Returns success status and verification result
+  Future<ApiResponse<dynamic>> verifyPhoneOtp(
+    BuildContext context,
+    String phoneNumber,
+    String otp,
+  ) async {
+    try {
+      printLog("AuthService: Verifying phone OTP for $phoneNumber");
+
+      Map<String, dynamic> body = {
+        'phone': phoneNumber,
+        'code': otp,
+      };
+
+      final result = await ApiService.postRequestData(
+        ApiEndPoint.verifySmsOtp,
+        body,
+        context,
+        sendToken: false,
+      );
+
+      if (result['success'] == true && result['phone_verified'] == true) {
+        printLog("AuthService: Phone verified successfully");
+        return ApiResponse.completed(result);
+      } else {
+        printLog("AuthService: Phone verification failed: ${result['message']}");
+        return ApiResponse.error(result['message'] ?? 'Verification failed');
+      }
+    } catch (e) {
+      return _handleApiError(e, context);
     }
   }
 

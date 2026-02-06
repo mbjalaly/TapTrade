@@ -5,6 +5,7 @@ import 'package:lottie/lottie.dart';
 import 'package:taptrade/Const/globleKey.dart';
 import 'package:taptrade/Controller/productController.dart';
 import 'package:taptrade/Controller/userController.dart';
+import 'package:taptrade/l10n/app_localizations.dart';
 import 'package:taptrade/Screens/GetStarted/getStarted.dart';
 import 'package:taptrade/Services/ApiResponse/apiResponse.dart';
 import 'package:taptrade/Services/IntegrationServices/productService.dart';
@@ -46,7 +47,7 @@ class ShowMessage {
   }
 
   static void _showModernSnackbar(BuildContext context, String text, SnackbarType type) {
-    final colors = _getSnackbarColors(type);
+    final colors = _getSnackbarColors(type, context);
     
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
@@ -103,7 +104,7 @@ class ShowMessage {
     );
   }
 
-  static _SnackbarColors _getSnackbarColors(SnackbarType type) {
+  static _SnackbarColors _getSnackbarColors(SnackbarType type, BuildContext context) {
     switch (type) {
       case SnackbarType.success:
         return _SnackbarColors(
@@ -138,12 +139,12 @@ class ShowMessage {
       case SnackbarType.info:
       default:
         return _SnackbarColors(
-          background: Colors.white,
+          background: AppColors.contentBg(context),
           border: AppColors.primaryColor.withOpacity(0.3),
           iconBackground: AppColors.primaryColor,
-          iconColor: AppColors.darkBlue,
+          iconColor: AppColors.isDark(context) ? AppColors.darkPrimaryTextColor : AppColors.darkBlue,
           icon: Icons.info_outline_rounded,
-          textColor: AppColors.darkBlue,
+          textColor: AppColors.isDark(context) ? AppColors.darkPrimaryTextColor : AppColors.darkBlue,
           shadow: AppColors.darkBlue.withOpacity(0.1),
         );
     }
@@ -350,61 +351,89 @@ class ShowMessage {
     var userController = Get.find<UserController>();
     var productController = Get.find<ProductController>();
     Size size = MediaQuery.of(context).size;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     showDialog(
         barrierDismissible: false,
         context: context,
         builder: (BuildContext context) {
           return AlertDialog(
               actionsPadding: EdgeInsets.zero,
-              contentPadding: const EdgeInsets.all(15),
-              backgroundColor: AppColors.whiteTextColor,
-              surfaceTintColor: AppColors.whiteTextColor,
-              shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(20.0))),
-              // actionsPadding: EdgeInsets.all(10),
-              content: Container(
-                color: Colors.white,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Lottie.asset(
-                      "assets/animation/wrong.json",
-                      height: 120,
+              contentPadding: const EdgeInsets.all(20),
+              backgroundColor: isDark ? AppColors.darkSurface : Colors.white,
+              surfaceTintColor: isDark ? AppColors.darkSurface : Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(20.0)),
+                  side: isDark ? BorderSide(color: Colors.white.withOpacity(0.1)) : BorderSide.none,
+              ),
+              content: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Icon instead of Lottie for better theme support
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryColor.withOpacity(0.1),
+                      shape: BoxShape.circle,
                     ),
-                    const Text(
-                      "Are you sure you want to logout?",
-                      style: TextStyle(
-                          color: AppColors.blackTextColor,
-                          fontSize: 18.0),
-                      textAlign: TextAlign.center,
+                    child: Icon(
+                      Icons.logout_rounded,
+                      color: AppColors.primaryColor,
+                      size: 48,
                     ),
-                    SizedBox(
-                      height: size.height * 0.02,
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        AppButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                          },
-                          width: size.width * 0.25,
-                          height: size.height * 0.05,
-                          text: "No",
-                          textColor: AppColors.primaryColor,
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    AppLocalizations.of(context)?.logout ?? "Logout",
+                    style: TextStyle(
+                        color: isDark ? Colors.white : AppColors.primaryTextColor,
+                        fontSize: 20.0,
+                        fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    AppLocalizations.of(context)?.confirmLogout ?? "Are you sure you want to logout?",
+                    style: TextStyle(
+                        color: isDark ? Colors.white : AppColors.blackTextColor,
+                        fontSize: 15.0),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: size.height * 0.025),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(color: AppColors.primaryColor),
+                            ),
+                          ),
+                          child: Text(
+                            AppLocalizations.of(context)?.cancel ?? "Cancel",
+                            style: TextStyle(
+                              color: AppColors.primaryColor,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
-                        AppButton(
-                          onPressed:
-                              () async {
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () async {
                             userController.clearAllData();
                             productController.clearAllData();
-                                Navigator.pushAndRemoveUntil(
-                                    context,
-                                    MaterialPageRoute(builder: (_) => const GetStartedScreen()),
-                                        (route) => false);
+                            Navigator.pushAndRemoveUntil(
+                                context,
+                                MaterialPageRoute(builder: (_) => const GetStartedScreen()),
+                                    (route) => false);
 
                             await SharedPreferencesService()
                                 .remove(KeyConstants.accessToken);
@@ -412,28 +441,36 @@ class ShowMessage {
                                 .remove(KeyConstants.userId);
                             scaffold.showSnackBar(
                               SnackBar(
-                                backgroundColor:
-                                AppColors.primaryTextColor,
+                                backgroundColor: AppColors.primaryColor,
                                 elevation: 4,
-                                margin: EdgeInsets.all(20),
+                                margin: const EdgeInsets.all(20),
                                 behavior: SnackBarBehavior.floating,
                                 shape: RoundedRectangleBorder(
-                                    side: BorderSide(color: Colors.white),
-                                    borderRadius:
-                                    BorderRadius.circular(10)),
-                                content: Text("Logout successfully"),
+                                    borderRadius: BorderRadius.circular(10)),
+                                content: Text(AppLocalizations.of(context)?.logoutSuccessful ?? "Logout successful", style: const TextStyle(color: Colors.white)),
                               ),
                             );
                           },
-                          width: size.width * 0.25,
-                          height: size.height * 0.05,
-                          text: "Yes",
-                          textColor: AppColors.whiteTextColor,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            AppLocalizations.of(context)?.logout ?? "Logout",
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
-                      ],
-                    )
-                  ],
-                ),
+                      ),
+                    ],
+                  )
+                ],
               ));
         });
   }
@@ -450,23 +487,23 @@ class ShowMessage {
           return AlertDialog(
               actionsPadding: EdgeInsets.zero,
               contentPadding: const EdgeInsets.all(15),
-              backgroundColor: AppColors.whiteTextColor,
-              surfaceTintColor: AppColors.whiteTextColor,
+              backgroundColor: AppColors.contentBg(context),
+              surfaceTintColor: AppColors.contentBg(context),
               shape: const RoundedRectangleBorder(
                   borderRadius: BorderRadius.all(Radius.circular(20.0))),
               // actionsPadding: EdgeInsets.all(10),
               content: Container(
-                color: Colors.white,
+                color: AppColors.contentBg(context),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.info_rounded,color: Colors.red,size: 100,),
-                    const Text(
+                    Text(
                         "Are you sure you want to permanently delete your account?",
                       style: TextStyle(
-                          color: AppColors.blackTextColor,
+                          color: AppColors.textOnBg(context),
                           fontSize: 18.0),
                       textAlign: TextAlign.center,
                     ),
@@ -511,7 +548,7 @@ class ShowMessage {
 
                                 scaffold.showSnackBar(
                                   SnackBar(
-                                    backgroundColor: AppColors.primaryTextColor,
+                                    backgroundColor: AppColors.primaryText(context),
                                     elevation: 4,
                                     margin: const EdgeInsets.all(20),
                                     behavior: SnackBarBehavior.floating,
@@ -526,7 +563,7 @@ class ShowMessage {
                                 AppLoadingPopup.hide();
                                 scaffold.showSnackBar(
                                   SnackBar(
-                                    backgroundColor: AppColors.primaryTextColor,
+                                    backgroundColor: AppColors.primaryText(context),
                                     elevation: 4,
                                     margin: const EdgeInsets.all(20),
                                     behavior: SnackBarBehavior.floating,
@@ -544,7 +581,7 @@ class ShowMessage {
                               AppLoadingPopup.hide();
                               scaffold.showSnackBar(
                                 SnackBar(
-                                  backgroundColor: AppColors.primaryTextColor,
+                                  backgroundColor: AppColors.primaryText(context),
                                   elevation: 4,
                                   margin: const EdgeInsets.all(20),
                                   behavior: SnackBarBehavior.floating,

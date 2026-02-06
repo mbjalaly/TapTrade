@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:taptrade/l10n/app_localizations.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:taptrade/Const/apiEndPoint.dart';
@@ -48,9 +49,9 @@ class _ContactTraderState extends State<ContactTrader> {
                   ],
                 ),
               ),
-              child: const Center(
+              child: Center(
                 child: CircularProgressIndicator(
-                  color: AppColors.primaryTextColor,
+                  color: AppColors.primaryText(context),
                 ),
               )
             ),
@@ -77,7 +78,7 @@ class _ContactTraderState extends State<ContactTrader> {
                           MaterialPageRoute(builder: (_) => const BottomNavigationScreen()),
                               (route) => false);
                     },
-                    text: "Back To Home",
+                    text: AppLocalizations.of(context)?.backToHome ?? "Back To Home",
                     fontSize: size.width*0.043,
                     width: size.width*0.45,
                   ),
@@ -111,7 +112,7 @@ class _ContactTraderState extends State<ContactTrader> {
                     height: size.height * 0.04,
                   ),
                   AppText(
-                    text: "Congratulations",
+                    text: AppLocalizations.of(context)?.congratulations ?? "Congratulations",
                     fontSize: size.width * 0.08,
                     textcolor: AppColors.darkBlue,
                     fontWeight: FontWeight.w900,
@@ -120,7 +121,7 @@ class _ContactTraderState extends State<ContactTrader> {
                     height: size.height * 0.02,
                   ),
                   AppText(
-                    text: "Contact ${(userProfile.data?.fullName ?? '').capitalize} now",
+                    text: (AppLocalizations.of(context)?.contactNow ?? "Contact {name} now").toString().replaceAll('{name}', (userProfile.data?.fullName ?? '').capitalize ?? ''),
                     fontSize: size.width * 0.042,
                     textcolor: AppColors.secondaryColor,
                     fontWeight: FontWeight.w500,

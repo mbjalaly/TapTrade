@@ -180,11 +180,11 @@ class AuthWithGoogle {
       if (result.status == Status.COMPLETED) {
         await SharedPreferencesService().setString(
           KeyConstants.accessToken,
-          result.responseData['data']['access'],
+          result.responseData['data']['access'].toString(),
         );
         await SharedPreferencesService().setString(
           KeyConstants.userId,
-          result.responseData['data']['id'],
+          result.responseData['data']['id'].toString(),
         );
 
         ShowMessage.notify(context, result.responseData['message']);
@@ -205,7 +205,8 @@ class AuthWithGoogle {
         }
       } else {
         AppLoadingPopup.hide();
-        ShowMessage.notify(context, result.responseData['message'].toString());
+        String errorMsg = result.message ?? 'Google Sign-In failed. Please try again.';
+        ShowMessage.notify(context, errorMsg);
       }
 
       print("Firebase Uid: $uId");

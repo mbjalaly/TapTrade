@@ -32,7 +32,7 @@ class _AddProfileScreenState extends State<AddProfileScreen> {
 
   Future<void> _pickImage() async {
     showModalBottomSheet(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.backgroundColor(context),
       context: context,
       builder: (BuildContext context) {
         return SafeArea(
@@ -195,7 +195,7 @@ class _AddProfileScreenState extends State<AddProfileScreen> {
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.backgroundColor(context),
         body: SafeArea(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,

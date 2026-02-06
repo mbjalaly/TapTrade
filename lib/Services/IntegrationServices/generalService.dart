@@ -51,6 +51,18 @@ class GeneralService {
     }
   }
 
+  /// Re-fetch categories and interests with the current locale.
+  /// Called after a language change so cached data reflects the new language.
+  Future<void> refreshLocalizedData() async {
+    final context = getx.Get.context;
+    if (context != null) {
+      await Future.wait([
+        getAllCategories(context),
+        getAllInterests(context),
+      ]);
+    }
+  }
+
   Future<ApiResponse<dynamic>> getAllInterests(
     BuildContext context,
   )

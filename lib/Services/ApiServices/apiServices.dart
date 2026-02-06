@@ -17,7 +17,7 @@ import 'package:taptrade/Utills/showMessages.dart';
 
 class ApiService {
   static const Duration _defaultTimeout = Duration(seconds: 12);
-  static const Duration _fileUploadTimeout = Duration(seconds: 60); // Longer timeout for file uploads
+  static const Duration _fileUploadTimeout = Duration(seconds: 120); // Longer timeout for file uploads (2 minutes)
   static const Duration _largeDataTimeout = Duration(seconds: 30); // Longer timeout for endpoints that return large data (e.g., products with images)
 
   /// Get request with optional token.
@@ -44,6 +44,10 @@ class ApiService {
       Map<String, String> headers = {
         'Content-type': 'application/json',
       };
+
+      // Add Accept-Language header for localization
+      final locale = getx.Get.locale?.languageCode ?? 'en';
+      headers['Accept-Language'] = locale;
 
       // Add Authorization header if token is available
       if (useToken && token != null) {
@@ -279,6 +283,9 @@ class ApiService {
       String? token;
       if (sendToken) {
         token = await SharedPreferencesService().getString(KeyConstants.accessToken);
+        if (kDebugMode) {
+          printLog("Token value: $token");
+        }
       }
 
       // Make the HTTP DELETE request
@@ -297,6 +304,12 @@ class ApiService {
             },
           )
           .timeout(_defaultTimeout);
+
+      if (kDebugMode) {
+        printLog("Response Status Code: ${response.statusCode}");
+        printLog("Response Code: ${response.statusCode}");
+        printLog("Response Body: ${response.body}");
+      }
 
       responseJson = _returnListResponse(response, context);
       return responseJson;
@@ -386,7 +399,7 @@ dynamic _returnListResponse(http.Response response, BuildContext context) {
     if(response.statusCode == 401){
       var responseJson = json.decode(response.body.toString());
       // Safely check for token validation error
-      if(responseJson['errors'] != null && 
+      if(responseJson['errors'] != null &&
          responseJson['errors']['code'] == "token_not_valid"){
         SharedPreferencesService()
             .remove(KeyConstants.accessToken);
@@ -401,6 +414,9 @@ dynamic _returnListResponse(http.Response response, BuildContext context) {
           backgroundColor: AppColors.primaryTextColor,
           icon: const Icon(Icons.add_alert, color: AppColors.whiteTextColor),
         );
+      } else {
+        // For other 401 errors (like login failures), throw ApiException
+        throw ApiException(response.body.toString(), response.statusCode);
       }
     } else {
       // Handle server errors (500, etc.) with proper JSON parsing

@@ -25,10 +25,12 @@ class ApiEndPoint {
   static String get addSingleProducts => '${baseUrl}add_products/';
   static String get addUserProducts => '${baseUrl}add_user_products/';
   static String get addPreference => '${baseUrl}api/trade/preferences/';
-  static String get updatePreference => '${baseUrl}update-interests/';
+  static String get updatePreference => '${baseUrl}api/trade/preferences/';
   static String get getPreference => '${baseUrl}api/trade/getuserpreferences/';
   static String get matchingProduct => '${baseUrl}api/trade/api/nearby-users/';
   static String get likeProduct => '${baseUrl}api/trade/matchfeedback/user/';
+  static String get dislikedProducts => '${baseUrl}api/trade/disliked-products/';
+  static String get removeDislike => '${baseUrl}api/trade/disliked-products/';
   static String get myProduct => '${baseUrl}getallproducts/';
   static String get tradeRequestProduct => '${baseUrl}api/trade/trade-requests/';
   static String get productLikeAndDisLike => '${baseUrl}api/trade/create-matchfeedback/';
@@ -40,7 +42,16 @@ class ApiEndPoint {
   static String get deleteProduct => '${baseUrl}delete_products/';
   static String get updateProduct => '${baseUrl}update_products/';
   static String get deleteUser => '${baseUrl}api/user/delete/';
-  static String get forgotPassword => '${baseUrl}api/user/forgotpassword/';
+  static String activateProduct(int id) => '${baseUrl}activate_product/$id/';
+
+  // Password Reset Endpoints (Phone OTP-based)
+  static String get forgotPassword => '${baseUrl}api/user/forgot-password/';
+  static String get verifyResetOtp => '${baseUrl}api/user/verify-reset-otp/';
+  static String get resetPassword => '${baseUrl}api/user/reset-password/';
+
+  // SMS OTP Endpoints (UnoSend)
+  static String get sendSmsOtp => '${baseUrl}api/sms/send-otp/';
+  static String get verifySmsOtp => '${baseUrl}api/sms/verify-otp/';
 
   // Payment URL - separate service, also configurable
   static String get paymentUrl => AppConfig.paymentApiUrl;

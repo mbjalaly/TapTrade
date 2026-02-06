@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:taptrade/Const/globleKey.dart';
 import 'package:taptrade/Controller/productController.dart';
+import 'package:taptrade/l10n/app_localizations.dart';
 import 'package:taptrade/Models/MatchProduct/matchProduct.dart';
 import 'package:taptrade/Models/MyProductModel/myProductModel.dart';
 import 'package:taptrade/Services/IntegrationServices/generalService.dart';
 import 'package:taptrade/Services/IntegrationServices/productService.dart';
 import 'package:taptrade/Utills/appColors.dart';
 import 'package:taptrade/Widgets/customText.dart';
+import 'package:taptrade/Widgets/saudi_riyal_symbol.dart';
 
 class ProductDetailsScreen extends StatefulWidget {
   final MatchData matchData;
@@ -153,19 +155,19 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     final images = _getProductImages();
     
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.backgroundColor(context),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.backgroundColor(context),
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.primaryTextColor),
+          icon: Icon(Icons.arrow_back, color: AppColors.primaryText(context)),
           onPressed: () => Navigator.pop(context),
         ),
         title: AppText(
-          text: 'Product Details',
+          text: AppLocalizations.of(context)?.productDetails ?? 'Product Details',
           fontWeight: FontWeight.w600,
           fontSize: size.width * 0.045,
-          textcolor: AppColors.primaryTextColor,
+          textcolor: AppColors.primaryText(context),
         ),
         centerTitle: true,
       ),
@@ -178,15 +180,15 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               height: size.height * 0.4,
               width: double.infinity,
               decoration: BoxDecoration(
-                color: Colors.grey[100],
+                color: AppColors.surfaceVariantColor(context),
               ),
               child: images.isEmpty
                   ? Container(
-                      color: Colors.grey[300],
-                      child: const Icon(
+                      color: AppColors.surfaceVariantColor(context),
+                      child: Icon(
                         Icons.image_not_supported,
                         size: 80,
-                        color: Colors.grey,
+                        color: AppColors.greyText(context),
                       ),
                     )
                   : Stack(
@@ -207,11 +209,11 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                               width: double.infinity,
                               errorBuilder: (context, error, stackTrace) {
                                 return Container(
-                                  color: Colors.grey[300],
-                                  child: const Icon(
+                                  color: AppColors.surfaceVariantColor(context),
+                                  child: Icon(
                                     Icons.image_not_supported,
                                     size: 80,
-                                    color: Colors.grey,
+                                    color: AppColors.greyText(context),
                                   ),
                                 );
                               },
@@ -283,10 +285,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 children: [
                   // Product Title
                   AppText(
-                    text: otherProduct?.title ?? 'No title',
+                    text: otherProduct?.title ?? (AppLocalizations.of(context)?.noTitle ?? 'No title'),
                     fontWeight: FontWeight.w700,
                     fontSize: size.width * 0.055,
-                    textcolor: AppColors.primaryTextColor,
+                    textcolor: AppColors.primaryText(context),
                   ),
                   
                   const SizedBox(height: 16),
@@ -295,34 +297,81 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      color: AppColors.primaryTextColor.withOpacity(0.1),
+                      color: AppColors.primaryText(context).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
                       children: [
-                        const Icon(
-                          Icons.attach_money,
-                          color: AppColors.primaryTextColor,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        AppText(
-                          text: '\$${otherProduct?.minPrice ?? '0'} - \$${otherProduct?.maxPrice ?? '0'}',
-                          fontWeight: FontWeight.w600,
+                        SaudiRiyalFormatter.formatRange(
+                          otherProduct?.minPrice ?? '0',
+                          otherProduct?.maxPrice ?? '0',
                           fontSize: size.width * 0.045,
-                          textcolor: AppColors.primaryTextColor,
+                          color: AppColors.primaryText(context),
+                          fontWeight: FontWeight.w600,
                         ),
                       ],
                     ),
                   ),
-                  
+
                   const SizedBox(height: 20),
-                  
+
+                  // DESCRIPTION SECTION - NEW
+                  if (otherProduct?.description != null && otherProduct!.description!.trim().isNotEmpty)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.description_outlined,
+                              color: AppColors.primaryText(context),
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            AppText(
+                              text: AppLocalizations.of(context)?.descriptionLabel ?? 'Description',
+                              fontWeight: FontWeight.w600,
+                              fontSize: size.width * 0.04,
+                              textcolor: AppColors.primaryText(context).withOpacity(0.7),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceVariantColor(context).withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppColors.outlineColor(context).withOpacity(0.3)),
+                          ),
+                          child: AppText(
+                            text: otherProduct.description!,
+                            fontSize: size.width * 0.038,
+                            textcolor: AppColors.primaryText(context),
+                            fontWeight: FontWeight.w400,
+                            maxLines: null, // Allow unlimited lines
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                    ),
+
+                  // QUANTITY SECTION - NEW
+                  _buildDetailRow(
+                    icon: Icons.inventory_2_outlined,
+                    label: AppLocalizations.of(context)?.quantityAvailable ?? 'Quantity Available',
+                    value: (otherProduct?.quantity ?? 1).toString(),
+                    size: size,
+                  ),
+
+                  const SizedBox(height: 16),
+
                   // Product Condition
                   _buildDetailRow(
                     icon: Icons.check_circle_outline,
-                    label: 'Condition',
-                    value: otherProduct?.productCondition ?? 'Not specified',
+                    label: AppLocalizations.of(context)?.condition ?? 'Condition',
+                    value: otherProduct?.productCondition ?? (AppLocalizations.of(context)?.notSpecified ?? 'Not specified'),
                     size: size,
                   ),
                   
@@ -331,7 +380,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   // Category
                   _buildDetailRow(
                     icon: Icons.category_outlined,
-                    label: 'Category',
+                    label: AppLocalizations.of(context)?.category ?? 'Category',
                     value: _getCategoryName(otherProduct?.category),
                     size: size,
                   ),
@@ -341,8 +390,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                   // Status
                   _buildDetailRow(
                     icon: Icons.info_outline,
-                    label: 'Status',
-                    value: otherProduct?.status ?? 'Not specified',
+                    label: AppLocalizations.of(context)?.status ?? 'Status',
+                    value: otherProduct?.status ?? (AppLocalizations.of(context)?.notSpecified ?? 'Not specified'),
                     size: size,
                   ),
                   
@@ -359,17 +408,17 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.grey[300],
-                            foregroundColor: AppColors.primaryTextColor,
+                            foregroundColor: AppColors.primaryText(context),
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
                           child: AppText(
-                            text: 'Back to Swipe',
+                            text: AppLocalizations.of(context)?.backToSwipe ?? 'Back to Swipe',
                             fontWeight: FontWeight.w600,
                             fontSize: size.width * 0.045,
-                            textcolor: AppColors.primaryTextColor,
+                            textcolor: AppColors.primaryText(context),
                           ),
                         ),
                       ),
@@ -395,7 +444,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       children: [
         Icon(
           icon,
-          color: AppColors.primaryTextColor.withOpacity(0.7),
+          color: AppColors.primaryText(context).withOpacity(0.7),
           size: 20,
         ),
         const SizedBox(width: 12),
@@ -407,14 +456,14 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 text: label,
                 fontWeight: FontWeight.w500,
                 fontSize: size.width * 0.04,
-                textcolor: AppColors.primaryTextColor.withOpacity(0.7),
+                textcolor: AppColors.primaryText(context).withOpacity(0.7),
               ),
               const SizedBox(height: 2),
               AppText(
                 text: value,
                 fontWeight: FontWeight.w600,
                 fontSize: size.width * 0.042,
-                textcolor: AppColors.primaryTextColor,
+                textcolor: AppColors.primaryText(context),
               ),
             ],
           ),

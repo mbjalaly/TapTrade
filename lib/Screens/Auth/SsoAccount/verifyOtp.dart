@@ -12,6 +12,7 @@ import 'package:taptrade/Services/IntegrationServices/profileService.dart';
 import 'package:taptrade/Services/SharedPreferenceService/sharePreferenceService.dart';
 import 'package:taptrade/Utills/appColors.dart';
 import 'package:taptrade/Utills/showMessages.dart';
+import 'package:taptrade/l10n/app_localizations.dart';
 import 'package:taptrade/Widgets/customButtom.dart';
 import 'package:taptrade/Widgets/customPinCode.dart';
 import 'package:taptrade/Widgets/customText.dart';
@@ -99,13 +100,14 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
   
   /// Verify OTP with Firebase
   Future<void> _verifyOtp() async {
+    final l10n = AppLocalizations.of(context)!;
     if (otpController.text.trim().isEmpty) {
-      ShowMessage.notify(context, "Please enter the OTP code");
+      ShowMessage.notify(context, l10n.pleaseEnterOtp);
       return;
     }
-    
+
     if (otpController.text.trim().length < 6) {
-      ShowMessage.notify(context, "Please enter a valid 6-digit OTP");
+      ShowMessage.notify(context, l10n.pleaseEnterValid6DigitOtp);
       return;
     }
     
@@ -216,7 +218,7 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
           isResending = false;
         });
         _startResendTimer();
-        ShowMessage.notify(context, "OTP resent successfully!");
+        ShowMessage.notify(context, AppLocalizations.of(context)!.otpResentSuccess);
       },
       onAutoVerify: (PhoneAuthCredential credential) async {
         setState(() {
@@ -237,10 +239,11 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
   
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.backgroundColor(context),
         body: SafeArea(
           child: SingleChildScrollView(
             child: Column(
@@ -269,7 +272,7 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
                     top: Get.height * 0.03,
                   ),
                   child: AppText(
-                    text: "Enter OTP",
+                    text: l10n.enterOtp,
                     fontSize: Get.width * 0.065,
                     textcolor: AppColors.darkBlue,
                     fontWeight: FontWeight.w500,
@@ -282,7 +285,7 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
                       top: Get.height * 0.01,
                     ),
                     child: AppText(
-                      text: "Code sent to ${widget.phoneNumber}",
+                      text: l10n.verificationCodeSentTo(widget.phoneNumber!),
                       fontSize: Get.width * 0.035,
                       textcolor: Colors.grey,
                       fontWeight: FontWeight.w400,
@@ -310,7 +313,7 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
                 Center(
                   child: _resendSeconds > 0
                       ? AppText(
-                          text: "Resend code in ${_resendSeconds}s",
+                          text: l10n.resendCodeIn(_resendSeconds.toString()),
                           fontSize: Get.width * 0.035,
                           textcolor: Colors.grey,
                           fontWeight: FontWeight.w400,
@@ -326,7 +329,7 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
                                   ),
                                 )
                               : AppText(
-                                  text: "Resend OTP",
+                                  text: l10n.resendCode,
                                   fontSize: Get.width * 0.035,
                                   textcolor: AppColors.darkBlue,
                                   fontWeight: FontWeight.w600,
@@ -340,7 +343,7 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
                   child: AppButton(
                     onPressed: isLoading ? () {} : _verifyOtp,
                     isLoading: isLoading,
-                    text: "VERIFY",
+                    text: l10n.verify,
                     fontSize: Get.width * 0.043,
                     width: Get.width * 0.88,
                   ),

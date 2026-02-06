@@ -35,8 +35,10 @@ class Data {
   int? id;
   String? category;
   String? title;
+  String? description;
   String? minPrice;
   String? maxPrice;
+  int? quantity;
   String? image;
   List<String>? images;
   String? productCondition;
@@ -46,8 +48,10 @@ class Data {
     this.id,
     this.category,
     this.title,
+    this.description,
     this.minPrice,
     this.maxPrice,
+    this.quantity,
     this.image,
     this.images,
     this.productCondition,
@@ -58,14 +62,20 @@ class Data {
     id = json['id'] ?? 0;
     category = json['category'] ?? '';
     title = json['title'] ?? '';
+    description = json['description'] ?? '';
     // Handle both int and string for prices (backend may send either)
     final minPriceValue = json['min_price'];
     minPrice = minPriceValue != null ? minPriceValue.toString() : '';
     final maxPriceValue = json['max_price'];
     maxPrice = maxPriceValue != null ? maxPriceValue.toString() : '';
+    quantity = json['quantity'] is int ? json['quantity'] : (int.tryParse(json['quantity']?.toString() ?? '1') ?? 1);
     image = json['image'] ?? '';
     if (json['images'] is List) {
-      images = (json['images'] as List).map((e) => e.toString()).toList();
+      // Remove duplicates by converting to Set and back to List
+      images = (json['images'] as List)
+          .map((e) => e.toString())
+          .toSet()
+          .toList();
     } else {
       images = [];
     }
@@ -78,8 +88,10 @@ class Data {
     data['id'] = id ?? 0;
     data['category'] = category ?? '';
     data['title'] = title ?? '';
+    data['description'] = description ?? '';
     data['min_price'] = minPrice ?? '';
     data['max_price'] = maxPrice ?? '';
+    data['quantity'] = quantity ?? 1;
     data['image'] = image ?? '';
     if (images != null) {
       data['images'] = images;

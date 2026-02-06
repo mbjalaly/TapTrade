@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:taptrade/l10n/app_localizations.dart';
 import 'package:get/get.dart';
 import 'package:taptrade/Const/globleKey.dart';
 import 'package:taptrade/Screens/Auth/ForgetPassword/forgetPassword.dart';
@@ -51,16 +52,16 @@ class _LoginScreenState extends State<LoginScreen> {
     bool hasError = false;
 
     if (emailController.text.isEmpty) {
-      setState(() => emailError = 'Please enter your email');
+      setState(() => emailError = AppLocalizations.of(context)?.pleaseEnterEmail ?? 'Please enter your email');
       hasError = true;
     } else if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
         .hasMatch(emailController.text.trim())) {
-      setState(() => emailError = 'Please enter a valid email');
+      setState(() => emailError = AppLocalizations.of(context)?.pleaseEnterValidEmail ?? 'Please enter a valid email');
       hasError = true;
     }
 
     if (passwordController.text.isEmpty) {
-      setState(() => passwordError = 'Please enter your password');
+      setState(() => passwordError = AppLocalizations.of(context)?.pleaseEnterPassword ?? 'Please enter your password');
       hasError = true;
     }
 
@@ -81,6 +82,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final result = await AuthService.instance.login(context, body);
 
       if (result.status == Status.COMPLETED &&
+          result.responseData != null &&
           (result.responseData['success'] ?? false)) {
         await SharedPreferencesService().setString(
           KeyConstants.accessToken,
@@ -136,23 +138,21 @@ class _LoginScreenState extends State<LoginScreen> {
       } else {
         setState(() {
           isLoading = false;
-          // Parse the server response for better error messages
-          final message = result.responseData['message']?.toString().toLowerCase() ?? '';
-          
-          if (message.contains('not found') || message.contains('no user') || message.contains('does not exist')) {
-            emailError = 'No account found with this email';
-          } else if (message.contains('password') || message.contains('invalid') || message.contains('incorrect')) {
-            passwordError = 'Email or password is incorrect';
-          } else {
-            passwordError = 'Email or password is incorrect';
-          }
+          // Get error message from backend
+          final errorMessage = result.message ??
+                              result.responseData?['message']?.toString() ??
+                              AppLocalizations.of(context)?.loginFailed ?? 'Login failed. Please try again.';
+
+          // Show error on password field (more intuitive for users)
+          passwordError = errorMessage;
         });
+
+        // Don't show duplicate notification - error is already shown in dialog by authService
       }
     } catch (e) {
       setState(() {
         isLoading = false;
-        // Network or server error - still show helpful message
-        passwordError = 'Unable to sign in. Please check your connection and try again.';
+        passwordError = 'An unexpected error occurred. Please try again.';
       });
       debugPrint("Login Error: $e");
     }
@@ -164,38 +164,33 @@ class _LoginScreenState extends State<LoginScreen> {
       showBackButton: true,
       child: Column(
         children: [
-          const SizedBox(height: 20),
+          const SizedBox(height: 40),
 
-          // Logo
-          Image.asset(
-            "assets/images/icon2.png",
-            height: 120,
-            fit: BoxFit.contain,
-          ),
-
-          const SizedBox(height: 24),
+          const SizedBox(height: 60),
 
           // Title
           Text(
-            'Welcome Back',
+            AppLocalizations.of(context)?.welcomeBack ?? 'Welcome Back',
             style: TextStyle(
-              fontSize: 28,
+              fontSize: 32,
               fontWeight: FontWeight.w800,
-              color: AppColors.darkBlue,
+              color: AppColors.primaryText(context),
+              letterSpacing: -0.5,
             ),
           ),
 
           const SizedBox(height: 8),
 
           Text(
-            'Sign in to continue trading',
+            AppLocalizations.of(context)?.signInToContinue ?? 'Sign in to continue',
             style: TextStyle(
-              fontSize: 15,
-              color: AppColors.darkBlue.withOpacity(0.6),
+              fontSize: 16,
+              color: AppColors.secondaryText(context),
+              fontWeight: FontWeight.w500,
             ),
           ),
 
-          const SizedBox(height: 32),
+          const SizedBox(height: 40),
 
           // Login form card
           AuthCard(
@@ -204,8 +199,8 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 AuthTextField(
                   controller: emailController,
-                  label: 'Email',
-                  hint: 'example@gmail.com',
+                  label: AppLocalizations.of(context)?.email ?? 'Email',
+                  hint: AppLocalizations.of(context)?.enterEmail ?? 'Enter your email',
                   keyboardType: TextInputType.emailAddress,
                   errorText: emailError,
                   onChanged: (_) => _clearErrors(),
@@ -215,8 +210,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 AuthTextField(
                   controller: passwordController,
-                  label: 'Password',
-                  hint: '••••••••',
+                  label: AppLocalizations.of(context)?.password ?? 'Password',
+                  hint: AppLocalizations.of(context)?.enterPassword ?? 'Enter your password',
                   obscureText: obscureText,
                   errorText: passwordError,
                   onChanged: (_) => _clearErrors(),
@@ -225,7 +220,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   },
                 ),
 
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
 
                 // Forgot password link
                 Align(
@@ -233,7 +228,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: GestureDetector(
                     onTap: () => Get.to(() => const ForgetPasswordScreen()),
                     child: Text(
-                      'Forgot Password?',
+                      AppLocalizations.of(context)?.forgotPassword ?? 'Forgot Password?',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -243,11 +238,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 28),
 
                 // Login button
                 AuthPrimaryButton(
-                  text: 'Sign In',
+                  text: AppLocalizations.of(context)?.login ?? 'Sign In',
                   isLoading: isLoading,
                   onPressed: _handleLogin,
                 ),

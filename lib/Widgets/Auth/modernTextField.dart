@@ -54,9 +54,9 @@ class _ModernTextFieldState extends State<ModernTextField> {
   @override
   Widget build(BuildContext context) {
     // Determine border color based on state
-    Color borderColor = AppColors.greyTextColor.withOpacity(0.3);
+    Color borderColor = AppColors.greyText(context).withOpacity(0.3);
     if (!widget.enabled) {
-      borderColor = AppColors.greyTextColor.withOpacity(0.1);
+      borderColor = AppColors.greyText(context).withOpacity(0.1);
     } else if (widget.errorText != null) {
       borderColor = Colors.red;
     } else if (widget.showValidation && widget.isValid) {
@@ -76,7 +76,7 @@ class _ModernTextFieldState extends State<ModernTextField> {
           },
           child: Container(
             decoration: BoxDecoration(
-              color: widget.enabled ? Colors.white : Colors.grey.shade50,
+              color: widget.enabled ? AppColors.contentBg(context) : AppColors.fieldBg(context),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: borderColor,
@@ -93,7 +93,7 @@ class _ModernTextFieldState extends State<ModernTextField> {
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
-                color: widget.enabled ? AppColors.primaryTextColor : AppColors.greyTextColor,
+                color: widget.enabled ? AppColors.primaryText(context) : AppColors.greyText(context),
                 height: 1.5,
               ),
               decoration: InputDecoration(
@@ -104,14 +104,14 @@ class _ModernTextFieldState extends State<ModernTextField> {
                       ? Colors.red
                       : _isFocused
                           ? AppColors.primaryColor
-                          : AppColors.greyTextColor,
+                          : AppColors.greyText(context),
                   fontWeight: FontWeight.w500,
                 ),
                 floatingLabelBehavior: FloatingLabelBehavior.auto,
                 hintText: widget.hint,
                 hintStyle: TextStyle(
                   fontSize: 16,
-                  color: AppColors.hintTextColor ?? AppColors.greyTextColor.withOpacity(0.5),
+                  color: AppColors.hintText(context),
                 ),
                 suffixIcon: widget.suffix,
                 border: InputBorder.none,
@@ -135,7 +135,7 @@ class _ModernTextFieldState extends State<ModernTextField> {
                 fontSize: 13,
                 color: widget.errorText != null
                     ? Colors.red
-                    : AppColors.secondaryTextColor ?? AppColors.greyTextColor,
+                    : AppColors.secondaryText(context),
                 height: 1.3,
               ),
             ),

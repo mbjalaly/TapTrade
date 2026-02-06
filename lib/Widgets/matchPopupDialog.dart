@@ -341,21 +341,21 @@ class _MatchPopupDialogState extends State<MatchPopupDialog>
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) {
                       return Container(
-                        color: AppColors.surfaceVariant,
+                        color: AppColors.surfaceVariantColor(context),
                         child: Icon(
                           Icons.image_not_supported,
                           size: size.width * 0.1,
-                          color: AppColors.greyTextColor,
+                          color: AppColors.greyText(context),
                         ),
                       );
                     },
                   )
                 : Container(
-                    color: AppColors.surfaceVariant,
+                    color: AppColors.surfaceVariantColor(context),
                     child: Icon(
                       Icons.shopping_bag,
                       size: size.width * 0.1,
-                      color: AppColors.greyTextColor,
+                      color: AppColors.greyText(context),
                     ),
                   ),
 
