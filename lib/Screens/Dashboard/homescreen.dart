@@ -43,6 +43,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   double _dragAccumX = 0;
   bool _isSwipeProcessing = false;
   DateTime? _lastSwipeTime;
+  DateTime? _lastResumeTime;
 
   // Product selection radio list
   List<int> selectedProductIds = [];
@@ -84,6 +85,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     WidgetsBinding.instance.addObserver(this);
+    _lastResumeTime = DateTime.now();
     _loadUserProducts();
     getData();
     super.initState();
@@ -117,7 +119,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
-      // When user returns to the app, resync current location and refresh matches
+      // Only refresh if it's been more than 2 minutes since last resume/load
+      // to avoid clearing the swipe deck on brief app switches
+      final now = DateTime.now();
+      if (_lastResumeTime != null && now.difference(_lastResumeTime!).inMinutes < 2) {
+        return;
+      }
+      _lastResumeTime = now;
       getData();
     }
   }
@@ -200,52 +208,61 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   getData() async {
+    final bool isFirstLoad = swipeItems.isEmpty;
     try {
-      setState(() {
-        isLoading = true;
-      });
+      // Only show loading spinner on first load (no existing cards)
+      if (isFirstLoad) {
+        setState(() {
+          isLoading = true;
+        });
+      }
       String id = userController.userProfile.value.data?.id ?? '';
       if (id.isEmpty) {
         print("ERROR: User ID is empty, cannot fetch products");
         return;
       }
 
-      // Sync FCM Token
-      _syncFcmToken();
-
       print("=== FETCHING PRODUCTS FOR USER: $id ===");
 
-      // Ensure location is synced before fetching products
-      await _syncCurrentLocation();
-      print("Location synced successfully");
+      // Fire all independent operations in parallel:
+      // - Fetch products immediately (using server's last-known location)
+      // - Sync location, FCM token, user products, trade prefs in background
+      final productsFuture = ProductService.instance.getMatchProduct(context, id);
 
-      // Load user products if not already loaded
+      // These don't block product loading
+      _syncFcmToken();
+      _syncCurrentLocation().then((_) {
+        // After location syncs, re-fetch products if location may have changed
+        if (mounted && !isFirstLoad) {
+          ProductService.instance.getMatchProduct(context, id).then((_) {
+            if (mounted) addItems();
+          });
+        }
+      });
       if (userProducts.isEmpty) {
-        await _loadUserProducts();
-        print("User products loaded: ${userProducts.length}");
+        _loadUserProducts();
       }
+      ProfileService.instance.getTradePreference(context, id);
 
-      // Nearby candidates within radius
-      print("Fetching nearby products...");
-      await ProductService.instance.getMatchProduct(context, id);
+      // Only await the product fetch — the critical path
+      await productsFuture;
       print("Match products fetched: ${productController.matchedProduct.value.data?.length ?? 0}");
 
-      await ProfileService.instance.getTradePreference(context, id);
       await addItems();
 
       print("=== FETCH COMPLETE: ${swipeItems.length} swipe items ready ===");
     } catch (e) {
       print("ERROR occurred while fetching match products: $e");
-      // Only show error if products actually failed to load
-      if (productController.matchedProduct.value.data == null ||
-          productController.matchedProduct.value.data!.isEmpty) {
+      // Only show error if we have no products to display at all
+      if (swipeItems.isEmpty &&
+          (productController.matchedProduct.value.data == null ||
+          productController.matchedProduct.value.data!.isEmpty)) {
         NotificationService.error(
           title: AppLocalizations.of(context)?.errorLoadingProducts ?? 'Error loading products',
           message: AppLocalizations.of(context)?.checkInternetConnection ?? 'Please check your internet connection and try again',
         );
       }
     } finally {
-      // Only call setState if the widget is still mounted
       if (mounted) {
         setState(() {
           isLoading = false;

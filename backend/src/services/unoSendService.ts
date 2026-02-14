@@ -1,8 +1,8 @@
 import axios, { AxiosError } from 'axios';
 
-// Environment variables
-const UNOSEND_API_KEY = process.env.UNOSEND_API_KEY;
-const UNOSEND_BASE_URL = process.env.UNOSEND_BASE_URL || 'https://www.unosend.co/api';
+// Environment variables - read lazily to ensure dotenv has loaded
+const getApiKey = () => process.env.UNOSEND_API_KEY;
+const getBaseUrl = () => process.env.UNOSEND_BASE_URL || 'https://www.unosend.co/api';
 
 // Request timeout
 const REQUEST_TIMEOUT = 10000; // 10 seconds
@@ -34,7 +34,7 @@ export interface VerifyOtpResponse {
 export async function sendOtp(phone: string, template?: string): Promise<SendOtpResponse> {
   try {
     // Validate API key
-    if (!UNOSEND_API_KEY) {
+    if (!getApiKey()) {
       console.error('[UnoSend] API key not configured');
       return {
         success: false,
@@ -56,7 +56,7 @@ export async function sendOtp(phone: string, template?: string): Promise<SendOtp
 
     // Make API request
     const response = await axios.post(
-      `${UNOSEND_BASE_URL}/v1/sms/verify/send`,
+      `${getBaseUrl()}/v1/sms/verify/send`,
       {
         phone: phone,  // UnoSend API uses 'phone' not 'phone_number'
         template: template || 'Tap Trade verification code is: {code}',  // Custom SMS template
@@ -64,7 +64,7 @@ export async function sendOtp(phone: string, template?: string): Promise<SendOtp
       },
       {
         headers: {
-          'Authorization': `Bearer ${UNOSEND_API_KEY}`,
+          'Authorization': `Bearer ${getApiKey()}`,
           'Content-Type': 'application/json'
         },
         timeout: REQUEST_TIMEOUT
@@ -157,7 +157,7 @@ export async function sendOtp(phone: string, template?: string): Promise<SendOtp
 export async function verifyOtp(phone: string, code: string): Promise<VerifyOtpResponse> {
   try {
     // Validate API key
-    if (!UNOSEND_API_KEY) {
+    if (!getApiKey()) {
       console.error('[UnoSend] API key not configured');
       return {
         success: false,
@@ -188,14 +188,14 @@ export async function verifyOtp(phone: string, code: string): Promise<VerifyOtpR
 
     // Make API request
     const response = await axios.post(
-      `${UNOSEND_BASE_URL}/v1/sms/verify/check`,
+      `${getBaseUrl()}/v1/sms/verify/check`,
       {
         phone: phone,  // UnoSend API uses 'phone' not 'phone_number'
         code: code
       },
       {
         headers: {
-          'Authorization': `Bearer ${UNOSEND_API_KEY}`,
+          'Authorization': `Bearer ${getApiKey()}`,
           'Content-Type': 'application/json'
         },
         timeout: REQUEST_TIMEOUT
@@ -316,7 +316,7 @@ export async function verifyOtp(phone: string, code: string): Promise<VerifyOtpR
  */
 export async function testConnection(): Promise<boolean> {
   try {
-    if (!UNOSEND_API_KEY) {
+    if (!getApiKey()) {
       console.error('[UnoSend] API key not configured');
       return false;
     }

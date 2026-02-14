@@ -2273,7 +2273,8 @@ router.get('/api/trade/api/nearby-users/', requireAuth, async (req: Request, res
       .from('products')
       .select('*')
       .eq('user_id', userId)
-      .eq('status', 'active');
+      .eq('status', 'active')
+      .gt('quantity', 0);
 
     if (!userProducts || userProducts.length === 0) {
       return res.json({
@@ -2431,8 +2432,8 @@ router.get('/api/trade/api/nearby-users/', requireAuth, async (req: Request, res
     });
   } catch (error) {
     console.error('Error fetching nearby users:', error);
-    return res.json({
-      success: true,
+    return res.status(500).json({
+      success: false,
       message: 'Error fetching products',
       matching_products: [],
     });
