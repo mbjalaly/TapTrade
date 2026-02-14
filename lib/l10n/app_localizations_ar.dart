@@ -1747,36 +1747,36 @@ class AppLocalizationsAr extends AppLocalizations {
   String get descriptionLabel => 'الوصف';
 
   @override
-  String get tagline => 'المطلوب لما لا تحتاجه';
+  String get tagline => 'The Wanted for the Unwanted';
 
   @override
-  String get signIn => 'تسجيل الدخول';
+  String get signIn => 'Sign in';
 
   @override
-  String get orDivider => 'أو';
+  String get orDivider => 'or';
 
   @override
-  String get byContinuingYouAgree => 'بالمتابعة، أنت توافق على ';
+  String get byContinuingYouAgree => 'By continuing, you agree to our ';
 
   @override
-  String get terms => 'الشروط';
+  String get terms => 'Terms';
 
   @override
-  String get andWord => ' و ';
+  String get andWord => ' and ';
 
   @override
-  String get enableLocation => 'تفعيل الموقع';
+  String get enableLocation => 'Enable Location';
 
   @override
   String get locationRequiredDescription =>
-      'يحتاج تاب تريد إلى موقعك للعثور على المتداولين القريبين وعرض المنتجات في منطقتك.';
+      'TapTrade needs your location to find nearby traders and show you products in your area.';
 
   @override
-  String get activateProduct => 'تفعيل';
+  String get activateProduct => 'Activate';
 
   @override
-  String get productInactive => 'غير نشط';
+  String get productInactive => 'Inactive';
 
   @override
-  String get productActivatedSuccess => 'تم تفعيل المنتج!';
+  String get productActivatedSuccess => 'Product activated!';
 }

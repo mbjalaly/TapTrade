@@ -8,22 +8,33 @@ let firebaseInitialized = false;
 function initializeFirebase() {
     if (firebaseInitialized) return true;
 
-    const serviceAccountPath = path.join(__dirname, '..', '..', 'firebase-service-account.json');
-
-    if (!fs.existsSync(serviceAccountPath)) {
-        console.log('[Firebase] Service account file not found at:', serviceAccountPath);
-        console.log('[Firebase] Push notifications will be disabled');
-        return false;
-    }
-
     try {
-        const serviceAccount = require(serviceAccountPath);
-        admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount),
-        });
-        firebaseInitialized = true;
-        console.log('[Firebase] Initialized successfully for push notifications');
-        return true;
+        // Option 1: Load from environment variable (for Railway/production)
+        const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+        if (serviceAccountJson) {
+            const serviceAccount = JSON.parse(serviceAccountJson);
+            admin.initializeApp({
+                credential: admin.credential.cert(serviceAccount),
+            });
+            firebaseInitialized = true;
+            console.log('[Firebase] Initialized from environment variable');
+            return true;
+        }
+
+        // Option 2: Load from file (for local development)
+        const serviceAccountPath = path.join(__dirname, '..', '..', 'firebase-service-account.json');
+        if (fs.existsSync(serviceAccountPath)) {
+            const serviceAccount = require(serviceAccountPath);
+            admin.initializeApp({
+                credential: admin.credential.cert(serviceAccount),
+            });
+            firebaseInitialized = true;
+            console.log('[Firebase] Initialized from service account file');
+            return true;
+        }
+
+        console.log('[Firebase] No credentials found. Push notifications disabled.');
+        return false;
     } catch (error) {
         console.error('[Firebase] Failed to initialize:', error);
         return false;
