@@ -1,11 +1,11 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
-import dotenv from 'dotenv';
 import routes from './routes';
 import { startInactivityCron } from './services/inactivityCron';
-
-dotenv.config();
 
 const app = express();
 app.use(cors());
