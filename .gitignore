@@ -1,9 +1,14 @@
 # Miscellaneous
 *.class
 *.log
+*.tmp
+*.bak
+*.orig
+*.rej
 *.pyc
 *.swp
 .DS_Store
+Thumbs.db
 .atom/
 .build/
 .buildlog/
@@ -11,6 +16,7 @@
 .svn/
 .swiftpm/
 migrate_working_dir/
+.claude/
 
 # IntelliJ related
 *.iml
@@ -47,11 +53,12 @@ app.*.map.json
 
 # Railway and Node.js
 node_modules/
+.npm/
+.nyc_output/
+coverage/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-package-lock.json
-yarn.lock
 
 # Railway deployment
 .railway/
@@ -76,12 +83,9 @@ ios/Runner/GoogleService-Info.plist
 *.pem
 key.properties
 
-# SQL schema files
+# Local/manual SQL scratch files. Keep formal migrations if added later.
 *.sql
 !**/migrations/*.sql
-
-# Temporarily excluded
-/web/
 
 # Backend build output
 backend/dist/
