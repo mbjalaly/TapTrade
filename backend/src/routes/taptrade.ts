@@ -3658,8 +3658,6 @@ router.get('/api/matches/', requireAuth, async (req: Request, res: Response) => 
         lastMessage = lastMessageData.message_text;
       }
 
-<<<<<<< HEAD
-=======
       // Look up the trade request that links these two products
       let tradeRequestId = null;
       let tradeRequestStatus: string | null = null;
@@ -3703,7 +3701,6 @@ router.get('/api/matches/', requireAuth, async (req: Request, res: Response) => 
         }
       }
 
->>>>>>> b3a5e6c (fix: tradeRequestStatus scope error causing Railway build failure)
       return {
         match_id: match.id,
         user1_id: match.user1_id,
@@ -3721,7 +3718,9 @@ router.get('/api/matches/', requireAuth, async (req: Request, res: Response) => 
           full_name: `${otherUser?.first_name || ''} ${otherUser?.last_name || ''}`.trim() || otherUser?.username
         },
         my_product: myProduct,
-        other_product: otherProduct
+        other_product: otherProduct,
+        trade_request_id: tradeRequestId,
+        trade_request_status: tradeRequestStatus
       };
     }));
 

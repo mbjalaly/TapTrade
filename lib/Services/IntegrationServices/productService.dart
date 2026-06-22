@@ -738,6 +738,98 @@ class ProductService {
     }
   }
 
+  /// Mark a trade as complete by match ID (looks up trade_request via legacy endpoints)
+  Future<ApiResponse<dynamic>> markTradeCompleteByMatchId(
+    BuildContext context,
+    int matchId,
+  ) async {
+    try {
+      print("=== MARKING TRADE COMPLETE BY MATCH ID: $matchId ===");
+
+      // Step 1: Look up trade requests for current user
+      final prefs2 = await SharedPreferences.getInstance();
+      final userId = prefs2.getString(KeyConstants.userId) ?? '';
+      print("Current user ID: $userId");
+
+      final listResponse = await ApiService.getRequestData(
+        '${ApiEndPoint.baseUrl}api/trade/trade-requests/$userId/',
+        context,
+        useToken: true,
+      );
+
+      final List<dynamic> tradeRequests = listResponse['data'] ?? [];
+      print("Found ${tradeRequests.length} trade requests");
+
+      // Step 2: Find the one for this match (match by user IDs from the match)
+      Map<String, dynamic>? foundRequest;
+      String foundStatus = '';
+      for (final tr in tradeRequests) {
+        final req = tr['requester'] ?? '';
+        final rec = tr['receiver'] ?? '';
+        // Either we are requester or receiver in this trade
+        if (req == userId || rec == userId) {
+          foundRequest = tr;
+          foundStatus = tr['status'] ?? '';
+          print("Found trade request: id=${tr['id']}, status=$foundStatus");
+          break;
+        }
+      }
+
+      if (foundRequest == null) {
+        const msg = 'No trade request found for this match';
+        ShowMessage.inDialog(context, msg, true);
+        return ApiResponse.error(msg);
+      }
+
+      final tradeRequestId = foundRequest['id'] as int;
+
+      // Step 3: Accept if still pending
+      if (foundStatus == 'pending') {
+        print("Accepting trade request $tradeRequestId first...");
+        try {
+          await ApiService.postRequestData(
+            '${ApiEndPoint.baseUrl}api/trade/accept-requests/$tradeRequestId/',
+            {},
+            context,
+            sendToken: true,
+          );
+        } catch (e) {
+          print("Accept step failed (may already be accepted): $e");
+        }
+      }
+
+      // Step 4: Mark complete or confirm complete based on status
+      final endpoint = (foundStatus == 'mark_complete')
+          ? ApiEndPoint.confirmTradeComplete(tradeRequestId)
+          : ApiEndPoint.markTradeComplete(tradeRequestId);
+
+      print("Calling endpoint: $endpoint");
+      final result = await ApiService.postRequestData(
+        endpoint,
+        {},
+        context,
+        sendToken: true,
+      );
+
+      print("Mark complete result: $result");
+      return ApiResponse.completed(result);
+    } catch (e) {
+      printLog("ApiException in markTradeCompleteByMatchId: $e");
+      if (e is ApiException) {
+        try {
+          Map<String, dynamic> errorJson = json.decode(e.message);
+          String msg = errorJson['message'] ?? errorJson['error'] ?? 'Failed to mark trade complete';
+          ShowMessage.inDialog(context, msg, true);
+          return ApiResponse.error(msg);
+        } catch (_) {
+          ShowMessage.inDialog(context, e.message, true);
+          return ApiResponse.error(e.message);
+        }
+      }
+      return ApiResponse.error(e.toString());
+    }
+  }
+
   /// Confirm a trade as complete (second user confirms the trade is done)
   Future<ApiResponse<dynamic>> confirmTradeComplete(
       BuildContext context,

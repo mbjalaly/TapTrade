@@ -11,6 +11,7 @@ class MatchModel {
   int? user1UnreadCount;
   int? user2UnreadCount;
   int? tradeRequestId;
+  String? tradeRequestStatus;
 
   // Enriched data from API
   MatchProductInfo? myProduct;
@@ -30,6 +31,7 @@ class MatchModel {
     this.user1UnreadCount,
     this.user2UnreadCount,
     this.tradeRequestId,
+    this.tradeRequestStatus,
     this.myProduct,
     this.theirProduct,
     this.otherUser,
@@ -52,6 +54,7 @@ class MatchModel {
     user1UnreadCount = json['user1_unread_count'] ?? 0;
     user2UnreadCount = json['user2_unread_count'] ?? 0;
     tradeRequestId = json['trade_request_id'];
+    tradeRequestStatus = json['trade_request_status'];
 
     // Enriched data
     if (json['my_product'] != null) {
@@ -79,6 +82,7 @@ class MatchModel {
       'user1_unread_count': user1UnreadCount,
       'user2_unread_count': user2UnreadCount,
       'trade_request_id': tradeRequestId,
+      'trade_request_status': tradeRequestStatus,
       'my_product': myProduct?.toJson(),
       'their_product': theirProduct?.toJson(),
       'other_user': otherUser?.toJson(),
@@ -102,6 +106,7 @@ class MatchModel {
       user1UnreadCount: json['unread_count'] ?? 0,
       user2UnreadCount: 0,
       tradeRequestId: json['trade_request_id'],
+      tradeRequestStatus: json['trade_request_status'],
       myProduct: json['my_product'] != null
           ? MatchProductInfo.fromJson(json['my_product'])
           : null,

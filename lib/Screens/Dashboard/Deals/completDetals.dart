@@ -65,7 +65,7 @@ class _CompletedDealScreenState extends State<CompletedDealScreen> {
   @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
-    final tradeList = (productController.tradeRequestProduct.value.data ?? []).where((e) => e.paymentStatus == 'paid').toList();
+    final tradeList = (productController.tradeRequestProduct.value.data ?? []).where((e) => e.status == 'completed').toList();
     return Scaffold(
         backgroundColor: AppColors.backgroundColor(context),
         body: SafeArea(

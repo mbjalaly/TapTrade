@@ -30,9 +30,13 @@ class _ChatScreenState extends State<ChatScreen> {
   String? _currentUserId;
   Timer? _refreshTimer;
 
+  String? _tradeRequestStatus;
+  bool _iMarkedComplete = false;
+
   @override
   void initState() {
     super.initState();
+    _tradeRequestStatus = widget.match.tradeRequestStatus;
     _initChat();
   }
 
@@ -205,22 +209,9 @@ class _ChatScreenState extends State<ChatScreen> {
         ],
       ),
       actions: [
-        // Mark as Complete button
         Container(
           margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-          child: ElevatedButton.icon(
-            onPressed: _showMarkCompleteDialog,
-            icon: const Icon(Icons.check_circle_outline, size: 18),
-            label: Text(l10n.complete, style: const TextStyle(fontSize: 12)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-            ),
-          ),
+          child: _buildTradeActionButton(l10n),
         ),
       ],
     );
@@ -261,15 +252,19 @@ class _ChatScreenState extends State<ChatScreen> {
 
     try {
       // Use the trade request ID from the match model
-      final result = await ProductService.instance.markTradeComplete(
+      final result = await ProductService.instance.markTradeCompleteByMatchId(
         context,
-        widget.match.tradeRequestId ?? 0,
+        widget.match.id!,
       );
 
       if (mounted) Navigator.pop(context); // Close loading
 
       if (result.status == Status.COMPLETED) {
         if (mounted) {
+          setState(() {
+            _tradeRequestStatus = 'pending_confirmation';
+            _iMarkedComplete = true;
+          });
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(l10n.tradeMarkedWaiting),
@@ -286,6 +281,139 @@ class _ChatScreenState extends State<ChatScreen> {
             content: Text('${AppLocalizations.of(context)?.errorPrefix ?? "Error: "}$e'),
             backgroundColor: Colors.red,
           ),
+        );
+      }
+    }
+  }
+
+  /// Build the correct trade action button based on current status
+  Widget _buildTradeActionButton(dynamic l10n) {
+    if (_tradeRequestStatus == 'completed') {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.green,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.check_circle, color: Colors.white, size: 16),
+            SizedBox(width: 4),
+            Text('Done', style: TextStyle(color: Colors.white, fontSize: 12)),
+          ],
+        ),
+      );
+    }
+
+    if (_tradeRequestStatus == 'pending_confirmation') {
+      if (_iMarkedComplete) {
+        // I already marked it — waiting for the other user
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade400,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 12, height: 12,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              ),
+              SizedBox(width: 6),
+              Text('Waiting...', style: TextStyle(color: Colors.white, fontSize: 12)),
+            ],
+          ),
+        );
+      } else {
+        // Other user marked it — I need to confirm
+        return ElevatedButton.icon(
+          onPressed: _showConfirmTradeDialog,
+          icon: const Icon(Icons.handshake_outlined, size: 18),
+          label: const Text('Confirm Trade', style: TextStyle(fontSize: 12)),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.orange,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          ),
+        );
+      }
+    }
+
+    // Default: green Complete button
+    return ElevatedButton.icon(
+      onPressed: _showMarkCompleteDialog,
+      icon: const Icon(Icons.check_circle_outline, size: 18),
+      label: Text(l10n.complete, style: const TextStyle(fontSize: 12)),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.green,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+    );
+  }
+
+  /// Confirm the trade after the other user has marked it complete
+  Future<void> _showConfirmTradeDialog() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Trade Completion'),
+        content: Text(
+          'The other party has marked this trade as complete. '
+          'Do you confirm that the trade with ${widget.match.otherUser?.username ?? "the other user"} has been completed successfully?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Not Yet'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            child: const Text('Yes, Confirm'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final tradeRequestId = widget.match.tradeRequestId ?? 0;
+      final result = await ProductService.instance.confirmTradeComplete(
+        context,
+        tradeRequestId,
+      );
+
+      if (mounted) Navigator.pop(context);
+
+      if (result.status == Status.COMPLETED) {
+        if (mounted) {
+          setState(() => _tradeRequestStatus = 'completed');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Trade completed successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
     }
