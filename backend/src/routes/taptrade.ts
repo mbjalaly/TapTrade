@@ -3658,6 +3658,52 @@ router.get('/api/matches/', requireAuth, async (req: Request, res: Response) => 
         lastMessage = lastMessageData.message_text;
       }
 
+<<<<<<< HEAD
+=======
+      // Look up the trade request that links these two products
+      let tradeRequestId = null;
+      let tradeRequestStatus: string | null = null;
+      if (match.user1_product_id && match.user2_product_id) {
+        const { data: tr1 } = await supabase
+          .from('trade_requests')
+          .select('id, status')
+          .eq('user_product_id', match.user1_product_id)
+          .eq('other_product_id', match.user2_product_id)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        const { data: tr2 } = await supabase
+          .from('trade_requests')
+          .select('id, status')
+          .eq('user_product_id', match.user2_product_id)
+          .eq('other_product_id', match.user1_product_id)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        tradeRequestId = (tr1 && tr1[0] ? tr1[0].id : null) || (tr2 && tr2[0] ? tr2[0].id : null);
+        tradeRequestStatus = (tr1 && tr1[0] ? tr1[0].status : null) || (tr2 && tr2[0] ? tr2[0].status : null);
+
+        // No trade request exists yet — auto-create one so mark-complete works
+        if (!tradeRequestId) {
+          const { data: newTr, error: insertErr } = await supabase
+            .from('trade_requests')
+            .insert({
+              requester_id: match.user1_id,
+              receiver_id: match.user2_id,
+              user_product_id: match.user1_product_id,
+              other_product_id: match.user2_product_id,
+              status: 'accepted',
+              payment_status: 'unpaid',
+            })
+            .select('id')
+            .single();
+          if (insertErr) {
+            console.error('Auto-create trade_request failed:', insertErr.message);
+          } else {
+            tradeRequestId = newTr?.id ?? null;
+          }
+        }
+      }
+
+>>>>>>> b3a5e6c (fix: tradeRequestStatus scope error causing Railway build failure)
       return {
         match_id: match.id,
         user1_id: match.user1_id,
