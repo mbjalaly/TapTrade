@@ -3186,7 +3186,7 @@ router.post('/api/trade/mark-complete/:tradeRequestId/', requireAuth, async (req
     }
 
     // Verify status is accepted or in_progress
-    if (!['accepted', 'in_progress'].includes(tradeRequest.status)) {
+    if (!['pending', 'accepted', 'in_progress'].includes(tradeRequest.status)) {
       return res.status(400).json({
         success: false,
         message: `Cannot mark complete. Current status: ${tradeRequest.status}`
