@@ -315,7 +315,7 @@ class _ChatScreenState extends State<ChatScreen> {
     );
     if (delete == true && mounted) {
       try {
-        await ProductService.instance.deleteMyProduct(context, myProductId);
+        await ProductService.instance.deleteMyProduct(context, myProductId.toString());
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Product removed from listings.'), backgroundColor: Colors.green),
@@ -428,7 +428,27 @@ class _ChatScreenState extends State<ChatScreen> {
     );
 
     try {
-      final tradeRequestId = widget.match.tradeRequestId ?? 0;
+      // Use known tradeRequestId or fall back to match-based lookup
+      int tradeRequestId = widget.match.tradeRequestId ?? 0;
+      if (tradeRequestId == 0) {
+        // Fallback: look up via markTradeCompleteByMatchId which handles the lookup
+        final lookupResult = await ProductService.instance.markTradeCompleteByMatchId(
+          context,
+          widget.match.id!,
+        );
+        // After lookup+mark, the trade is now pending_confirmation from our side — done
+        if (mounted) Navigator.pop(context);
+        if (lookupResult.status == Status.COMPLETED) {
+          if (mounted) {
+            setState(() => _tradeRequestStatus = 'completed');
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Trade completed successfully!'), backgroundColor: Colors.green),
+            );
+            _offerProductDeletion();
+          }
+        }
+        return;
+      }
       final result = await ProductService.instance.confirmTradeComplete(
         context,
         tradeRequestId,

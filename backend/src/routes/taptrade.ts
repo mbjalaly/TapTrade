@@ -3343,6 +3343,21 @@ router.post('/api/trade/confirm-complete/:tradeRequestId/', requireAuth, async (
       return res.status(500).json({ success: false, message: 'Failed to confirm trade completion' });
     }
 
+    // When both confirmed, also mark the match as completed
+    if (bothConfirmed) {
+      try {
+        await supabase
+          .from('matches')
+          .update({ status: 'completed' })
+          .or(
+            `and(user1_product_id.eq.${tradeRequest.user_product_id},user2_product_id.eq.${tradeRequest.other_product_id}),` +
+            `and(user1_product_id.eq.${tradeRequest.other_product_id},user2_product_id.eq.${tradeRequest.user_product_id})`
+          );
+      } catch (matchUpdateErr) {
+        console.error('[Trade] Failed to update match status:', matchUpdateErr);
+      }
+    }
+
     await logger.success('Trade completion confirmed', currentUserId, { tradeRequestId, completed: bothConfirmed });
 
     if (bothConfirmed) {
