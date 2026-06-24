@@ -271,6 +271,7 @@ class _ChatScreenState extends State<ChatScreen> {
               backgroundColor: Colors.green,
             ),
           );
+          _offerProductDeletion();
         }
       }
     } catch (e) {
@@ -287,6 +288,43 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   /// Build the correct trade action button based on current status
+  Future<void> _offerProductDeletion() async {
+    if (!mounted) return;
+    final myProductId = widget.match.myProduct?.id;
+    if (myProductId == null) return;
+    final productTitle = widget.match.myProduct?.title ?? 'your product';
+    final delete = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Trade Completed!'),
+        content: Text(
+          'Since "$productTitle" has been successfully traded, would you like to remove it from your listings?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep Listed'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade400),
+            child: const Text('Remove It'),
+          ),
+        ],
+      ),
+    );
+    if (delete == true && mounted) {
+      try {
+        await ProductService.instance.deleteMyProduct(context, myProductId);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Product removed from listings.'), backgroundColor: Colors.green),
+          );
+        }
+      } catch (_) {}
+    }
+  }
+
   Widget _buildTradeActionButton(dynamic l10n) {
     if (_tradeRequestStatus == 'completed') {
       return Container(
@@ -407,6 +445,7 @@ class _ChatScreenState extends State<ChatScreen> {
               backgroundColor: Colors.green,
             ),
           );
+          _offerProductDeletion();
         }
       }
     } catch (e) {
