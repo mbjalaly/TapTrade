@@ -2058,11 +2058,12 @@ router.delete('/delete_products/:id/', requireAuth, async (req: Request, res: Re
 
     await logger.info('Starting product deletion with cascade', userId, { product_id: productId });
 
-    // Step 1: Find all matches related to this product
+    // Step 1: Find all NON-completed matches related to this product
     const { data: relatedMatches } = await supabase
       .from('matches')
       .select('id')
-      .or(`user1_product_id.eq.${productId},user2_product_id.eq.${productId}`);
+      .or(`user1_product_id.eq.${productId},user2_product_id.eq.${productId}`)
+      .neq('status', 'completed');
 
     const matchIds = (relatedMatches || []).map(m => m.id);
 
@@ -2092,11 +2093,12 @@ router.delete('/delete_products/:id/', requireAuth, async (req: Request, res: Re
       }
     }
 
-    // Step 4: Delete all trade_requests related to this product
+    // Step 4: Delete all NON-completed trade_requests related to this product
     const { error: tradeRequestsError } = await supabase
       .from('trade_requests')
       .delete()
-      .or(`user_product_id.eq.${productId},other_product_id.eq.${productId}`);
+      .or(`user_product_id.eq.${productId},other_product_id.eq.${productId}`)
+      .neq('status', 'completed');
 
     if (tradeRequestsError) {
       await logger.error('Failed to delete trade requests', userId, { error: tradeRequestsError.message, product_id: productId });
@@ -3346,13 +3348,13 @@ router.post('/api/trade/confirm-complete/:tradeRequestId/', requireAuth, async (
     // When both confirmed, also mark the match as completed
     if (bothConfirmed) {
       try {
-        await supabase
-          .from('matches')
-          .update({ status: 'completed' })
-          .or(
-            `and(user1_product_id.eq.${tradeRequest.user_product_id},user2_product_id.eq.${tradeRequest.other_product_id}),` +
-            `and(user1_product_id.eq.${tradeRequest.other_product_id},user2_product_id.eq.${tradeRequest.user_product_id})`
-          );
+        // Update match in both product-order orientations
+        await supabase.from('matches').update({ status: 'completed' })
+          .eq('user1_product_id', tradeRequest.user_product_id)
+          .eq('user2_product_id', tradeRequest.other_product_id);
+        await supabase.from('matches').update({ status: 'completed' })
+          .eq('user1_product_id', tradeRequest.other_product_id)
+          .eq('user2_product_id', tradeRequest.user_product_id);
       } catch (matchUpdateErr) {
         console.error('[Trade] Failed to update match status:', matchUpdateErr);
       }
