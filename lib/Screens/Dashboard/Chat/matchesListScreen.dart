@@ -93,13 +93,6 @@ class _MatchesListScreenState extends State<MatchesListScreen> {
             onPressed: _loadMatches,
           ),
         ],
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh',
-            onPressed: _loadMatches,
-          ),
-        ],
         title: AppText(
           text: AppLocalizations.of(context)?.matches ?? 'Matches',
           textcolor: AppColors.primaryText(context),
