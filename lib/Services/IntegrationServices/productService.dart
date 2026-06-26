@@ -764,8 +764,8 @@ class ProductService {
       Map<String, dynamic>? foundRequest;
       String foundStatus = '';
       for (final tr in tradeRequests) {
-        final req = tr['requester'] ?? '';
-        final rec = tr['receiver'] ?? '';
+        final req = tr['requester_id'] ?? tr['requester'] ?? '';
+        final rec = tr['receiver_id'] ?? tr['receiver'] ?? '';
         // Either we are requester or receiver in this trade (skip finalized ones)
         final trStatus = tr['status'] ?? '';
         if ((req == userId || rec == userId) &&

@@ -301,36 +301,52 @@ class _ChatScreenState extends State<ChatScreen> {
     if (!mounted) return;
     final myProductId = widget.match.myProduct?.id;
     if (myProductId == null) return;
-    final productTitle = widget.match.myProduct?.title ?? 'your product';
+
+    // Ask the user whether to remove their traded product from listings
     final delete = await showDialog<bool>(
       context: context,
+      barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text('Trade Completed!'),
+        title: const Text('Trade Complete!'),
         content: Text(
-          'Since "$productTitle" has been successfully traded, would you like to remove it from your listings?',
+          'Would you like to remove "${widget.match.myProduct?.title}" from your listings now that the trade is done?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Keep Listed'),
+            child: const Text('Keep It'),
           ),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade400),
-            child: const Text('Remove It'),
+            child: const Text('Remove'),
           ),
         ],
       ),
     );
-    if (delete == true && mounted) {
-      try {
-        await ProductService.instance.deleteMyProduct(context, myProductId.toString());
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Product removed from listings.'), backgroundColor: Colors.green),
-          );
-        }
-      } catch (_) {}
+
+    if (delete != true || !mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      await ProductService.instance.deleteMyProduct(context, myProductId.toString());
+      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Product removed from listings.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.of(context).pop(); // Close the chat
+      }
+    } catch (e) {
+      if (mounted) Navigator.pop(context);
     }
   }
 
