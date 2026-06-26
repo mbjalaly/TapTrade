@@ -325,30 +325,40 @@ class _ProfileSettingState extends State<ProfileSetting> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // User initials avatar (no edit button)
-          Container(
-            height: 100,
-            width: 100,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withOpacity(0.9), width: 3),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white.withOpacity(0.3),
-                  Colors.white.withOpacity(0.1),
-                ],
-              ),
-            ),
-            child: Center(
-              child: Text(
-                initials.isNotEmpty ? initials : '?',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 36,
-                  fontWeight: FontWeight.w800,
+          // Profile picture with edit button overlay
+          GestureDetector(
+            onTap: _pickImage,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white.withOpacity(0.9), width: 3),
+                  ),
+                  child: ClipOval(
+                    child: avatarSelection(context, profileData) as Widget,
+                  ),
                 ),
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryColor,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: const Icon(Icons.edit, color: Colors.white, size: 14),
+                  ),
+                ),
+              ],
+            ),
+          ),
               ),
             ),
           ),
