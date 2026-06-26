@@ -32,11 +32,15 @@ class _ChatScreenState extends State<ChatScreen> {
 
   String? _tradeRequestStatus;
   bool _iMarkedComplete = false;
+  bool _hasOfferedDeletion = false;
 
   @override
   void initState() {
     super.initState();
     _tradeRequestStatus = widget.match.tradeRequestStatus;
+    if (_tradeRequestStatus == 'completed') {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _maybeOfferDeletion());
+    }
     _initChat();
   }
 
@@ -287,6 +291,12 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   /// Build the correct trade action button based on current status
+  void _maybeOfferDeletion() {
+    if (!mounted || _hasOfferedDeletion) return;
+    setState(() => _hasOfferedDeletion = true);
+    _offerProductDeletion();
+  }
+
   Future<void> _offerProductDeletion() async {
     if (!mounted) return;
     final myProductId = widget.match.myProduct?.id;
@@ -326,6 +336,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _buildTradeActionButton(dynamic l10n) {
     if (_tradeRequestStatus == 'completed') {
+      if (!_hasOfferedDeletion) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _maybeOfferDeletion());
+      }
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
@@ -443,7 +456,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Trade completed successfully!'), backgroundColor: Colors.green),
             );
-            _offerProductDeletion();
+            WidgetsBinding.instance.addPostFrameCallback((_) => _maybeOfferDeletion());
           }
         }
         return;
@@ -464,7 +477,7 @@ class _ChatScreenState extends State<ChatScreen> {
               backgroundColor: Colors.green,
             ),
           );
-          _offerProductDeletion();
+          WidgetsBinding.instance.addPostFrameCallback((_) => _maybeOfferDeletion());
         }
       }
     } catch (e) {
