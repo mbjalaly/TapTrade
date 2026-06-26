@@ -294,7 +294,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void _maybeOfferDeletion() {
     if (!mounted || _hasOfferedDeletion) return;
     setState(() => _hasOfferedDeletion = true);
-    _offerProductDeletion();
+    WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted) _maybeOfferDeletion(); });
   }
 
   Future<void> _offerProductDeletion() async {

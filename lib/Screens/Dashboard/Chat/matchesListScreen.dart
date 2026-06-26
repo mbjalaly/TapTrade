@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:taptrade/Const/globleKey.dart';
 import 'package:taptrade/l10n/app_localizations.dart';
@@ -22,12 +23,15 @@ class _MatchesListScreenState extends State<MatchesListScreen> {
   List<MatchModel> _matches = [];
   List<MyProductMatchGroup> _productGroups = []; // NEW: Grouped matches
   bool _isLoading = true;
+  Timer? _refreshTimer;
   String? _currentUserId;
 
   @override
   void initState() {
     super.initState();
     _loadMatches();
+    // Auto-refresh every 20 seconds so new matches appear without restart
+    _refreshTimer = Timer.periodic(const Duration(seconds: 20), (_) => _loadMatches());
   }
 
   Future<void> _loadMatches() async {
@@ -67,6 +71,12 @@ class _MatchesListScreenState extends State<MatchesListScreen> {
   }
 
   @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
 
@@ -76,6 +86,20 @@ class _MatchesListScreenState extends State<MatchesListScreen> {
         backgroundColor: AppColors.backgroundColor(context),
         elevation: 0,
         automaticallyImplyLeading: false, // Remove back button
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh',
+            onPressed: _loadMatches,
+          ),
+        ],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh',
+            onPressed: _loadMatches,
+          ),
+        ],
         title: AppText(
           text: AppLocalizations.of(context)?.matches ?? 'Matches',
           textcolor: AppColors.primaryText(context),
@@ -86,7 +110,16 @@ class _MatchesListScreenState extends State<MatchesListScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _productGroups.isEmpty
-              ? _buildEmptyState(size)
+              ? RefreshIndicator(
+              onRefresh: _loadMatches,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.7,
+                  child: _buildEmptyState(size),
+                ),
+              ),
+            )
               : RefreshIndicator(
                   onRefresh: _loadMatches,
                   child: ListView.builder(
