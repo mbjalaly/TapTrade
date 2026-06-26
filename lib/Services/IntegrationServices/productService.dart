@@ -766,8 +766,10 @@ class ProductService {
       for (final tr in tradeRequests) {
         final req = tr['requester'] ?? '';
         final rec = tr['receiver'] ?? '';
-        // Either we are requester or receiver in this trade
-        if (req == userId || rec == userId) {
+        // Either we are requester or receiver in this trade (skip finalized ones)
+        final trStatus = tr['status'] ?? '';
+        if ((req == userId || rec == userId) &&
+            !['completed', 'rejected', 'cancelled'].contains(trStatus)) {
           foundRequest = tr;
           foundStatus = tr['status'] ?? '';
           print("Found trade request: id=${tr['id']}, status=$foundStatus");
@@ -799,7 +801,7 @@ class ProductService {
       }
 
       // Step 4: Mark complete or confirm complete based on status
-      final endpoint = (foundStatus == 'mark_complete')
+      final endpoint = (foundStatus == 'pending_confirmation')
           ? ApiEndPoint.confirmTradeComplete(tradeRequestId)
           : ApiEndPoint.markTradeComplete(tradeRequestId);
 

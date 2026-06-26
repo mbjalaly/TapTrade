@@ -271,7 +271,6 @@ class _ChatScreenState extends State<ChatScreen> {
               backgroundColor: Colors.green,
             ),
           );
-          _offerProductDeletion();
         }
       }
     } catch (e) {
