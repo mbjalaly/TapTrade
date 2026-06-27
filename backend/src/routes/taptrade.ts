@@ -3641,6 +3641,12 @@ router.get('/test-logging/', async (req: Request, res: Response) => {
        return res.status(500).json({ success: false, message: 'Failed to update trade' });
      }
 
+     // When both users have confirmed, also mark the match row as 'completed'
+     // so it appears in GET /api/matches/?status=completed (Completed Deals tab)
+     if (otherAlreadyCompleted) {
+       await supabase.from('matches').update({ status: 'completed' }).eq('id', matchId);
+     }
+
      return res.json({
        success: true,
        message: otherAlreadyCompleted
@@ -3648,6 +3654,7 @@ router.get('/test-logging/', async (req: Request, res: Response) => {
          : 'Trade marked as complete. Waiting for other party to confirm.',
        data: updatedTrade,
      });
+
    } catch (error: any) {
      console.error('Error in match mark-complete:', error);
      return res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
