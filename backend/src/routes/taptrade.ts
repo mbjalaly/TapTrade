@@ -3836,7 +3836,8 @@ router.get('/api/matches/', requireAuth, async (req: Request, res: Response) => 
           username: otherUser?.username,
           first_name: otherUser?.first_name,
           last_name: otherUser?.last_name,
-          full_name: `${otherUser?.first_name || ''} ${otherUser?.last_name || ''}`.trim() || otherUser?.username
+          full_name: `${otherUser?.first_name || ''} ${otherUser?.last_name || ''}`.trim() || otherUser?.username,
+          image: otherUser?.image || null
         },
         my_product: myProduct,
         other_product: otherProduct,
