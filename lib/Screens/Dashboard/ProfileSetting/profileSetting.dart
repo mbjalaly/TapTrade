@@ -1,25 +1,19 @@
 import 'dart:io';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:taptrade/l10n/app_localizations.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:taptrade/Const/apiEndPoint.dart';
 import 'package:taptrade/Const/globleKey.dart';
 import 'package:taptrade/Controller/languageController.dart';
 import 'package:taptrade/Controller/userController.dart';
 import 'package:taptrade/Models/UserProfile/userProfile.dart';
-import 'package:taptrade/Screens/Dashboard/Payment/paymentScreen.dart';
 import 'package:taptrade/Services/ImageFileService/imageFileService.dart';
 import 'package:taptrade/Services/IntegrationServices/profileService.dart';
 import 'package:taptrade/Utills/appColors.dart';
 import 'package:taptrade/Utills/showMessages.dart';
 import 'package:taptrade/Widgets/NetworkImageProvider/networkImageProvider.dart';
 import 'package:taptrade/Widgets/avatarSlider.dart';
-import 'package:taptrade/Widgets/customButtom.dart';
 import 'package:taptrade/Services/NotificationService/notification_service.dart';
 import 'AddBio/addBio.dart';
 import 'ContactUs/contactUs.dart';
@@ -36,68 +30,82 @@ class ProfileSetting extends StatefulWidget {
 
 class _ProfileSettingState extends State<ProfileSetting> {
   var userController = Get.find<UserController>();
-  File? _image; // To store the selected image
+  File? _image;
   String avatarImage = '';
   bool isLoading = false;
-  String? selectedOption;
 
   Future<void> _pickImage() async {
-    showModalBottomSheet(
-      backgroundColor: AppColors.contentBg(context),
-      context: context,
-      builder: (BuildContext context) {
-        return SafeArea(
+    print('=== _pickImage CALLED ===');
+    Get.bottomSheet(
+      Container(
+        decoration: BoxDecoration(
+          color: AppColors.contentBg(context),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        child: SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
+            children: [
+              const SizedBox(height: 8),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.withOpacity(0.4),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 8),
               ListTile(
-                leading: Icon(Icons.person),
+                leading: const Icon(Icons.person),
                 title: Text(AppLocalizations.of(context)?.avatar ?? 'Avatar'),
                 onTap: () {
-                  Navigator.pop(context); // Close the bottom sheet first
-                  _openAvatarSlider(); // Open the avatar slider as a dialog
+                  Get.back();
+                  _openAvatarSlider();
                 },
               ),
               ListTile(
-                leading: Icon(Icons.camera),
+                leading: const Icon(Icons.camera_alt),
                 title: Text(AppLocalizations.of(context)?.camera ?? 'Camera'),
                 onTap: () async {
+                  Get.back();
                   final picker = ImagePicker();
                   final pickedFile =
-                      await picker.pickImage(source: ImageSource.camera);
-
+                  await picker.pickImage(source: ImageSource.camera);
                   if (pickedFile != null) {
                     setState(() {
                       _image = File(pickedFile.path);
                       avatarImage = '';
                     });
+                    updateProfileImage(_image!);
                   }
-                  Navigator.pop(context);
-                  updateProfileImage(_image!);
                 },
               ),
               ListTile(
-                leading: Icon(Icons.photo_album),
+                leading: const Icon(Icons.photo_album),
                 title: Text(AppLocalizations.of(context)?.gallery ?? 'Gallery'),
                 onTap: () async {
+                  Get.back();
                   final picker = ImagePicker();
                   final pickedFile =
-                      await picker.pickImage(source: ImageSource.gallery);
-
+                  await picker.pickImage(source: ImageSource.gallery);
                   if (pickedFile != null) {
                     setState(() {
                       _image = File(pickedFile.path);
                       avatarImage = '';
                     });
+                    updateProfileImage(_image!);
                   }
-                  Navigator.pop(context);
-                  updateProfileImage(_image!);
                 },
               ),
+              const SizedBox(height: 8),
             ],
           ),
-        );
-      },
+        ),
+      ),
+      isScrollControlled: false,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
     );
   }
 
@@ -122,7 +130,8 @@ class _ProfileSettingState extends State<ProfileSetting> {
     }
   }
 
-  avatarSelection(BuildContext context, UserProfileResponseModel profileData) {
+  Widget avatarSelection(
+      BuildContext context, UserProfileResponseModel profileData) {
     if (_image != null) {
       return ClipRRect(
           borderRadius: BorderRadius.circular(1000.0),
@@ -147,9 +156,6 @@ class _ProfileSettingState extends State<ProfileSetting> {
         borderRadius: BorderRadius.circular(1000.0),
         fit: BoxFit.fill,
       );
-      // ClipRRect(
-      //   borderRadius: BorderRadius.circular(1000.0),
-      //   clipBehavior: Clip.antiAlias, child: Image.network("${KeyConstants.imageUrl}$image",fit: BoxFit.fill,));
     } else {
       return Padding(
         padding: const EdgeInsets.all(60.0),
@@ -159,21 +165,18 @@ class _ProfileSettingState extends State<ProfileSetting> {
   }
 
   Future<void> updateProfileImage(File imageFile) async {
-    if (imageFile != null) {
-      Map<String, dynamic> body = {
-        'image': imageFile,
-      };
-      String id = userController.userProfile.value.data?.id ?? '';
-      setState(() {
-        isLoading = true;
-      });
-      final result =
-          await ProfileService.instance.updateProfile(context, body, id);
-      await ProfileService.instance.getProfile(context);
-      setState(() {
-        isLoading = false;
-      });
-    }
+    Map<String, dynamic> body = {
+      'image': imageFile,
+    };
+    String id = userController.userProfile.value.data?.id ?? '';
+    setState(() {
+      isLoading = true;
+    });
+    await ProfileService.instance.updateProfile(context, body, id);
+    await ProfileService.instance.getProfile(context);
+    setState(() {
+      isLoading = false;
+    });
   }
 
   @override
@@ -188,16 +191,24 @@ class _ProfileSettingState extends State<ProfileSetting> {
             appBar: AppBar(
               automaticallyImplyLeading: false,
               centerTitle: false,
-              title: Text(AppLocalizations.of(context)?.settings ?? 'Settings', style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.darkBlue)),
+              title: Text(
+                  AppLocalizations.of(context)?.settings ?? 'Settings',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.darkBlue)),
               actions: [
                 Obx(() {
                   final langController = Get.find<LanguageController>();
                   return TextButton.icon(
-                    onPressed: () => Get.to(() => const LanguageSettingsScreen()),
-                    icon: Icon(Icons.language, color: AppColors.primaryText(context)),
+                    onPressed: () =>
+                        Get.to(() => const LanguageSettingsScreen()),
+                    icon: Icon(Icons.language,
+                        color: AppColors.primaryText(context)),
                     label: Text(
                       langController.currentLanguageName,
-                      style: TextStyle(color: AppColors.primaryText(context), fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                          color: AppColors.primaryText(context),
+                          fontWeight: FontWeight.w600),
                     ),
                   );
                 }),
@@ -206,7 +217,8 @@ class _ProfileSettingState extends State<ProfileSetting> {
             body: Stack(
               children: [
                 ListView(
-                  padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom + 30),
+                  padding: EdgeInsets.only(
+                      bottom: MediaQuery.of(context).padding.bottom + 30),
                   children: [
                     _buildHeader(size, profileData),
                     const SizedBox(height: 20),
@@ -216,51 +228,77 @@ class _ProfileSettingState extends State<ProfileSetting> {
                         children: [
                           _SettingsItem(
                             icon: Icons.person_outline,
-                            label: AppLocalizations.of(context)?.profileInformation ?? 'Profile information',
-                            onTap: () => Get.to(() => AddBioScreen(profileData: profileData)),
+                            label: AppLocalizations.of(context)
+                                ?.profileInformation ??
+                                'Profile information',
+                            onTap: () => Get.to(
+                                    () => AddBioScreen(profileData: profileData)),
                           ),
                           const Divider(),
                           _SettingsItem(
                             icon: Icons.filter_list,
-                            label: AppLocalizations.of(context)?.tradePreferences ?? 'Trade preferences',
-                            onTap: () => Get.to(() => TradePreferences(profileData: profileData)),
+                            label: AppLocalizations.of(context)
+                                ?.tradePreferences ??
+                                'Trade preferences',
+                            onTap: () => Get.to(() =>
+                                TradePreferences(profileData: profileData)),
                           ),
                           const Divider(),
                           _SettingsItem(
                             icon: Icons.favorite_outline,
-                            label: AppLocalizations.of(context)?.matchesAndChat ?? 'Matches & Chat',
-                            onTap: () => Get.to(() => const MatchesListScreen()),
+                            label: AppLocalizations.of(context)
+                                ?.matchesAndChat ??
+                                'Matches & Chat',
+                            onTap: () =>
+                                Get.to(() => const MatchesListScreen()),
                           ),
                           const Divider(),
                           _SettingsItem(
                             icon: Icons.help_outline,
-                            label: AppLocalizations.of(context)?.faqQuestions ?? 'FAQ questions',
-                            onTap: () => NotificationService.info(title: AppLocalizations.of(context)?.comingSoon ?? 'Coming soon', message: AppLocalizations.of(context)?.faqComingSoon ?? 'FAQ page is coming soon'),
+                            label: AppLocalizations.of(context)
+                                ?.faqQuestions ??
+                                'FAQ questions',
+                            onTap: () => NotificationService.info(
+                                title: AppLocalizations.of(context)
+                                    ?.comingSoon ??
+                                    'Coming soon',
+                                message: AppLocalizations.of(context)
+                                    ?.faqComingSoon ??
+                                    'FAQ page is coming soon'),
                           ),
                           const Divider(),
                           _SettingsItem(
                             icon: Icons.description_outlined,
-                            label: AppLocalizations.of(context)?.termsAndPolicies ?? 'Terms and policies',
+                            label: AppLocalizations.of(context)
+                                ?.termsAndPolicies ??
+                                'Terms and policies',
                             onTap: () => _openTermsBottomSheet(context),
                           ),
                           const Divider(),
                           _SettingsItem(
                             icon: Icons.mail_outline,
-                            label: AppLocalizations.of(context)?.contactUs ?? 'Contact us',
+                            label: AppLocalizations.of(context)?.contactUs ??
+                                'Contact us',
                             onTap: () => Get.to(() => const ContactUs()),
                           ),
                           const Divider(),
                           _SettingsItem(
                             icon: Icons.language,
-                            label: AppLocalizations.of(context)?.language ?? 'Language',
-                            onTap: () => Get.to(() => const LanguageSettingsScreen()),
+                            label:
+                            AppLocalizations.of(context)?.language ??
+                                'Language',
+                            onTap: () =>
+                                Get.to(() => const LanguageSettingsScreen()),
                           ),
                           const SizedBox(height: 8),
                           _SettingsItem(
                             icon: Icons.logout,
-                            label: AppLocalizations.of(context)?.logOut ?? 'Log out',
+                            label:
+                            AppLocalizations.of(context)?.logOut ??
+                                'Log out',
                             isDestructive: true,
-                            onTap: () => ShowMessage.showLogoutDialog(context),
+                            onTap: () =>
+                                ShowMessage.showLogoutDialog(context),
                           ),
                         ],
                       ),
@@ -278,7 +316,9 @@ class _ProfileSettingState extends State<ProfileSetting> {
                         ),
                       ),
                       Text(
-                        AppLocalizations.of(context)?.processingPleaseWait ?? "Processing Please Wait",
+                        AppLocalizations.of(context)
+                            ?.processingPleaseWait ??
+                            "Processing Please Wait",
                         style: TextStyle(
                             color: AppColors.primaryText(context),
                             fontWeight: FontWeight.w600,
@@ -293,18 +333,8 @@ class _ProfileSettingState extends State<ProfileSetting> {
   }
 
   Widget _buildHeader(Size size, dynamic profileData) {
-    // Get user initials from full name
     String fullName = profileData.data?.fullName ?? '';
-    String initials = '';
-    if (fullName.isNotEmpty) {
-      List<String> nameParts = fullName.trim().split(' ');
-      if (nameParts.length >= 2) {
-        initials = '${nameParts[0][0]}${nameParts[1][0]}'.toUpperCase();
-      } else if (nameParts.isNotEmpty) {
-        initials = nameParts[0][0].toUpperCase();
-      }
-    }
-    
+
     return Container(
       width: size.width,
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
@@ -325,8 +355,8 @@ class _ProfileSettingState extends State<ProfileSetting> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Profile picture with edit button overlay
           GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: _pickImage,
             child: Stack(
               clipBehavior: Clip.none,
@@ -336,11 +366,12 @@ class _ProfileSettingState extends State<ProfileSetting> {
                   height: 100,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white.withOpacity(0.9), width: 3),
+                    color: AppColors.primaryColor,
+                    border: Border.all(
+                        color: Colors.white.withOpacity(0.9), width: 3),
                   ),
                   child: ClipOval(
-                    child: avatarSelection(context, profileData) as Widget,
-                  ),
+                      child: avatarSelection(context, profileData)),
                 ),
                 Positioned(
                   bottom: 0,
@@ -353,13 +384,11 @@ class _ProfileSettingState extends State<ProfileSetting> {
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.white, width: 2),
                     ),
-                    child: const Icon(Icons.edit, color: Colors.white, size: 14),
+                    child: const Icon(Icons.edit,
+                        color: Colors.white, size: 14),
                   ),
                 ),
               ],
-            ),
-          ),
-              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -385,57 +414,15 @@ class _ProfileSettingState extends State<ProfileSetting> {
           const SizedBox(height: 10),
           Chip(
             backgroundColor: Colors.blue.withOpacity(0.15),
-            shape: StadiumBorder(side: BorderSide(color: Colors.blue.withOpacity(0.4))),
+            shape: StadiumBorder(
+                side: BorderSide(color: Colors.blue.withOpacity(0.4))),
             label: Text(
               "${(profileData.data?.getProfileCompletionPercentage() ?? 0.0).toStringAsFixed(0)}% COMPLETE",
-              style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.w700),
+              style: const TextStyle(
+                  color: Colors.blue, fontWeight: FontWeight.w700),
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildPrimaryButton(BuildContext context, {required IconData icon, required String label, required VoidCallback onPressed}) {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon),
-        label: Text(label),
-        style: ElevatedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSecondaryButton(BuildContext context, {required IconData icon, required String label, required VoidCallback onPressed}) {
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon),
-        label: Text(label),
-        style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDestructiveButton(BuildContext context, {required IconData icon, required String label, required VoidCallback onPressed}) {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon),
-        label: Text(label),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.red,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 14),
-        ),
       ),
     );
   }
@@ -455,18 +442,27 @@ class _ProfileSettingState extends State<ProfileSetting> {
             children: [
               ListTile(
                 leading: const Icon(Icons.description_outlined),
-                title: Text(l10n?.termsOfService ?? 'Terms of Service', style: const TextStyle(fontWeight: FontWeight.w700)),
+                title: Text(l10n?.termsOfService ?? 'Terms of Service',
+                    style:
+                    const TextStyle(fontWeight: FontWeight.w700)),
                 onTap: () {
                   Navigator.pop(ctx);
-                  NotificationService.info(title: l10n?.comingSoon ?? 'Coming soon', message: l10n?.termsComingSoon ?? 'Coming soon');
+                  NotificationService.info(
+                      title: l10n?.comingSoon ?? 'Coming soon',
+                      message: l10n?.termsComingSoon ?? 'Coming soon');
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.privacy_tip_outlined),
-                title: Text(l10n?.privacyPolicy ?? 'Privacy Policy', style: const TextStyle(fontWeight: FontWeight.w700)),
+                title: Text(l10n?.privacyPolicy ?? 'Privacy Policy',
+                    style:
+                    const TextStyle(fontWeight: FontWeight.w700)),
                 onTap: () {
                   Navigator.pop(ctx);
-                  NotificationService.info(title: l10n?.comingSoon ?? 'Coming soon', message: l10n?.privacyComingSoon ?? 'Coming soon');
+                  NotificationService.info(
+                      title: l10n?.comingSoon ?? 'Coming soon',
+                      message:
+                      l10n?.privacyComingSoon ?? 'Coming soon');
                 },
               ),
             ],
@@ -477,95 +473,41 @@ class _ProfileSettingState extends State<ProfileSetting> {
   }
 }
 
-// Removed balance card per request
-
 class _SettingsItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
   final bool isDestructive;
 
-  const _SettingsItem({Key? key, required this.icon, required this.label, required this.onTap, this.isDestructive = false}) : super(key: key);
+  const _SettingsItem(
+      {Key? key,
+        required this.icon,
+        required this.label,
+        required this.onTap,
+        this.isDestructive = false})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final Color textColor = isDestructive ? Colors.red : Theme.of(context).colorScheme.onSurface;
-    final Color iconColor = isDestructive ? Colors.red : AppColors.primaryText(context);
+    final Color textColor = isDestructive
+        ? Colors.red
+        : Theme.of(context).colorScheme.onSurface;
+    final Color iconColor =
+    isDestructive ? Colors.red : AppColors.primaryText(context);
     return ListTile(
       onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
+      contentPadding:
+      const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
       leading: CircleAvatar(
         radius: 18,
         backgroundColor: AppColors.surfaceVariantColor(context),
         child: Icon(icon, color: iconColor),
       ),
-      title: Text(label, style: TextStyle(fontWeight: FontWeight.w600, color: textColor)),
-      trailing: Icon(Icons.chevron_right, color: Theme.of(context).dividerColor),
-    );
-  }
-}
-
-class _QuickActionCard extends StatelessWidget {
-  final String iconAsset;
-  final String label;
-  final VoidCallback onTap;
-
-  const _QuickActionCard({Key? key, required this.iconAsset, required this.label, required this.onTap}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: onTap,
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Image.asset(iconAsset, height: 36, width: 36),
-              const SizedBox(height: 10),
-              Text(label, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w700)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _NeumoAction extends StatelessWidget {
-  final String iconAsset;
-  final String label;
-  final VoidCallback onTap;
-
-  const _NeumoAction({Key? key, required this.iconAsset, required this.label, required this.onTap}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.surfaceColor(context),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: const [
-            BoxShadow(color: Color(0x11000000), offset: Offset(6, 6), blurRadius: 12),
-            BoxShadow(color: Colors.white, offset: Offset(-6, -6), blurRadius: 12),
-          ],
-          border: Border.all(color: AppColors.outlineColor(context)),
-        ),
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset(iconAsset, height: 36, width: 36),
-            const SizedBox(height: 10),
-            Text(label, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w700)),
-          ],
-        ),
-      ),
+      title: Text(label,
+          style: TextStyle(
+              fontWeight: FontWeight.w600, color: textColor)),
+      trailing: Icon(Icons.chevron_right,
+          color: Theme.of(context).dividerColor),
     );
   }
 }

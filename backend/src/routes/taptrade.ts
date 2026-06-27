@@ -3549,6 +3549,110 @@ router.get('/test-logging/', async (req: Request, res: Response) => {
  * Create a match when mutual like is detected
  * Called automatically by match detection logic
  */
+ // POST /api/matches/:matchId/mark-complete/ - Mark a match's trade as complete
+ router.post('/api/matches/:matchId/mark-complete/', requireAuth, async (req: Request, res: Response) => {
+   try {
+     const currentUserId = uid(req);
+     const matchId = parseInt(req.params.matchId);
+
+     const { data: match } = await supabase
+       .from('matches')
+       .select('*')
+       .eq('id', matchId)
+       .maybeSingle();
+
+     if (!match) {
+       return res.status(404).json({ success: false, message: 'Match not found' });
+     }
+     if (match.user1_id !== currentUserId && match.user2_id !== currentUserId) {
+       return res.status(403).json({ success: false, message: 'Unauthorized' });
+     }
+
+     const isUser1 = match.user1_id === currentUserId;
+     const myProductId    = isUser1 ? match.user1_product_id : match.user2_product_id;
+     const theirProductId = isUser1 ? match.user2_product_id : match.user1_product_id;
+     const otherUserId    = isUser1 ? match.user2_id : match.user1_id;
+
+     // Find existing trade_request for this match
+     let { data: tradeRequest } = await supabase
+       .from('trade_requests')
+       .select('*')
+       .or(
+         `and(requester_id.eq.${match.user1_id},receiver_id.eq.${match.user2_id},user_product_id.eq.${match.user1_product_id}),` +
+         `and(requester_id.eq.${match.user2_id},receiver_id.eq.${match.user1_id},user_product_id.eq.${match.user2_product_id})`
+       )
+       .not('status', 'in', '("rejected","cancelled")')
+       .maybeSingle();
+
+     if (!tradeRequest) {
+       // Create one (status=accepted since both users already matched)
+       const { data: newTr, error: createErr } = await supabase
+         .from('trade_requests')
+         .insert({
+           requester_id: currentUserId,
+           receiver_id: otherUserId,
+           user_product_id: myProductId,
+           other_product_id: theirProductId,
+           status: 'accepted',
+         })
+         .select()
+         .single();
+       if (createErr) {
+         return res.status(500).json({ success: false, message: 'Failed to create trade request' });
+       }
+       tradeRequest = newTr;
+     }
+
+     // Auto-accept if still pending
+     if (tradeRequest.status === 'pending') {
+       await supabase.from('trade_requests').update({ status: 'accepted' }).eq('id', tradeRequest.id);
+       tradeRequest.status = 'accepted';
+     }
+
+     const isRequester = tradeRequest.requester_id === currentUserId;
+
+     // Guard: already marked by this user?
+     if ((isRequester && tradeRequest.completed_by_requester) ||
+         (!isRequester && tradeRequest.completed_by_receiver)) {
+       return res.status(400).json({ success: false, message: 'You have already marked this trade as complete' });
+     }
+
+     const otherAlreadyCompleted = isRequester
+       ? tradeRequest.completed_by_receiver
+       : tradeRequest.completed_by_requester;
+
+     const updates: any = otherAlreadyCompleted
+       ? { status: 'completed', completed_by_requester: true, completed_by_receiver: true }
+       : {
+           status: 'pending_confirmation',
+           ...(isRequester
+             ? { completed_by_requester: true, requester_completed_at: new Date().toISOString() }
+             : { completed_by_receiver: true,  receiver_completed_at:  new Date().toISOString() }),
+         };
+
+     const { data: updatedTrade, error: updateError } = await supabase
+       .from('trade_requests')
+       .update(updates)
+       .eq('id', tradeRequest.id)
+       .select()
+       .single();
+
+     if (updateError) {
+       return res.status(500).json({ success: false, message: 'Failed to update trade' });
+     }
+
+     return res.json({
+       success: true,
+       message: otherAlreadyCompleted
+         ? 'Trade completed successfully!'
+         : 'Trade marked as complete. Waiting for other party to confirm.',
+       data: updatedTrade,
+     });
+   } catch (error: any) {
+     console.error('Error in match mark-complete:', error);
+     return res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
+   }
+ });
 router.post('/api/matches/create/', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = uid(req);
@@ -3635,8 +3739,8 @@ router.get('/api/matches/', requireAuth, async (req: Request, res: Response) => 
       .from('matches')
       .select(`
         *,
-        user1:user1_id (id, username, first_name, last_name),
-        user2:user2_id (id, username, first_name, last_name),
+        user1:user1_id (id, username, first_name, last_name, image),
+        user2:user2_id (id, username, first_name, last_name, image),
         user1_product:user1_product_id (id, title, image, images),
         user2_product:user2_product_id (id, title, image, images)
       `)
@@ -3835,6 +3939,7 @@ router.get('/api/matches/:matchId', requireAuth, async (req: Request, res: Respo
           last_name: otherUser?.last_name,
           profile_picture_url: otherUser?.profile_picture_url,
           full_name: `${otherUser?.first_name || ''} ${otherUser?.last_name || ''}`.trim() || otherUser?.username
+           image: otherUser?.image || null
         },
         my_product: myProduct,
         other_product: otherProduct

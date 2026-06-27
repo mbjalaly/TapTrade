@@ -173,21 +173,25 @@ class MatchProductInfo {
 class MatchUserInfo {
   String? id;
   String? username;
+  String? image;
 
   MatchUserInfo({
     this.id,
     this.username,
+    this.image,
   });
 
   MatchUserInfo.fromJson(Map<String, dynamic> json) {
     id = json['id'] ?? '';
     username = json['username'] ?? '';
+    image = json['image'];
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
       'username': username,
+      'image': image,
     };
   }
 }
