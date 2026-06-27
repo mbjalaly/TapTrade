@@ -2116,14 +2116,19 @@ router.delete('/delete_products/:id/', requireAuth, async (req: Request, res: Re
       await logger.warning('Failed to delete match feedback', userId, { error: feedbackError.message, product_id: productId });
     }
 
-    // Step 6: Finally, delete the product itself
-    const { error } = await supabase.from('products').delete().eq('id', productId);
+    // Step 6: Soft-delete the product — mark as 'deleted' so it is hidden from
+    // listings and swipe suggestions, but the row is preserved so completed-deal
+    // history can still reference the product title and image.
+    const { error } = await supabase
+      .from('products')
+      .update({ status: 'deleted' })
+      .eq('id', productId);
     if (error) {
-      await logger.error('Failed to delete product', userId, { error: error.message, product_id: productId });
+      await logger.error('Failed to soft-delete product', userId, { error: error.message, product_id: productId });
       return res.status(500).json({ success: false, message: 'Failed to delete product' });
     }
 
-    await logger.success('Product deleted successfully with all related data', userId, {
+    await logger.success('Product soft-deleted successfully', userId, {
       product_id: productId,
       deleted_matches: matchIds.length
     });
