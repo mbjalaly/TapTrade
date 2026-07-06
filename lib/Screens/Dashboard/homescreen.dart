@@ -804,105 +804,97 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                       crossAxisAlignment: CrossAxisAlignment.center,
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
-                                        Stack(
-                                          children: [
-                                            Container(
-                                              height: availableHeight * 0.6,
-                                              width: size.width,
-                                              decoration: BoxDecoration(
-                                                borderRadius: BorderRadius.circular(15),
-                                                color: Colors.transparent,
-                                              ),
-                                            ),
-                                            Positioned(
-                                              left: 20,
-                                              bottom: 50,
-                                              child: FadeAnimation(
-                                                direction: AnimationDirection.ltr,
-                                                delay: 0.5,
-                                                child: Column(
-                                                  children: [
-                                                    Container(
-                                                      height: availableHeight * 0.3,
-                                                      width: size.width * 0.45,
-                                                      decoration: BoxDecoration(
-                                                        borderRadius: BorderRadius.circular(100),
-                                                        color: Colors.green,
-                                                        image: DecorationImage(
-                                                          image: getImageProvider(userProduct.image),
-                                                          fit: BoxFit.fill,
+                                        Expanded(
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(vertical: 16),
+                                            child: Column(
+                                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                              children: [
+                                                // Your product (top)
+                                                FadeAnimation(
+                                                  direction: AnimationDirection.ltr,
+                                                  delay: 0.5,
+                                                  child: Column(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      Container(
+                                                        height: (availableHeight * 0.34)
+                                                            .clamp(0.0, size.width * 0.7)
+                                                            .toDouble(),
+                                                        width: (availableHeight * 0.34)
+                                                            .clamp(0.0, size.width * 0.7)
+                                                            .toDouble(),
+                                                        decoration: BoxDecoration(
+                                                          shape: BoxShape.circle,
+                                                          color: Colors.green,
+                                                          image: DecorationImage(
+                                                            image: getImageProvider(userProduct.image),
+                                                            fit: BoxFit.cover,
+                                                          ),
                                                         ),
                                                       ),
-                                                    ),
-                                                    SizedBox(
-                                                      height: 10,
-                                                    ),
-                                                    FadeAnimation(
-                                                      direction: AnimationDirection.ltr,
-                                                      delay: 0.5,
-                                                      child: SizedBox(
-                                                        width: size.width * 0.4,
-                                                        height: availableHeight * 0.1,
+                                                      const SizedBox(height: 8),
+                                                      SizedBox(
+                                                        width: size.width * 0.6,
                                                         child: Text(
                                                           "${(userProduct.title ?? '').capitalize}",
                                                           textAlign: TextAlign.center,
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow.ellipsis,
                                                           style: TextStyle(
                                                               fontFamily: 'Cinzel',
                                                               fontWeight: FontWeight.bold,
                                                               color: AppColors.primaryText(context),
-                                                              fontSize: size.width * 0.045),
+                                                              fontSize: size.width * 0.05),
                                                         ),
                                                       ),
-                                                    ),
-                                                  ],
+                                                    ],
+                                                  ),
                                                 ),
-                                              ),
-                                            ),
-                                            Positioned(
-                                              right: 20,
-                                              bottom: 50,
-                                              child: FadeAnimation(
-                                                direction: AnimationDirection.rtl,
-                                                delay: 0.5,
-                                                child: Column(
-                                                  children: [
-                                                    Container(
-                                                      height: availableHeight * 0.3,
-                                                      width: size.width * 0.45,
-                                                      decoration: BoxDecoration(
-                                                        borderRadius: BorderRadius.circular(100),
-                                                        color: Colors.green,
-                                                        image: DecorationImage(
-                                                          image: getImageProvider(otherProduct.image),
-                                                          fit: BoxFit.fill,
+                                                // Their product (bottom)
+                                                FadeAnimation(
+                                                  direction: AnimationDirection.rtl,
+                                                  delay: 0.5,
+                                                  child: Column(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      Container(
+                                                        height: (availableHeight * 0.34)
+                                                            .clamp(0.0, size.width * 0.7)
+                                                            .toDouble(),
+                                                        width: (availableHeight * 0.34)
+                                                            .clamp(0.0, size.width * 0.7)
+                                                            .toDouble(),
+                                                        decoration: BoxDecoration(
+                                                          shape: BoxShape.circle,
+                                                          color: Colors.green,
+                                                          image: DecorationImage(
+                                                            image: getImageProvider(otherProduct.image),
+                                                            fit: BoxFit.cover,
+                                                          ),
                                                         ),
                                                       ),
-                                                    ),
-                                                    SizedBox(
-                                                      height: 10,
-                                                    ),
-                                                    FadeAnimation(
-                                                      direction: AnimationDirection.rtl,
-                                                      delay: 0.5,
-                                                      child: SizedBox(
-                                                        width: size.width * 0.4,
-                                                        height: availableHeight * 0.1,
+                                                      const SizedBox(height: 8),
+                                                      SizedBox(
+                                                        width: size.width * 0.6,
                                                         child: Text(
                                                           "${(otherProduct.title ?? '').capitalize}",
                                                           textAlign: TextAlign.center,
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow.ellipsis,
                                                           style: TextStyle(
                                                               fontFamily: 'Cinzel',
                                                               fontWeight: FontWeight.bold,
                                                               color: AppColors.primaryText(context),
-                                                              fontSize: size.width * 0.045),
+                                                              fontSize: size.width * 0.05),
                                                         ),
                                                       ),
-                                                    )
-                                                  ],
+                                                    ],
+                                                  ),
                                                 ),
-                                              ),
+                                              ],
                                             ),
-                                          ],
+                                          ),
                                         ),
                                         FadeAnimation(
                                           direction: AnimationDirection.btt,

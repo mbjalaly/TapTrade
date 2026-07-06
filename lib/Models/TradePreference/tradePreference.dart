@@ -18,7 +18,11 @@ class GetTradePreferenceResponseModel {
   GetTradePreferenceResponseModel.fromJson(Map<String, dynamic> json) {
     success = json['success'] ?? false;
     message = json['message'] ?? '';
-    tradeRadius = json['trade_radius'] ?? '';
+    // Default to MAX radius (500 km) when not previously set / new user
+    final rawRadius = json['trade_radius'];
+    tradeRadius = (rawRadius == null || rawRadius.toString().trim().isEmpty)
+        ? '500'
+        : rawRadius.toString();
 
     // NEW FIELD PARSING
     meetingPreference = json['meeting_preference'] ?? 'public_place';

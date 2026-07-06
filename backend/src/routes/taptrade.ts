@@ -120,6 +120,29 @@ router.post('/api/user/register/', async (req: Request, res: Response) => {
     }
   }
 
+
+  // Prevent duplicate accounts vs. social/email logins
+  if (email) {
+    const { data: existingEmail } = await supabase
+      .from('users')
+      .select('id, social_provider')
+      .ilike('email', email)
+      .maybeSingle();
+
+    if (existingEmail) {
+      const hint = existingEmail.social_provider === 'google'
+        ? 'Please sign in with Google.'
+        : existingEmail.social_provider === 'apple'
+        ? 'Please sign in with Apple.'
+        : 'Please log in instead.';
+      return res.status(400).json({
+        success: false,
+        message: `This email is already registered. ${hint}`,
+      });
+    }
+  }
+
+
   const password_hash = bcrypt.hashSync(password, 10);
 
   // Try to insert into existing Supabase table
@@ -1237,19 +1260,17 @@ router.get('/getallcategories/', async (req: Request, res: Response) => {
 });
 
 router.get('/getallinterests/', async (req: Request, res: Response) => {
-  // Get locale from Accept-Language header
   const acceptLanguage = req.headers['accept-language'] || 'en';
   const isArabic = acceptLanguage.startsWith('ar');
 
-  const { data, error } = await supabase.from('interests').select('id, name, name_ar').order('id');
+  const { data, error } = await supabase.from('categories').select('id, name, name_ar').order('id');
   if (error) {
-    return res.json({ success: true, message: 'OK', data: [{ id: 1, name: 'Trading' }] });
+    return res.json({ success: true, message: 'OK', data: [{ id: 1, name: 'General' }] });
   }
 
-  // Return localized name based on locale
-  const localizedData = (data || []).map((interest: any) => ({
-    id: interest.id,
-    name: isArabic && interest.name_ar ? interest.name_ar : interest.name
+  const localizedData = (data || []).map((cat: any) => ({
+    id: cat.id,
+    name: isArabic && cat.name_ar ? cat.name_ar : cat.name
   }));
 
   return res.json({ success: true, message: 'OK', data: localizedData });
@@ -1259,58 +1280,53 @@ router.post('/add-interests/', requireAuth, async (req: Request, res: Response) 
   const userId = uid(req);
   const body = req.body || {};
 
-  // Support both interest_ids and interest_names
-  let interestIds: number[] = [];
+  // Accept ids (interest_ids/category_ids) or names (interest_names/category_names)
+  let categoryIds: number[] = [];
 
-  if (Array.isArray(body.interest_ids)) {
-    // If IDs are provided, use them directly
-    interestIds = body.interest_ids.map((id: any) => Number(id));
-  } else if (Array.isArray(body.interest_names)) {
-    // If names are provided, look them up to get IDs
-    const names = body.interest_names;
-    const { data: interests, error: lookupError } = await supabase
-      .from('interests')
+  const idList = body.category_ids ?? body.interest_ids;
+  const nameList = body.category_names ?? body.interest_names;
+
+  if (Array.isArray(idList)) {
+    categoryIds = idList.map((id: any) => Number(id));
+  } else if (Array.isArray(nameList)) {
+    const { data: cats, error: lookupError } = await supabase
+      .from('categories')
       .select('id')
-      .in('name', names);
+      .in('name', nameList);
 
-    if (lookupError || !interests) {
-      return res.status(400).json({ success: false, message: 'Failed to find interest IDs' });
+    if (lookupError || !cats) {
+      return res.status(400).json({ success: false, message: 'Failed to find category IDs' });
     }
-
-    interestIds = interests.map((i: any) => Number(i.id));
+    categoryIds = cats.map((c: any) => Number(c.id));
   }
 
-  // Store as join table if it exists, else return OK
-  if (!interestIds.length) return res.json({ success: true, message: 'OK', data: [] });
+  if (!categoryIds.length) return res.json({ success: true, message: 'OK', data: [] });
 
-  // Delete existing user interests first to avoid duplicates
-  await supabase.from('user_interests').delete().eq('user_id', userId);
+  await supabase.from('user_categories').delete().eq('user_id', userId);
 
-  const rows = interestIds.map((interestId: number) => ({ user_id: userId, interest_id: interestId }));
-  const { error } = await supabase.from('user_interests').insert(rows);
-  if (error) return res.status(500).json({ success: false, message: 'Failed to save interests' });
+  const rows = categoryIds.map((categoryId: number) => ({ user_id: userId, category_id: categoryId }));
+  const { error } = await supabase.from('user_categories').insert(rows);
+  if (error) return res.status(500).json({ success: false, message: 'Failed to save categories' });
 
-  // Mark profile as completed after adding interests (assuming image was already added)
   await supabase.from('users').update({ is_profile_completed: true }).eq('id', userId);
 
-  return res.json({ success: true, message: 'Saved', data: interestIds });
+  return res.json({ success: true, message: 'Saved', data: categoryIds });
 });
 
 router.get('/getuserinterests/', requireAuth, async (req: Request, res: Response) => {
   const userId = uid(req);
-  // Get locale from Accept-Language header
   const acceptLanguage = req.headers['accept-language'] || 'en';
   const isArabic = acceptLanguage.startsWith('ar');
 
   const { data, error } = await supabase
-    .from('user_interests')
-    .select('interest_id, interests(name, name_ar)')
+    .from('user_categories')
+    .select('category_id, categories(name, name_ar)')
     .eq('user_id', userId);
   if (error) return res.json({ success: true, message: 'OK', data: [] });
 
   const out = (data || []).map((r: any) => ({
-    id: r.interest_id,
-    interest_name: isArabic && r.interests?.name_ar ? r.interests.name_ar : (r.interests?.name || '')
+    id: r.category_id,
+    interest_name: isArabic && r.categories?.name_ar ? r.categories.name_ar : (r.categories?.name || '')
   }));
   return res.json({ success: true, message: 'OK', data: out });
 });
@@ -2193,7 +2209,7 @@ router.post('/activate_product/:id/', requireAuth, async (req: Request, res: Res
 // ---------- Trade Preferences ----------
 router.post('/api/trade/preferences/', requireAuth, async (req: Request, res: Response) => {
   const userId = uid(req);
-  const tradeRadius = String(req.body?.trade_radius ?? req.body?.tradeRadius ?? '');
+  const tradeRadius = String(req.body?.trade_radius ?? req.body?.tradeRadius ?? '500');
   const interests = Array.isArray(req.body?.interests) ? req.body.interests : [];
 
   // Extract meeting preference field with default
@@ -2206,11 +2222,11 @@ router.post('/api/trade/preferences/', requireAuth, async (req: Request, res: Re
     meeting_preference: meetingPreference,
   });
 
-  // Replace interests join if available
+  // Replace category preferences (interests retired -> categories)
   if (interests.length) {
-    await supabase.from('trade_preference_interests').delete().eq('user_id', userId);
-    await supabase.from('trade_preference_interests').insert(
-      interests.map((i: any) => ({ user_id: userId, interest_id: Number(i.id ?? i) }))
+    await supabase.from('trade_preference_categories').delete().eq('user_id', userId);
+    await supabase.from('trade_preference_categories').insert(
+      interests.map((i: any) => ({ user_id: userId, category_id: Number(i.id ?? i) }))
     );
   }
 
@@ -2228,16 +2244,16 @@ router.get('/api/trade/getuserpreferences/', requireAuth, async (req: Request, r
     .maybeSingle();
 
   const ints = await supabase
-    .from('trade_preference_interests')
-    .select('interest_id, interests(name)')
+    .from('trade_preference_categories')
+    .select('category_id, categories(name)')
     .eq('user_id', userId);
 
-  const interests = (ints.data || []).map((r: any) => ({ id: r.interest_id, interest_name: r.interests?.name || '' }));
+  const interests = (ints.data || []).map((r: any) => ({ id: r.category_id, interest_name: r.categories?.name || '' }));
 
   return res.json({
     success: true,
     message: 'OK',
-    trade_radius: (pref.data as any)?.trade_radius ?? '',
+    trade_radius: (pref.data as any)?.trade_radius ?? '500',
     meeting_preference: (pref.data as any)?.meeting_preference ?? 'public_place',
     interests,
   });
@@ -2273,7 +2289,7 @@ router.get('/api/trade/api/nearby-users/', requireAuth, async (req: Request, res
 
     const tradeRadiusKm = tradePreference?.trade_radius
       ? parseFloat(tradePreference.trade_radius)
-      : 50; // Default 50km
+      : 500; // Default 500km
 
     // Get current user's products
     const { data: userProducts } = await supabase
@@ -2368,6 +2384,16 @@ router.get('/api/trade/api/nearby-users/', requireAuth, async (req: Request, res
           continue;
         }
 
+        // Price-range overlap (skip only when BOTH sides have a real max)
+        const uMin = parseFloat(userProduct.min_price || '0');
+        const uMax = parseFloat(userProduct.max_price || '0');
+        const oMin = parseFloat(otherProduct.min_price || '0');
+        const oMax = parseFloat(otherProduct.max_price || '0');
+        if (uMax > 0 && oMax > 0) {
+          const overlaps = uMin <= oMax && oMin <= uMax;
+          if (!overlaps) continue;
+        }
+
         const pairKey = `${userProduct.id}-${otherProduct.id}`;
         const wasDisliked = dislikedPairs.has(pairKey);
         const wasLiked = likedPairs.has(pairKey);
@@ -2414,7 +2440,11 @@ router.get('/api/trade/api/nearby-users/', requireAuth, async (req: Request, res
             longitude: parseFloat(otherUser.longitude) || 0.0,
             trade_radius: String(tradeRadiusKm),
           },
-          matching_interest_count: 0,
+
+          matching_interest_count:
+            userProduct.category_id && otherProduct.category_id &&
+            userProduct.category_id === otherProduct.category_id ? 1 : 0,
+
           already_liked: wasLiked,
         };
 
@@ -2428,6 +2458,10 @@ router.get('/api/trade/api/nearby-users/', requireAuth, async (req: Request, res
     }
 
     console.log(`Found ${matchingProducts.length} new products, ${alreadyLikedProducts.length} already liked, ${skippedDisliked} disliked for user ${userId}`);
+
+    // Rank most-relevant first: category match, then closeness
+    matchingProducts.sort((a, b) =>
+      (b.matching_interest_count - a.matching_interest_count));
 
     return res.json({
       success: true,

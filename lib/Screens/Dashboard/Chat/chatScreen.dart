@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:taptrade/Const/globleKey.dart';
 import 'package:taptrade/l10n/app_localizations.dart';
@@ -49,7 +50,6 @@ class _ChatScreenState extends State<ChatScreen> {
     await _loadMessages();
     _markAsRead();
 
-    // Poll for new messages every 5 seconds
     _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       _loadMessages(showLoading: false);
     });
@@ -81,8 +81,6 @@ class _ChatScreenState extends State<ChatScreen> {
           _messages.addAll(response!.messages!);
         }
       });
-
-      // Scroll to bottom after loading
       _scrollToBottom();
     }
   }
@@ -113,7 +111,6 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() => _isSending = true);
     _messageController.clear();
 
-    // Determine receiver ID
     final receiverId = _currentUserId == widget.match.user1Id
         ? widget.match.user2Id
         : widget.match.user1Id;
@@ -127,14 +124,37 @@ class _ChatScreenState extends State<ChatScreen> {
 
     if (mounted) {
       setState(() => _isSending = false);
-
       if (response?.success == true && response?.sentMessage != null) {
-        setState(() {
-          _messages.add(response!.sentMessage!);
-        });
+        setState(() => _messages.add(response!.sentMessage!));
         _scrollToBottom();
       }
     }
+  }
+
+  // Renders the other user's avatar — base64 data URI, network URL, or initial fallback
+  Widget _buildOtherUserAvatar(double radius) {
+    final img = widget.match.otherUser?.image;
+    if (img != null && img.isNotEmpty) {
+      try {
+        if (img.startsWith('data:')) {
+          final bytes = base64Decode(img.split(',').last);
+          return CircleAvatar(radius: radius, backgroundImage: MemoryImage(bytes));
+        } else {
+          return CircleAvatar(radius: radius, backgroundImage: NetworkImage(img));
+        }
+      } catch (_) {}
+    }
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: AppColors.surfaceVariantColor(context),
+      child: Text(
+        (widget.match.otherUser?.username ?? 'U')[0].toUpperCase(),
+        style: TextStyle(
+          color: AppColors.primaryText(context),
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
   }
 
   @override
@@ -147,32 +167,23 @@ class _ChatScreenState extends State<ChatScreen> {
       appBar: _buildAppBar(size),
       body: Column(
         children: [
-          // Product info header
           _buildProductInfoHeader(size),
-
-          // Messages list
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _messages.isEmpty
-                    ? _buildEmptyState(size)
-                    : ListView.builder(
-                        controller: _scrollController,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: size.width * 0.04,
-                          vertical: size.height * 0.02,
-                        ),
-                        itemCount: _messages.length,
-                        itemBuilder: (context, index) {
-                          return _buildMessageBubble(
-                            _messages[index],
-                            size,
-                          );
-                        },
-                      ),
+                ? _buildEmptyState(size)
+                : ListView.builder(
+              controller: _scrollController,
+              padding: EdgeInsets.symmetric(
+                horizontal: size.width * 0.04,
+                vertical: size.height * 0.02,
+              ),
+              itemCount: _messages.length,
+              itemBuilder: (context, index) =>
+                  _buildMessageBubble(_messages[index], size),
+            ),
           ),
-
-          // Message input
           _buildMessageInput(size),
         ],
       ),
@@ -190,17 +201,7 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       title: Row(
         children: [
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: AppColors.surfaceVariantColor(context),
-            child: Text(
-              (widget.match.otherUser?.username ?? 'U')[0].toUpperCase(),
-              style: TextStyle(
-                color: AppColors.primaryText(context),
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
+          _buildOtherUserAvatar(18),
           const SizedBox(width: 10),
           Text(
             widget.match.otherUser?.username ?? 'User',
@@ -221,7 +222,79 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  /// Show dialog to mark trade as complete
+  Widget _buildTradeActionButton(dynamic l10n) {
+    if (_tradeRequestStatus == 'completed') {
+      if (!_hasOfferedDeletion) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _maybeOfferDeletion());
+      }
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.green,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.check_circle, color: Colors.white, size: 16),
+            SizedBox(width: 4),
+            Text('Done', style: TextStyle(color: Colors.white, fontSize: 12)),
+          ],
+        ),
+      );
+    }
+
+    if (_tradeRequestStatus == 'pending_confirmation') {
+      if (_iMarkedComplete) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade400,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              ),
+              SizedBox(width: 6),
+              Text('Waiting...', style: TextStyle(color: Colors.white, fontSize: 12)),
+            ],
+          ),
+        );
+      } else {
+        return ElevatedButton.icon(
+          onPressed: _showConfirmTradeDialog,
+          icon: const Icon(Icons.handshake_outlined, size: 18),
+          label: const Text('Confirm Trade', style: TextStyle(fontSize: 12)),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.orange,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          ),
+        );
+      }
+    }
+
+    // Default: green Complete button
+    return ElevatedButton.icon(
+      onPressed: _showMarkCompleteDialog,
+      icon: const Icon(Icons.check_circle_outline, size: 18),
+      label: Text(l10n.complete, style: const TextStyle(fontSize: 12)),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.green,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+    );
+  }
+
+  /// First user marks the trade as complete
   Future<void> _showMarkCompleteDialog() async {
     final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
@@ -247,54 +320,116 @@ class _ChatScreenState extends State<ChatScreen> {
 
     if (confirmed != true || !mounted) return;
 
-    // Show loading
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => const Center(child: CircularProgressIndicator()),
     );
 
-    try {
-      // Use the trade request ID from the match model
-      final result = await ProductService.instance.markTradeCompleteByMatchId(
-        context,
-        widget.match.id!,
-      );
+    final result = await ProductService.instance.markTradeCompleteByMatchId(
+      context,
+      widget.match.id!,
+    );
 
-      if (mounted) Navigator.pop(context); // Close loading
+    if (mounted) Navigator.pop(context);
 
-      if (result.status == Status.COMPLETED) {
-        if (mounted) {
-          setState(() {
-            _tradeRequestStatus = 'pending_confirmation';
-            _iMarkedComplete = true;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(l10n.tradeMarkedWaiting),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) Navigator.pop(context); // Close loading
+    if (result.status == Status.COMPLETED) {
       if (mounted) {
+        setState(() {
+          _tradeRequestStatus = 'pending_confirmation';
+          _iMarkedComplete = true;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${AppLocalizations.of(context)?.errorPrefix ?? "Error: "}$e'),
-            backgroundColor: Colors.red,
+            content: Text(l10n.tradeMarkedWaiting),
+            backgroundColor: Colors.green,
           ),
         );
+      }
+    } else if (result.status == Status.ERROR) {
+      final errMsg = (result.message ?? '').toLowerCase();
+      if (mounted &&
+          errMsg.contains('already') &&
+          (errMsg.contains('marked') || errMsg.contains('complete'))) {
+        setState(() {
+          _tradeRequestStatus = 'pending_confirmation';
+          _iMarkedComplete = true;
+        });
       }
     }
   }
 
-  /// Build the correct trade action button based on current status
+  /// Second user confirms the trade after the first user marked it complete
+  Future<void> _showConfirmTradeDialog() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Trade Completion'),
+        content: Text(
+          'The other party has marked this trade as complete. '
+              'Do you confirm that the trade with '
+              '${widget.match.otherUser?.username ?? "the other user"} '
+              'has been completed successfully?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Not Yet'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            child: const Text('Yes, Confirm'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    final result = await ProductService.instance.markTradeCompleteByMatchId(
+      context,
+      widget.match.id!,
+    );
+
+    if (mounted) Navigator.pop(context);
+
+    if (result.status == Status.COMPLETED) {
+      if (mounted) {
+        setState(() => _tradeRequestStatus = 'completed');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Trade completed successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        WidgetsBinding.instance.addPostFrameCallback((_) => _maybeOfferDeletion());
+      }
+    } else if (result.status == Status.ERROR) {
+      // If this user already marked it, switch to Waiting state
+      final errMsg = (result.message ?? '').toLowerCase();
+      if (mounted &&
+          errMsg.contains('already') &&
+          (errMsg.contains('marked') || errMsg.contains('complete'))) {
+        setState(() => _iMarkedComplete = true);
+      }
+    }
+  }
+
+  /// Called once trade is completed — offers to remove the traded product
   void _maybeOfferDeletion() {
     if (!mounted || _hasOfferedDeletion) return;
     setState(() => _hasOfferedDeletion = true);
-    WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted) _maybeOfferDeletion(); });
+    // Fixed: was calling itself recursively; now correctly calls _offerProductDeletion
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _offerProductDeletion();
+    });
   }
 
   Future<void> _offerProductDeletion() async {
@@ -302,14 +437,14 @@ class _ChatScreenState extends State<ChatScreen> {
     final myProductId = widget.match.myProduct?.id;
     if (myProductId == null) return;
 
-    // Ask the user whether to remove their traded product from listings
     final delete = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         title: const Text('Trade Complete!'),
         content: Text(
-          'Would you like to remove "${widget.match.myProduct?.title}" from your listings now that the trade is done?',
+          'Would you like to remove "${widget.match.myProduct?.title}" '
+              'from your listings now that the trade is done?',
         ),
         actions: [
           TextButton(
@@ -343,147 +478,10 @@ class _ChatScreenState extends State<ChatScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.of(context).pop(); // Close the chat
+        Navigator.of(context).pop();
       }
     } catch (e) {
       if (mounted) Navigator.pop(context);
-    }
-  }
-
-  Widget _buildTradeActionButton(dynamic l10n) {
-    if (_tradeRequestStatus == 'completed') {
-      if (!_hasOfferedDeletion) {
-        WidgetsBinding.instance.addPostFrameCallback((_) => _maybeOfferDeletion());
-      }
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.green,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.check_circle, color: Colors.white, size: 16),
-            SizedBox(width: 4),
-            Text('Done', style: TextStyle(color: Colors.white, fontSize: 12)),
-          ],
-        ),
-      );
-    }
-
-    if (_tradeRequestStatus == 'pending_confirmation') {
-      if (_iMarkedComplete) {
-        // I already marked it — waiting for the other user
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade400,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: 12, height: 12,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-              ),
-              SizedBox(width: 6),
-              Text('Waiting...', style: TextStyle(color: Colors.white, fontSize: 12)),
-            ],
-          ),
-        );
-      } else {
-        // Other user marked it — I need to confirm
-        return ElevatedButton.icon(
-          onPressed: _showConfirmTradeDialog,
-          icon: const Icon(Icons.handshake_outlined, size: 18),
-          label: const Text('Confirm Trade', style: TextStyle(fontSize: 12)),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.orange,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          ),
-        );
-      }
-    }
-
-    // Default: green Complete button
-    return ElevatedButton.icon(
-      onPressed: _showMarkCompleteDialog,
-      icon: const Icon(Icons.check_circle_outline, size: 18),
-      label: Text(l10n.complete, style: const TextStyle(fontSize: 12)),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      ),
-    );
-  }
-
-  /// Confirm the trade after the other user has marked it complete
-  Future<void> _showConfirmTradeDialog() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirm Trade Completion'),
-        content: Text(
-          'The other party has marked this trade as complete. '
-          'Do you confirm that the trade with ${widget.match.otherUser?.username ?? "the other user"} has been completed successfully?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Not Yet'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-            child: const Text('Yes, Confirm'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true || !mounted) return;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
-
-    try {
-      // Use known tradeRequestId or fall back to match-based lookup
-      // FIX: markTradeCompleteByMatchId auto-routes to confirm or mark based on trade status
-      final result = await ProductService.instance.markTradeCompleteByMatchId(
-        context,
-        widget.match.id!,
-      );
-
-      if (mounted) Navigator.pop(context);
-
-      if (result.status == Status.COMPLETED) {
-        if (mounted) {
-          setState(() => _tradeRequestStatus = 'completed');
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Trade completed successfully!'),
-              backgroundColor: Colors.green,
-            ),
-          );
-          WidgetsBinding.instance.addPostFrameCallback((_) => _maybeOfferDeletion());
-        }
-      }
-    } catch (e) {
-      if (mounted) Navigator.pop(context);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-        );
-      }
     }
   }
 
@@ -499,14 +497,11 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       child: Row(
         children: [
-          // My product
           _buildMiniProductCard(
             widget.match.myProduct?.image ?? '',
             widget.match.myProduct?.title ?? l10n.yourProduct,
             size,
           ),
-
-          // Trade arrow
           Padding(
             padding: EdgeInsets.symmetric(horizontal: size.width * 0.03),
             child: Icon(
@@ -515,8 +510,6 @@ class _ChatScreenState extends State<ChatScreen> {
               size: size.width * 0.08,
             ),
           ),
-
-          // Their product
           _buildMiniProductCard(
             widget.match.theirProduct?.image ?? '',
             widget.match.theirProduct?.title ?? l10n.theirProduct,
@@ -545,25 +538,25 @@ class _ChatScreenState extends State<ChatScreen> {
                 height: size.width * 0.12,
                 child: imageUrl.isNotEmpty
                     ? Image.network(
-                        imageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: AppColors.surfaceVariantColor(context),
-                          child: Icon(
-                            Icons.image,
-                            color: AppColors.greyText(context),
-                            size: size.width * 0.06,
-                          ),
-                        ),
-                      )
+                  imageUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    color: AppColors.surfaceVariantColor(context),
+                    child: Icon(
+                      Icons.image,
+                      color: AppColors.greyText(context),
+                      size: size.width * 0.06,
+                    ),
+                  ),
+                )
                     : Container(
-                        color: AppColors.surfaceVariantColor(context),
-                        child: Icon(
-                          Icons.shopping_bag,
-                          color: AppColors.greyText(context),
-                          size: size.width * 0.06,
-                        ),
-                      ),
+                  color: AppColors.surfaceVariantColor(context),
+                  child: Icon(
+                    Icons.shopping_bag,
+                    color: AppColors.greyText(context),
+                    size: size.width * 0.06,
+                  ),
+                ),
               ),
             ),
             SizedBox(width: size.width * 0.02),
@@ -643,7 +636,7 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
         child: Column(
           crossAxisAlignment:
-              isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
             Text(
               message.messageText ?? '',
@@ -732,16 +725,13 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
                 child: _isSending
                     ? const Padding(
-                        padding: EdgeInsets.all(12),
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : const Icon(
-                        Icons.send,
-                        color: Colors.white,
-                      ),
+                  padding: EdgeInsets.all(12),
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                )
+                    : const Icon(Icons.send, color: Colors.white),
               ),
             ),
           ],
@@ -754,7 +744,6 @@ class _ChatScreenState extends State<ChatScreen> {
     if (time == null) return '';
     final now = DateTime.now();
     final diff = now.difference(time);
-
     if (diff.inDays > 0) {
       return '${time.day}/${time.month}/${time.year}';
     } else {
