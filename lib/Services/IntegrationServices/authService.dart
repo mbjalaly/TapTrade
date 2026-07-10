@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -25,12 +25,12 @@ class AuthService {
 
       try {
         Map<String, dynamic> errorMessageJson = json.decode(e.message);
-        
+
         // Extract error message - check message field first, then error
-        String errorMessage = errorMessageJson['message'] ?? 
-                              errorMessageJson['error'] ?? 
+        String errorMessage = errorMessageJson['message'] ??
+                              errorMessageJson['error'] ??
                               'An error occurred';
-        
+
         // If there are field errors, append them to the message
         if (errorMessageJson['errors'] != null) {
           final errors = errorMessageJson['errors'];
@@ -45,7 +45,7 @@ class AuthService {
             }
           }
         }
-        
+
         ShowMessage.inDialog(context, errorMessage.capitalizeFirst.toString(), true);
         return ApiResponse.error(errorMessage);
       } catch (parseError) {
@@ -53,7 +53,7 @@ class AuthService {
         String rawMessage = e.message.toString();
         // Clean up common prefixes if present
         rawMessage = rawMessage.replaceAll('Exception:', '').trim();
-        
+
         String finalError = rawMessage.isNotEmpty ? rawMessage : 'An error occurred';
         ShowMessage.inDialog(context, finalError, true);
         return ApiResponse.error(finalError);
@@ -143,22 +143,21 @@ class AuthService {
     }
   }
 
-  /// Verify password reset OTP and get reset token
-  /// This verifies the OTP code and returns a reset_token for the final step
-  /// Returns success status and reset_token
+  /// Exchange a Firebase-verified phone for a password reset token
+  /// The app verifies the SMS code with Firebase Phone Auth first, then sends
+  /// the Firebase ID token here. The backend verifies the token and returns
+  /// a reset_token for the final step.
   Future<ApiResponse<dynamic>> verifyPasswordResetOtp(
     BuildContext context,
     String phoneNumber,
-    String code,
-    String verificationId,
+    String firebaseIdToken,
   ) async {
     try {
-      printLog("AuthService: Verifying password reset OTP for $phoneNumber");
+      printLog("AuthService: Exchanging Firebase verification for reset token ($phoneNumber)");
 
       Map<String, dynamic> body = {
         'phone': phoneNumber,
-        'code': code,
-        'verification_id': verificationId,
+        'firebase_id_token': firebaseIdToken,
       };
 
       final result = await ApiService.postRequestData(
@@ -169,10 +168,10 @@ class AuthService {
       );
 
       if (result['success'] == true && result['reset_token'] != null) {
-        printLog("AuthService: Password reset OTP verified successfully");
+        printLog("AuthService: Password reset verification successful");
         return ApiResponse.completed(result);
       } else {
-        printLog("AuthService: Password reset OTP verification failed: ${result['message']}");
+        printLog("AuthService: Password reset verification failed: ${result['message']}");
         return ApiResponse.error(result['message'] ?? 'Verification failed');
       }
     } catch (e) {
@@ -349,8 +348,7 @@ class AuthService {
     }
   }
 
-  /// Verify phone OTP via UnoSend backend
-  /// This method coordinates with the backend SMS verification system
+  /// Verify phone OTP via backend SMS verification system
   /// Returns success status and verification result
   Future<ApiResponse<dynamic>> verifyPhoneOtp(
     BuildContext context,

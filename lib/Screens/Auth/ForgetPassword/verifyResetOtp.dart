@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:taptrade/Screens/Auth/ForgetPassword/resetPassword.dart';
 import 'package:taptrade/Services/ApiResponse/apiResponse.dart';
 import 'package:taptrade/Services/IntegrationServices/authService.dart';
+import 'package:taptrade/Services/IntegrationServices/firebasePhoneAuthService.dart';
 import 'package:taptrade/Services/logService.dart';
 import 'package:taptrade/Utills/appColors.dart';
 import 'package:taptrade/Utills/showMessages.dart';
@@ -13,12 +15,10 @@ import 'package:taptrade/l10n/app_localizations.dart';
 
 class VerifyResetOtpScreen extends StatefulWidget {
   final String phoneNumber;
-  final String verificationId;
 
   const VerifyResetOtpScreen({
     Key? key,
     required this.phoneNumber,
-    required this.verificationId,
   }) : super(key: key);
 
   @override
@@ -32,10 +32,18 @@ class _VerifyResetOtpScreenState extends State<VerifyResetOtpScreen> {
   Timer? _resendTimer;
   String? otpError;
 
+  // Firebase verification ID (set when the SMS is sent)
+  String? _verificationId;
+
+  // Guard so auto-verification and manual entry can't both complete the flow
+  bool _flowCompleted = false;
+
   @override
   void initState() {
     super.initState();
     _startResendTimer();
+    // Send the SMS via Firebase as soon as the screen opens
+    WidgetsBinding.instance.addPostFrameCallback((_) => _sendFirebaseOtp());
   }
 
   @override
@@ -45,10 +53,38 @@ class _VerifyResetOtpScreenState extends State<VerifyResetOtpScreen> {
     super.dispose();
   }
 
+  Future<void> _sendFirebaseOtp() async {
+    printLog('[VerifyResetOtp] Sending Firebase OTP to ${widget.phoneNumber}');
+    await FirebasePhoneAuthService.instance.sendOtp(
+      phoneNumber: widget.phoneNumber,
+      context: context,
+      onCodeSent: (String verificationId) {
+        printLog('[VerifyResetOtp] Firebase code sent');
+        if (!mounted) return;
+        setState(() => _verificationId = verificationId);
+      },
+      onAutoVerify: (PhoneAuthCredential credential) {
+        _handleAutoVerify(credential);
+      },
+      onError: (String error) {
+        printLog('[VerifyResetOtp] Firebase send error: $error');
+        if (!mounted) return;
+        setState(() {
+          isLoading = false;
+          otpError = error;
+        });
+      },
+    );
+  }
+
   void _startResendTimer() {
     _resendSeconds = 60; // 60 seconds cooldown
     _resendTimer?.cancel();
     _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
       if (_resendSeconds > 0) {
         setState(() => _resendSeconds--);
       } else {
@@ -76,11 +112,37 @@ class _VerifyResetOtpScreenState extends State<VerifyResetOtpScreen> {
     }
   }
 
+  /// Android may verify the SMS automatically without user input
+  Future<void> _handleAutoVerify(PhoneAuthCredential credential) async {
+    if (_flowCompleted) return;
+    printLog('[VerifyResetOtp] Auto-verification triggered');
+
+    setState(() => isLoading = true);
+
+    final userCredential = await FirebasePhoneAuthService.instance
+        .signInWithCredential(credential, context);
+
+    if (userCredential == null) {
+      if (!mounted) return;
+      setState(() => isLoading = false);
+      return;
+    }
+
+    await _exchangeForResetToken(userCredential);
+  }
+
   Future<void> _verifyOtp() async {
+    if (_flowCompleted) return;
+
     final code = otpController.text.trim();
 
     if (code.length != 6) {
       setState(() => otpError = AppLocalizations.of(context)?.pleaseEnterValid6DigitOtp ?? 'Please enter the 6-digit code');
+      return;
+    }
+
+    if (_verificationId == null) {
+      setState(() => otpError = 'Still sending the code. Please wait a moment and try again.');
       return;
     }
 
@@ -89,25 +151,72 @@ class _VerifyResetOtpScreenState extends State<VerifyResetOtpScreen> {
       otpError = null;
     });
 
-    printLog('[VerifyResetOtp] Verifying password reset OTP');
+    printLog('[VerifyResetOtp] Verifying OTP with Firebase');
 
     try {
+      // Step 1: Verify the code with Firebase
+      final userCredential = await FirebasePhoneAuthService.instance.verifyOtp(
+        otp: code,
+        context: context,
+        verificationId: _verificationId,
+      );
+
+      if (userCredential == null) {
+        if (!mounted) return;
+        setState(() {
+          isLoading = false;
+          otpError = AppLocalizations.of(context)?.otpError ?? 'Invalid code. Please try again.';
+        });
+        return;
+      }
+
+      // Step 2: Exchange the Firebase proof for a backend reset token
+      await _exchangeForResetToken(userCredential);
+    } catch (e) {
+      printLog('[VerifyResetOtp] Error: $e');
+      if (!mounted) return;
+      setState(() {
+        isLoading = false;
+        otpError = AppLocalizations.of(context)?.errorTryAgainLater ?? 'An error occurred. Please try again.';
+      });
+    }
+  }
+
+  Future<void> _exchangeForResetToken(UserCredential userCredential) async {
+    try {
+      final idToken = await userCredential.user?.getIdToken();
+
+      if (idToken == null) {
+        if (!mounted) return;
+        setState(() {
+          isLoading = false;
+          otpError = AppLocalizations.of(context)?.errorTryAgainLater ?? 'An error occurred. Please try again.';
+        });
+        return;
+      }
+
       final result = await AuthService.instance.verifyPasswordResetOtp(
         context,
         widget.phoneNumber,
-        code,
-        widget.verificationId,
+        idToken,
       );
 
+      if (!mounted) return;
       setState(() => isLoading = false);
 
       if (result.status == Status.COMPLETED && result.responseData['success'] == true) {
+        _flowCompleted = true;
         final resetToken = result.responseData['reset_token'];
-        printLog('[VerifyResetOtp] OTP verified, reset token received');
+        printLog('[VerifyResetOtp] Verified, reset token received');
+
+        // Clean up the temporary Firebase session
+        try {
+          await FirebasePhoneAuthService.instance.signOut();
+        } catch (_) {}
 
         // Navigate to reset password screen
         final success = await Get.to(
-          () => ResetPasswordScreen(
+              () => ResetPasswordScreen(
             resetToken: resetToken,
           ),
           transition: Transition.rightToLeft,
@@ -115,16 +224,19 @@ class _VerifyResetOtpScreenState extends State<VerifyResetOtpScreen> {
 
         // If password was reset successfully, return to login
         if (success == true) {
-          // Return true to indicate success (will trigger navigation to login in ForgetPasswordScreen)
           Get.back(result: true);
+        } else {
+          // Allow retrying if the user backed out of the reset screen
+          _flowCompleted = false;
         }
       } else {
         setState(() {
-          otpError = result.responseData['message'] ?? AppLocalizations.of(context)?.otpError ?? 'Invalid code. Please try again.';
+          otpError = result.responseData['message'] ?? AppLocalizations.of(context)?.otpError ?? 'Verification failed. Please try again.';
         });
       }
     } catch (e) {
-      printLog('[VerifyResetOtp] Error: $e');
+      printLog('[VerifyResetOtp] Exchange error: $e');
+      if (!mounted) return;
       setState(() {
         isLoading = false;
         otpError = AppLocalizations.of(context)?.errorTryAgainLater ?? 'An error occurred. Please try again.';
@@ -137,30 +249,38 @@ class _VerifyResetOtpScreenState extends State<VerifyResetOtpScreen> {
 
     setState(() => isLoading = true);
 
-    printLog('[VerifyResetOtp] Resending password reset OTP');
+    printLog('[VerifyResetOtp] Resending Firebase OTP');
 
     try {
-      final result = await AuthService.instance.sendPasswordResetOtp(
-        context,
-        widget.phoneNumber,
+      final sent = await FirebasePhoneAuthService.instance.resendOtp(
+        phoneNumber: widget.phoneNumber,
+        context: context,
+        onCodeSent: (String verificationId) {
+          if (!mounted) return;
+          setState(() => _verificationId = verificationId);
+          _startResendTimer();
+          ShowMessage.notify(context, AppLocalizations.of(context)?.verificationCodeSentTo(widget.phoneNumber) ?? 'Verification code sent');
+          otpController.clear();
+          _clearError();
+        },
+        onAutoVerify: (PhoneAuthCredential credential) {
+          _handleAutoVerify(credential);
+        },
       );
 
+      if (!mounted) return;
       setState(() => isLoading = false);
 
-      if (result.status == Status.COMPLETED && result.responseData['success'] == true) {
-        _startResendTimer();
-        ShowMessage.notify(context, AppLocalizations.of(context)?.verificationCodeSentTo(widget.phoneNumber) ?? 'Verification code sent');
-        otpController.clear();
-        _clearError();
-      } else {
+      if (!sent) {
         ShowMessage.inDialog(
           context,
-          result.responseData['message'] ?? 'Failed to resend code',
+          'Failed to resend code. Please try again.',
           true,
         );
       }
     } catch (e) {
       printLog('[VerifyResetOtp] Resend error: $e');
+      if (!mounted) return;
       setState(() => isLoading = false);
       ShowMessage.inDialog(
         context,

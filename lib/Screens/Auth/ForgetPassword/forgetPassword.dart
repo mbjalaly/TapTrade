@@ -15,9 +15,9 @@ import 'package:taptrade/l10n/app_localizations.dart';
 class PhoneNumberFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
+      TextEditingValue oldValue,
+      TextEditingValue newValue,
+      ) {
     // Remove all non-digit characters
     final digitsOnly = newValue.text.replaceAll(RegExp(r'\D'), '');
 
@@ -142,43 +142,42 @@ class _ForgetPasswordScreenState extends State<ForgetPasswordScreen> {
     });
 
     final fullPhoneNumber = _getFullPhoneNumber();
-    printLog('[ForgetPassword] Attempting to send OTP to: $fullPhoneNumber');
+    printLog('[ForgetPassword] Initiating password reset for: $fullPhoneNumber');
 
     try {
+      // Step 1: Tell the backend a reset is starting (rate limiting + logging).
+      // The SMS itself is sent by Firebase from the OTP screen.
       final result = await AuthService.instance.sendPasswordResetOtp(
         context,
         fullPhoneNumber,
       );
 
+      if (!mounted) return;
       setState(() => isLoading = false);
 
       if (result.status == Status.COMPLETED && result.responseData['success'] == true) {
-        final verificationId = result.responseData['verification_id'];
-        printLog('[ForgetPassword] OTP sent successfully, verification_id: $verificationId');
+        printLog('[ForgetPassword] Reset initiated, opening Firebase OTP screen');
 
-        // Navigate to OTP verification screen
+        // Navigate to OTP verification screen (it sends the Firebase SMS itself)
         final resetToken = await Get.to(
-          () => VerifyResetOtpScreen(
+              () => VerifyResetOtpScreen(
             phoneNumber: fullPhoneNumber,
-            verificationId: verificationId,
           ),
           transition: Transition.rightToLeft,
         );
 
-        // If OTP verified successfully and we got a reset token, the VerifyResetOtpScreen
-        // will handle navigation to ResetPasswordScreen. If we return here with success,
-        // go back to login.
+        // If the whole flow completed successfully, go back to login
         if (resetToken == true) {
-          // Password was reset successfully
           Get.back(); // Return to login screen
           ShowMessage.notify(context, 'Password reset successfully!');
         }
       } else {
         setState(() {
-          phoneError = result.responseData['message'] ?? 'Failed to send verification code';
+          phoneError = result.responseData['message'] ?? 'Failed to start password reset';
         });
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         isLoading = false;
         phoneError = 'An error occurred. Please try again.';

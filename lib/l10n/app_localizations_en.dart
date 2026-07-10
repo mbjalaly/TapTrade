@@ -1082,7 +1082,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String priceRangeFormat(
-      String minPrice, String maxPrice, Object max, Object min) {
+    String minPrice,
+    String maxPrice,
+    Object max,
+    Object min,
+  ) {
     return '$min - $max SAR';
   }
 
