@@ -6,8 +6,10 @@ import 'package:taptrade/Services/ApiServices/apiServices.dart';
 import 'package:taptrade/Services/logService.dart';
 import 'package:taptrade/Utills/showMessages.dart';
 
-/// UnoSend SMS Service
-/// Handles phone OTP verification using the backend UnoSend API
+/// SMS Service (Firebase-only)
+/// UnoSend has been removed. sendOtp() now immediately directs callers to
+/// the Firebase phone-auth path via `fallback_needed: true`, reusing the
+/// existing fallback branches in each screen. No backend call is made.
 class UnoSendSmsService {
   static final UnoSendSmsService instance = UnoSendSmsService._internal();
 
@@ -25,114 +27,43 @@ class UnoSendSmsService {
   String? get phoneNumber => _phoneNumber;
 
   /// Send OTP to phone number
-  /// Returns a map with success status and verification details
+  /// Firebase-only: always returns `fallback_needed: true` so the calling
+  /// screen proceeds directly with FirebasePhoneAuthService. No UnoSend
+  /// attempt, no network round-trip.
   Future<Map<String, dynamic>> sendOtp({
     required String phoneNumber,
     required BuildContext context,
   }) async {
-    try {
-      printLog("UnoSendSmsService: Sending OTP to $phoneNumber");
-
-      // Validate phone format (basic E.164 check)
-      if (!_isValidE164Phone(phoneNumber)) {
-        return {
-          'success': false,
-          'message': 'Invalid phone number format. Please use international format (e.g., +14155551234)',
-        };
-      }
-
-      final requestBody = {
-        'phone': phoneNumber,
-      };
-
-      final response = await ApiService.postRequestData(
-        ApiEndPoint.sendSmsOtp,
-        requestBody,
-        context,
-        sendToken: false,
-      );
-
-      printLog("UnoSendSmsService: Send OTP response: $response");
-
-      // Handle successful response
-      if (response['success'] == true) {
-        _verificationId = response['verification_id'];
-        _phoneNumber = phoneNumber;
-
-        return {
-          'success': true,
-          'message': response['message'] ?? 'OTP sent successfully',
-          'verification_id': _verificationId,
-          'expires_at': response['expires_at'],
-          'provider': response['provider'] ?? 'unosend',
-        };
-      }
-
-      // Handle fallback needed
-      if (response['fallback_needed'] == true) {
-        printLog("UnoSendSmsService: Fallback needed");
-        return {
-          'success': false,
-          'message': response['message'] ?? 'Primary SMS service unavailable',
-          'fallback_needed': true,
-          'provider': response['provider'] ?? 'unosend',
-        };
-      }
-
-      // Handle other errors
+    // Validate phone format (basic E.164 check)
+    if (!_isValidE164Phone(phoneNumber)) {
       return {
         'success': false,
-        'message': response['message'] ?? 'Failed to send OTP',
-        'fallback_needed': false,
-      };
-
-    } catch (e) {
-      printLog("UnoSendSmsService: Error sending OTP: $e");
-
-      if (e is ApiException) {
-        // Parse error message from API
-        try {
-          Map<String, dynamic> errorJson = json.decode(e.message);
-          String errorMessage = errorJson['message'] ?? 'Failed to send OTP';
-          bool fallbackNeeded = errorJson['fallback_needed'] ?? false;
-
-          // Show error to user only if not fallback scenario
-          if (!fallbackNeeded) {
-            ShowMessage.inDialog(context, errorMessage, true);
-          }
-
-          return {
-            'success': false,
-            'message': errorMessage,
-            'fallback_needed': fallbackNeeded,
-          };
-        } catch (parseError) {
-          return {
-            'success': false,
-            'message': e.message,
-            'fallback_needed': true,
-          };
-        }
-      }
-
-      // Network or unknown errors should trigger fallback
-      return {
-        'success': false,
-        'message': 'Network error. Please try again.',
-        'fallback_needed': true,
+        'message': 'Invalid phone number format. Please use international format (e.g., +14155551234)',
       };
     }
+
+    printLog("SmsService: Directing $phoneNumber to Firebase phone verification");
+
+    _phoneNumber = phoneNumber;
+
+    return {
+      'success': false,
+      'message': 'Using Firebase phone verification',
+      'fallback_needed': true,
+      'provider': 'firebase',
+    };
   }
 
-  /// Verify OTP code
-  /// Returns a map with success status and verification result
+  /// Verify OTP code (legacy backend verification — unused in the Firebase
+  /// flow, where verification happens on-device via FirebasePhoneAuthService.
+  /// Kept so existing references keep compiling.)
   Future<Map<String, dynamic>> verifyOtp({
     required String phoneNumber,
     required String code,
     required BuildContext context,
   }) async {
     try {
-      printLog("UnoSendSmsService: Verifying OTP for $phoneNumber");
+      printLog("SmsService: Verifying OTP for $phoneNumber");
 
       // Validate code format (6 digits)
       if (!_isValidOtpCode(code)) {
@@ -155,7 +86,7 @@ class UnoSendSmsService {
         sendToken: false,
       );
 
-      printLog("UnoSendSmsService: Verify OTP response: $response");
+      printLog("SmsService: Verify OTP response: $response");
 
       // Handle successful verification
       if (response['success'] == true && response['phone_verified'] == true) {
@@ -175,7 +106,7 @@ class UnoSendSmsService {
       };
 
     } catch (e) {
-      printLog("UnoSendSmsService: Error verifying OTP: $e");
+      printLog("SmsService: Error verifying OTP: $e");
 
       if (e is ApiException) {
         // Parse error message from API

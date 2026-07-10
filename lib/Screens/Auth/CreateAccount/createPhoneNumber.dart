@@ -4,7 +4,6 @@ import 'package:get/get.dart';
 import 'package:country_picker/country_picker.dart';
 import 'package:taptrade/Models/SignUpRequestModel/signUpRequestModel.dart';
 import 'package:taptrade/Screens/Auth/CreateAccount/verifyPhoneOtp.dart';
-import 'package:taptrade/Services/IntegrationServices/unoSendSmsService.dart';
 import 'package:taptrade/Services/logService.dart';
 import 'package:taptrade/Utills/appColors.dart';
 import 'package:taptrade/Utills/showMessages.dart';
@@ -138,39 +137,16 @@ class _CreatePhoneNumberScreenState extends State<CreatePhoneNumberScreen> {
       return;
     }
 
-    setState(() {
-      isLoading = true;
-      phoneError = null;
-    });
+    setState(() => phoneError = null);
 
     final fullPhoneNumber = _getFullPhoneNumber();
-    printLog('[CreatePhoneNumber] Attempting to send OTP to: $fullPhoneNumber');
+    printLog('[CreatePhoneNumber] Proceeding to Firebase OTP for: $fullPhoneNumber');
 
-    // Try UnoSend first
-    final unoResult = await UnoSendSmsService.instance.sendOtp(
+    // Firebase sends the OTP from the verification screen itself
+    Get.to(() => VerifyPhoneOtpScreen(
+      requestModel: widget.requestModel,
       phoneNumber: fullPhoneNumber,
-      context: context,
-    );
-
-    if (unoResult['success'] == true) {
-      // UnoSend succeeded
-      setState(() => isLoading = false);
-
-      ShowMessage.notify(context, 'Verification code sent to $fullPhoneNumber');
-
-      // Navigate to OTP verification screen
-      Get.to(() => VerifyPhoneOtpScreen(
-            requestModel: widget.requestModel,
-            phoneNumber: fullPhoneNumber,
-            verificationId: unoResult['verification_id'],
-          ));
-    } else {
-      // Error (validation error, rate limiting, service unavailable, etc.)
-      setState(() {
-        isLoading = false;
-        phoneError = unoResult['message'] ?? 'Failed to send OTP. Please try again.';
-      });
-    }
+    ));
   }
 
   @override

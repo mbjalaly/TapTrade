@@ -54,6 +54,22 @@ class _AddInterestScreenState extends State<AddInterestScreen> {
     print("[AddInterestScreen] Loaded interests: ${GeneralService.instance.allInterest.value.data?.length ?? 0}");
   }
 
+  /// Builds the button label safely.
+  /// continueWithCount is a localization *function* that takes (count, max) —
+  /// it must be CALLED with arguments, not referenced directly, otherwise
+  /// Flutter renders the function object as text.
+  String _buttonLabel(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    if (l10n != null) {
+      try {
+        return l10n.continueWithCount(selectedIndices.length, maxSelectionCount);
+      } catch (_) {
+        // Fall through to manual fallback below
+      }
+    }
+    return "Continue (${selectedIndices.length}/$maxSelectionCount)";
+  }
+
   @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
@@ -68,189 +84,189 @@ class _AddInterestScreenState extends State<AddInterestScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-              SizedBox(
-                height: Get.height * 0.02,
-              ),
-              GestureDetector(
-                  onTap: () {
-                    Get.back();
-                  },
-                  child: Align(
-                      alignment: Alignment.topLeft,
-                      child: Icon(
-                        Icons.arrow_back_ios_new,
-                        color: Colors.grey,
-                        size: size.width * 0.08,
-                      ))),
-              Padding(
-                padding: EdgeInsets.only(top: Get.height * 0.02),
-                child: AppText(
-                  text: AppLocalizations.of(context)?.interestsTitle ?? "Interests",
-                  fontSize: Get.width * 0.1,
-                  textcolor: AppColors.darkBlue,
-                  fontWeight: FontWeight.w600,
+                SizedBox(
+                  height: Get.height * 0.02,
                 ),
-              ),
-              Padding(
-                padding: EdgeInsets.only(top: Get.height * 0.02),
-                child: AppText(
-                  text:
-                      "Let everyone know what you’re interested in\nby adding it to your profile.",
-                  fontSize: Get.width * 0.036,
-                  textcolor: Colors.grey,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              SizedBox(
-                height: Get.height * 0.03,
-              ),
-              if (isLoadingInterests)
-                Container(
-                  height: Get.height * 0.56,
-                  alignment: Alignment.center,
-                  child: const CircularProgressIndicator(
-                    color: AppColors.themeColor,
+                GestureDetector(
+                    onTap: () {
+                      Get.back();
+                    },
+                    child: Align(
+                        alignment: Alignment.topLeft,
+                        child: Icon(
+                          Icons.arrow_back_ios_new,
+                          color: Colors.grey,
+                          size: size.width * 0.08,
+                        ))),
+                Padding(
+                  padding: EdgeInsets.only(top: Get.height * 0.02),
+                  child: AppText(
+                    text: "Interest Categories",
+                    fontSize: Get.width * 0.09,
+                    textcolor: AppColors.darkBlue,
+                    fontWeight: FontWeight.w600,
                   ),
-                )
-              else if (GeneralService.instance.allInterest.value.data == null ||
-                  GeneralService.instance.allInterest.value.data!.isEmpty)
-                Container(
-                  height: Get.height * 0.56,
-                  alignment: Alignment.center,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.error_outline,
-                        size: 48,
-                        color: Colors.grey,
-                      ),
-                      SizedBox(height: 16),
-                      AppText(
-                        text: AppLocalizations.of(context)?.failedToLoadInterests ?? "Failed to load interests",
-                        fontSize: 16,
-                        textcolor: Colors.grey,
-                      ),
-                      SizedBox(height: 16),
-                      GestureDetector(
-                        onTap: _loadInterests,
-                        child: Container(
-                          padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: AppColors.themeColor,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        child: AppText(
-                            text: AppLocalizations.of(context)?.retry ?? "Retry",
-                            textcolor: Colors.white,
-                            fontWeight: FontWeight.w600,
+                ),
+                Padding(
+                  padding: EdgeInsets.only(top: Get.height * 0.02),
+                  child: AppText(
+                    text:
+                    "Let everyone know which categories you’re\ninterested in by adding them to your profile.",
+                    fontSize: Get.width * 0.036,
+                    textcolor: Colors.grey,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                SizedBox(
+                  height: Get.height * 0.03,
+                ),
+                if (isLoadingInterests)
+                  Container(
+                    height: Get.height * 0.56,
+                    alignment: Alignment.center,
+                    child: const CircularProgressIndicator(
+                      color: AppColors.themeColor,
+                    ),
+                  )
+                else if (GeneralService.instance.allInterest.value.data == null ||
+                    GeneralService.instance.allInterest.value.data!.isEmpty)
+                  Container(
+                    height: Get.height * 0.56,
+                    alignment: Alignment.center,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          size: 48,
+                          color: Colors.grey,
+                        ),
+                        SizedBox(height: 16),
+                        AppText(
+                          text: AppLocalizations.of(context)?.failedToLoadInterests ?? "Failed to load interest categories",
+                          fontSize: 16,
+                          textcolor: Colors.grey,
+                        ),
+                        SizedBox(height: 16),
+                        GestureDetector(
+                          onTap: _loadInterests,
+                          child: Container(
+                            padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: AppColors.themeColor,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: AppText(
+                              text: AppLocalizations.of(context)?.retry ?? "Retry",
+                              textcolor: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                Container(
-                  constraints: BoxConstraints(
-                    minHeight: Get.height * 0.56,
-                  ),
-                  child: Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: GeneralService.instance.allInterest.value.data!.map((interest) {
-                      final name = interest.name ?? '';
-                      final isSelected = selectedIndices.contains(name);
-                      return GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            if (isSelected) {
-                              selectedIndices.remove(name);
-                            } else {
-                              selectedIndices.add(name);
-                            }
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? AppColors.darkBlue
-                                : Colors.grey.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(25),
-                            border: Border.all(
+                      ],
+                    ),
+                  )
+                else
+                  Container(
+                    constraints: BoxConstraints(
+                      minHeight: Get.height * 0.56,
+                    ),
+                    child: Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: GeneralService.instance.allInterest.value.data!.map((interest) {
+                        final name = interest.name ?? '';
+                        final isSelected = selectedIndices.contains(name);
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              if (isSelected) {
+                                selectedIndices.remove(name);
+                              } else {
+                                selectedIndices.add(name);
+                              }
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            decoration: BoxDecoration(
                               color: isSelected
                                   ? AppColors.darkBlue
-                                  : AppColors.greyText(context).withOpacity(0.3),
-                              width: 1.5,
-                            ),
-                          ),
-                          child: Text(
-                            name,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                              color: isSelected ? Colors.white : AppColors.darkBlue,
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              SizedBox(
-                height: Get.height * 0.03,
-              ),
-              Center(
-                child: GestureDetector(
-                  onTap: selectedIndices.length >= 5 && !isLoading ? () async{
-                    Map<String,dynamic> body = {
-                      "interest_names": selectedIndices
-                    };
-                    String id = userController.userProfile.value.data?.id ?? '';
-                    setState(() {
-                      isLoading = true;
-                    });
-                    final result = await ProfileService.instance.addUserInterest(context, body, id);
-                    setState(() {
-                      isLoading = false;
-                    });
-                    if(result.status == Status.COMPLETED){
-                      ShowMessage.notify(context, "${result.responseData['message']}");
-                      ProfileService.instance.getUserInterests(context, id);
-                      // Profile is marked as completed in the backend after adding interests
-                      Get.to(() =>  AddProductWizardScreen());
-                    }else{
-                      ShowMessage.notify(context, "${result.message}");
-                    }
-                  } : null,
-                  child: Container(
-                      height: Get.height * 0.065,
-                      width: Get.width * 0.85,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(25),
-                        color: selectedIndices.length >= 5
-                            ? AppColors.darkBlue
-                            : Colors.grey.withOpacity(0.3),
-                      ),
-                      child: isLoading
-                          ? const SizedBox(
-                              height: 24,
-                              width: 24,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2.5,
+                                  : Colors.grey.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(25),
+                              border: Border.all(
+                                color: isSelected
+                                    ? AppColors.darkBlue
+                                    : AppColors.greyText(context).withOpacity(0.3),
+                                width: 1.5,
                               ),
-                            )
-                          : AppText(
-                              text: (AppLocalizations.of(context)?.continueWithCount ?? "Continue ({count}/{max})").toString().replaceAll('{count}', '${selectedIndices.length}').replaceAll('{max}', '$maxSelectionCount'),
-                              fontWeight: FontWeight.w700,
-                              textcolor: Colors.white,
-                              fontSize: Get.width * 0.042,
-                            )),
+                            ),
+                            child: Text(
+                              name,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                                color: isSelected ? Colors.white : AppColors.darkBlue,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                SizedBox(
+                  height: Get.height * 0.03,
                 ),
-              )
+                Center(
+                  child: GestureDetector(
+                    onTap: selectedIndices.length >= 5 && !isLoading ? () async{
+                      Map<String,dynamic> body = {
+                        "interest_names": selectedIndices
+                      };
+                      String id = userController.userProfile.value.data?.id ?? '';
+                      setState(() {
+                        isLoading = true;
+                      });
+                      final result = await ProfileService.instance.addUserInterest(context, body, id);
+                      setState(() {
+                        isLoading = false;
+                      });
+                      if(result.status == Status.COMPLETED){
+                        ShowMessage.notify(context, "${result.responseData['message']}");
+                        ProfileService.instance.getUserInterests(context, id);
+                        // Profile is marked as completed in the backend after adding interests
+                        Get.to(() =>  AddProductWizardScreen());
+                      }else{
+                        ShowMessage.notify(context, "${result.message}");
+                      }
+                    } : null,
+                    child: Container(
+                        height: Get.height * 0.065,
+                        width: Get.width * 0.85,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(25),
+                          color: selectedIndices.length >= 5
+                              ? AppColors.darkBlue
+                              : Colors.grey.withOpacity(0.3),
+                        ),
+                        child: isLoading
+                            ? const SizedBox(
+                          height: 24,
+                          width: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
+                        )
+                            : AppText(
+                          text: _buttonLabel(context),
+                          fontWeight: FontWeight.w700,
+                          textcolor: Colors.white,
+                          fontSize: Get.width * 0.042,
+                        )),
+                  ),
+                )
               ],
             ),
           ),

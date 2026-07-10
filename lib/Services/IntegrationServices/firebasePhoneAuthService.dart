@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:taptrade/Services/logService.dart';
 import 'package:taptrade/Utills/showMessages.dart';
@@ -7,9 +8,9 @@ import 'package:taptrade/Utills/showMessages.dart';
 /// Handles OTP sending and verification via Firebase
 class FirebasePhoneAuthService {
   static final FirebasePhoneAuthService instance = FirebasePhoneAuthService._internal();
-  
+
   factory FirebasePhoneAuthService() => instance;
-  
+
   FirebasePhoneAuthService._internal();
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -23,7 +24,7 @@ class FirebasePhoneAuthService {
 
   /// Check if Firebase is being used as fallback
   bool get isFallbackMode => _isFallbackMode;
-  
+
   /// Send OTP to phone number
   /// [phoneNumber] should include country code, e.g., "+966123456789"
   /// [isFallback] indicates if Firebase is being used as fallback for UnoSend
@@ -44,10 +45,20 @@ class FirebasePhoneAuthService {
         printLog('[Firebase Phone Auth] Running in FALLBACK mode (UnoSend unavailable)');
       }
 
+      // In DEBUG builds (emulator/local testing), force the reCAPTCHA flow.
+      // Emulators cannot pass Play Integrity attestation, which causes
+      // "app-not-authorized / Invalid app info in play_integrity_token".
+      // The reCAPTCHA flow opens a browser challenge instead and then sends
+      // the real SMS. Release builds are unaffected (kDebugMode is false).
+      if (kDebugMode) {
+        printLog('[Firebase Phone Auth] DEBUG build: forcing reCAPTCHA flow (bypassing Play Integrity)');
+        await _auth.setSettings(forceRecaptchaFlow: true);
+      }
+
       printLog('[Firebase Phone Auth] Sending OTP to: $phoneNumber');
       printLog('[Firebase Phone Auth] Firebase App Name: ${_auth.app.name}');
       printLog('[Firebase Phone Auth] Firebase App Options: ${_auth.app.options.projectId}');
-      
+
       // Check if Firebase Auth settings are configured
       try {
         // Log current auth state
@@ -56,7 +67,7 @@ class FirebasePhoneAuthService {
       } catch (e) {
         printLog('[Firebase Phone Auth] Error getting auth state: $e');
       }
-      
+
       // For iOS, we need to handle reCAPTCHA verification
       // The verificationCompleted callback is mainly for Android auto-verification
       // On iOS, users will need to enter the OTP manually (reCAPTCHA handled automatically)
@@ -65,7 +76,7 @@ class FirebasePhoneAuthService {
         timeout: const Duration(seconds: 60),
         forceResendingToken: forceResendingToken ?? _resendToken,
         multiFactorSession: null, // Not using multi-factor auth
-        
+
         // Called when code is sent successfully
         codeSent: (String verificationId, int? resendToken) {
           printLog('[Firebase Phone Auth] Code sent! Verification ID: $verificationId');
@@ -73,13 +84,13 @@ class FirebasePhoneAuthService {
           _resendToken = resendToken;
           onCodeSent(verificationId);
         },
-        
+
         // Called on Android devices that support auto-verification
         verificationCompleted: (PhoneAuthCredential credential) async {
           printLog('[Firebase Phone Auth] Auto-verification completed');
           onAutoVerify(credential);
         },
-        
+
         // Called when verification fails
         verificationFailed: (FirebaseAuthException e) {
           printLog('[Firebase Phone Auth] Verification failed:');
@@ -87,7 +98,7 @@ class FirebasePhoneAuthService {
           printLog('[Firebase Phone Auth] Message: ${e.message}');
           printLog('[Firebase Phone Auth] Plugin: ${e.plugin}');
           printLog('[Firebase Phone Auth] Stack: ${e.stackTrace}');
-          
+
           // Log full error details for internal-error
           if (e.code == 'internal-error') {
             printLog('[Firebase Phone Auth] ⚠️ INTERNAL ERROR DETAILS:');
@@ -96,7 +107,7 @@ class FirebasePhoneAuthService {
             printLog('[Firebase Phone Auth] Email: ${e.email}');
             printLog('[Firebase Phone Auth] Phone number: ${e.phoneNumber ?? phoneNumber}');
             printLog('[Firebase Phone Auth] Phone number passed to function: $phoneNumber');
-            
+
             // Common causes for internal-error on iOS:
             printLog('[Firebase Phone Auth] 💡 TROUBLESHOOTING:');
             printLog('[Firebase Phone Auth] 1. Check if APNs certificate/key is uploaded in Firebase Console (Project Settings > Cloud Messaging)');
@@ -110,7 +121,7 @@ class FirebasePhoneAuthService {
             printLog('[Firebase Phone Auth] 9. Try adding test phone numbers in Firebase Console (Authentication > Sign-in method > Phone)');
             printLog('[Firebase Phone Auth] 10. Verify the Firebase project is on Blaze plan (required for SMS in some regions)');
           }
-          
+
           String errorMessage = _getErrorMessage(e.code);
           if (onError != null) {
             onError(errorMessage);
@@ -118,14 +129,14 @@ class FirebasePhoneAuthService {
             ShowMessage.inDialog(context, errorMessage, true);
           }
         },
-        
+
         // Called when auto-retrieval timeout
         codeAutoRetrievalTimeout: (String verificationId) {
           printLog('[Firebase Phone Auth] Auto-retrieval timeout');
           _verificationId = verificationId;
         },
       );
-      
+
       return true;
     } catch (e) {
       printLog('[Firebase Phone Auth] Error: $e');
@@ -133,7 +144,7 @@ class FirebasePhoneAuthService {
       return false;
     }
   }
-  
+
   /// Verify the OTP code entered by user
   /// Returns the UserCredential if successful, null otherwise
   Future<UserCredential?> verifyOtp({
@@ -143,25 +154,25 @@ class FirebasePhoneAuthService {
   }) async {
     try {
       final verId = verificationId ?? _verificationId;
-      
+
       if (verId == null) {
         ShowMessage.inDialog(context, 'Verification session expired. Please request a new OTP.', true);
         return null;
       }
-      
+
       printLog('[Firebase Phone Auth] Verifying OTP: $otp');
-      
+
       // Create credential from verification ID and OTP
       PhoneAuthCredential credential = PhoneAuthProvider.credential(
         verificationId: verId,
         smsCode: otp,
       );
-      
+
       // Sign in with the credential
       UserCredential userCredential = await _auth.signInWithCredential(credential);
-      
+
       printLog('[Firebase Phone Auth] Verification successful! User: ${userCredential.user?.uid}');
-      
+
       return userCredential;
     } on FirebaseAuthException catch (e) {
       printLog('[Firebase Phone Auth] Verification error: ${e.code} - ${e.message}');
@@ -174,12 +185,12 @@ class FirebasePhoneAuthService {
       return null;
     }
   }
-  
+
   /// Sign in with credential (used for auto-verification)
   Future<UserCredential?> signInWithCredential(
-    PhoneAuthCredential credential,
-    BuildContext context,
-  ) async {
+      PhoneAuthCredential credential,
+      BuildContext context,
+      ) async {
     try {
       return await _auth.signInWithCredential(credential);
     } on FirebaseAuthException catch (e) {
@@ -188,7 +199,7 @@ class FirebasePhoneAuthService {
       return null;
     }
   }
-  
+
   /// Resend OTP using the stored resend token
   Future<bool> resendOtp({
     required String phoneNumber,
@@ -204,7 +215,7 @@ class FirebasePhoneAuthService {
       forceResendingToken: _resendToken,
     );
   }
-  
+
   /// Get user-friendly error message
   String _getErrorMessage(String code) {
     switch (code) {
@@ -250,21 +261,20 @@ class FirebasePhoneAuthService {
         return 'Verification failed ($code). Please try again.';
     }
   }
-  
+
   /// Get current Firebase user
   User? get currentUser => _auth.currentUser;
-  
+
   /// Sign out from Firebase
   Future<void> signOut() async {
     await _auth.signOut();
     _verificationId = null;
     _resendToken = null;
   }
-  
+
   /// Clear verification session
   void clearSession() {
     _verificationId = null;
     _resendToken = null;
   }
 }
-

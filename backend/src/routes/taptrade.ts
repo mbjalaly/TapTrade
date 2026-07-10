@@ -379,7 +379,6 @@ setInterval(() => {
 
 // ==================== SMS OTP Endpoints ====================
 
-// Send SMS OTP
 router.post('/api/sms/send-otp/', async (req: Request, res: Response) => {
   try {
     const { phone } = req.body;
@@ -399,75 +398,19 @@ router.post('/api/sms/send-otp/', async (req: Request, res: Response) => {
       });
     }
 
-    // Check rate limiting (max 3 attempts per 5 minutes)
-    const existingSession = smsVerificationStore.get(phone);
-    if (existingSession && existingSession.attempts >= 3) {
-      const remainingTime = Math.ceil((existingSession.expiresAt - Date.now()) / 1000);
-      if (remainingTime > 0) {
-        return res.status(429).json({
-          success: false,
-          message: `Too many OTP requests. Please try again in ${Math.ceil(remainingTime / 60)} minutes.`,
-          retry_after: remainingTime
-        });
-      }
-    }
+    // Firebase-only: OTP is sent client-side via Firebase Auth.
+    // Always direct the app to use Firebase (no UnoSend attempt).
+    await logger.info('SMS OTP requested — directing client to Firebase', undefined, { phone });
 
-    await logger.info('Attempting to send SMS OTP', undefined, { phone });
-
-    // Try UnoSend first
-    const unoResult = await unoSendService.sendOtp(phone);
-
-    if (unoResult.success && unoResult.verification_id) {
-      // UnoSend succeeded
-      const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
-
-      smsVerificationStore.set(phone, {
-        phone,
-        verification_id: unoResult.verification_id,
-        provider: 'unosend',
-        expiresAt,
-        attempts: (existingSession?.attempts || 0) + 1,
-        sentAt: Date.now()
-      });
-
-      await logger.success('SMS OTP sent via UnoSend', undefined, { phone });
-
-      return res.json({
-        success: true,
-        message: 'OTP sent via SMS',
-        verification_id: unoResult.verification_id,
-        expires_at: new Date(expiresAt).toISOString(),
-        provider: 'unosend'
-      });
-    } else if (unoResult.fallback_needed) {
-      // UnoSend failed, Firebase fallback should be used by frontend
-      await logger.warning('UnoSend failed, fallback needed', undefined, {
-        phone,
-        error: unoResult.error
-      });
-
-      return res.status(503).json({
-        success: false,
-        message: unoResult.error || 'Primary SMS service unavailable',
-        fallback_needed: true,
-        provider: 'unosend'
-      });
-    } else {
-      // UnoSend failed without fallback needed (e.g., rate limiting, invalid phone)
-      await logger.error('SMS OTP send failed', undefined, {
-        phone,
-        error: unoResult.error
-      });
-
-      return res.status(400).json({
-        success: false,
-        message: unoResult.error || 'Failed to send OTP',
-        provider: 'unosend'
-      });
-    }
+    return res.status(503).json({
+      success: false,
+      message: 'Use Firebase phone verification',
+      fallback_needed: true,
+      provider: 'firebase'
+    });
 
   } catch (error: any) {
-    await logger.error('Failed to send SMS OTP', undefined, { error: error?.message });
+    await logger.error('Failed to process OTP request', undefined, { error: error?.message });
     return res.status(500).json({
       success: false,
       message: 'Failed to send OTP',
@@ -608,225 +551,131 @@ function parsePhoneNumber(fullPhone: string): { countryCode: string; contact: st
   return null;
 }
 
-// Step 1: Initiate password reset (send OTP to phone)
+// Step 1: Initiate password reset (client verifies phone via Firebase SMS)
 router.post('/api/user/forgot-password/', async (req: Request, res: Response) => {
   try {
     const { phone } = req.body;
 
     if (!phone || typeof phone !== 'string') {
-      return res.status(400).json({
-        success: false,
-        message: 'Phone number is required'
-      });
+      return res.status(400).json({ success: false, message: 'Phone number is required' });
     }
 
-    // Validate phone format (E.164)
     if (!phone.match(/^\+[1-9]\d{1,14}$/)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid phone number format. Please use E.164 format (e.g., +966555555555)'
-      });
+      return res.status(400).json({ success: false, message: 'Invalid phone number format. Please use E.164 format (e.g., +966555555555)' });
     }
 
-    // Check rate limiting
     if (!checkForgotPasswordRateLimit(phone)) {
       await logger.warning('Password reset rate limit exceeded', undefined, { phone });
-      return res.status(429).json({
-        success: false,
-        message: 'Too many password reset attempts. Please try again in 10 minutes.'
-      });
+      return res.status(429).json({ success: false, message: 'Too many password reset attempts. Please try again in 10 minutes.' });
     }
 
-    // Parse phone number
     const parsed = parsePhoneNumber(phone);
     if (!parsed) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid phone number format'
-      });
+      return res.status(400).json({ success: false, message: 'Invalid phone number format' });
     }
 
-    // Look up user by phone number (country_code + contact)
-    const { data: user, error: userError } = await supabase
+    const { data: user } = await supabase
       .from('users')
-      .select('id, username, contact, country_code')
+      .select('id')
       .eq('country_code', parsed.countryCode)
       .eq('contact', parsed.contact)
       .maybeSingle();
 
-    // Generic response for security (don't reveal if account exists)
-    const genericResponse = {
+    await logger.info('Password reset initiated', user?.id, { phone });
+
+    // The client app sends the SMS OTP itself via Firebase Phone Auth,
+    // then calls /api/user/verify-reset-otp/ with the Firebase ID token.
+    return res.json({
       success: true,
       message: 'If this phone number is registered, you will receive a verification code.',
-      // Return a placeholder verification_id for security (user won't know if account exists)
-      verification_id: 'ver_' + Date.now(),
+      verification_id: 'firebase',
+      provider: 'firebase',
       expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString()
-    };
-
-    if (userError || !user) {
-      await logger.info('Password reset attempted for non-existent phone', undefined, { phone });
-      // Return generic success to not reveal account existence
-      return res.json(genericResponse);
-    }
-
-    // User exists - send OTP via UnoSend with password reset message
-    try {
-      const otpResult = await unoSendService.sendOtp(phone, 'Tap Trade password reset code: {code}');
-
-      if (otpResult.success && otpResult.verification_id) {
-        // Store verification session (reuse existing SMS verification store)
-        smsVerificationStore.set(phone, {
-          phone,
-          verification_id: otpResult.verification_id,
-          provider: 'unosend',
-          expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
-          attempts: 0,
-          sentAt: Date.now()
-        });
-
-        await logger.info('Password reset OTP sent', user.id, { phone });
-
-        return res.json({
-          success: true,
-          message: 'Verification code sent to your phone.',
-          verification_id: otpResult.verification_id,
-          expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString()
-        });
-      } else {
-        await logger.error('Failed to send password reset OTP', user.id, { phone, error: otpResult.message });
-        // Return generic response even on send failure (security)
-        return res.json(genericResponse);
-      }
-    } catch (smsError: any) {
-      await logger.error('SMS service error during password reset', user.id, { phone, error: smsError?.message });
-      // Return generic response even on error (security)
-      return res.json(genericResponse);
-    }
-
+    });
   } catch (error: any) {
     await logger.error('Failed to initiate password reset', undefined, { error: error?.message });
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to process password reset request'
-    });
+    return res.status(500).json({ success: false, message: 'Failed to process password reset request' });
   }
 });
 
-// Step 2: Verify OTP and generate reset token
+// Step 2: Verify Firebase-verified phone (ID token) and generate reset token
 router.post('/api/user/verify-reset-otp/', async (req: Request, res: Response) => {
   try {
-    const { phone, code, verification_id } = req.body;
+    const { phone, firebase_id_token } = req.body;
 
-    if (!phone || !code || !verification_id) {
-      return res.status(400).json({
-        success: false,
-        message: 'Phone number, code, and verification_id are required'
-      });
+    if (!phone || !firebase_id_token) {
+      return res.status(400).json({ success: false, message: 'Phone number and firebase_id_token are required' });
     }
 
-    // Get verification session
-    const session = smsVerificationStore.get(phone);
-
-    if (!session) {
-      return res.status(400).json({
-        success: false,
-        message: 'No verification session found. Please request a new code.'
-      });
+    const apiKey = process.env.FIREBASE_WEB_API_KEY;
+    if (!apiKey) {
+      await logger.error('FIREBASE_WEB_API_KEY is not configured', undefined, {});
+      return res.status(500).json({ success: false, message: 'Password reset is temporarily unavailable' });
     }
 
-    // Check if expired
-    if (session.expiresAt < Date.now()) {
-      smsVerificationStore.delete(phone);
-      return res.status(400).json({
-        success: false,
-        message: 'Verification code has expired. Please request a new code.'
+    // Verify the Firebase ID token and confirm which phone number it belongs to
+    let fbPhone: string | null = null;
+    try {
+      const fbResp = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken: firebase_id_token })
       });
-    }
-
-    // Verify OTP with UnoSend
-    if (session.provider === 'unosend') {
-      try {
-        const verifyResult = await unoSendService.verifyOtp(phone, code);
-
-        if (verifyResult.success) {
-          // OTP verified - look up user
-          const parsed = parsePhoneNumber(phone);
-          if (!parsed) {
-            return res.status(400).json({
-              success: false,
-              message: 'Invalid phone number format'
-            });
-          }
-
-          const { data: user, error: userError } = await supabase
-            .from('users')
-            .select('id')
-            .eq('country_code', parsed.countryCode)
-            .eq('contact', parsed.contact)
-            .maybeSingle();
-
-          if (userError || !user) {
-            return res.status(404).json({
-              success: false,
-              message: 'User not found'
-            });
-          }
-
-          // Generate reset token (UUID v4)
-          const resetToken = crypto.randomUUID();
-          const expiresAt = Date.now() + 15 * 60 * 1000; // 15 minutes
-
-          // Create password reset session
-          passwordResetSessions.set(resetToken, {
-            phone,
-            resetToken,
-            verifiedAt: Date.now(),
-            expiresAt,
-            used: false
-          });
-
-          // Remove SMS verification session
-          smsVerificationStore.delete(phone);
-
-          await logger.info('Password reset OTP verified', user.id, { phone });
-
-          return res.json({
-            success: true,
-            message: 'Phone verified. You can now reset your password.',
-            reset_token: resetToken,
-            expires_at: new Date(expiresAt).toISOString()
-          });
-        } else {
-          session.attempts++;
-          await logger.warning('Invalid password reset OTP attempt', undefined, { phone });
-
-          return res.status(400).json({
-            success: false,
-            message: 'Invalid verification code. Please try again.',
-            attempts_remaining: Math.max(0, 3 - session.attempts)
-          });
-        }
-      } catch (verifyError: any) {
-        await logger.error('Failed to verify password reset OTP', undefined, { phone, error: verifyError?.message });
-        return res.status(500).json({
-          success: false,
-          message: 'Failed to verify code'
-        });
+      const fbData: any = await fbResp.json();
+      if (fbResp.ok && fbData?.users?.length) {
+        fbPhone = fbData.users[0].phoneNumber || null;
       }
-    } else {
-      return res.status(400).json({
-        success: false,
-        message: 'This verification session uses Firebase. Please verify on the client side.',
-        provider: session.provider
-      });
+    } catch (fbError: any) {
+      await logger.error('Firebase token verification failed', undefined, { error: fbError?.message });
     }
 
-  } catch (error: any) {
-    await logger.error('Failed to verify password reset OTP', undefined, { error: error?.message });
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to verify OTP'
+    if (!fbPhone) {
+      return res.status(401).json({ success: false, message: 'Invalid or expired verification. Please request a new code.' });
+    }
+
+    if (fbPhone !== phone) {
+      await logger.warning('Password reset phone mismatch', undefined, { phone, fbPhone });
+      return res.status(401).json({ success: false, message: 'Phone verification mismatch. Please try again.' });
+    }
+
+    const parsed = parsePhoneNumber(phone);
+    if (!parsed) {
+      return res.status(400).json({ success: false, message: 'Invalid phone number format' });
+    }
+
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('country_code', parsed.countryCode)
+      .eq('contact', parsed.contact)
+      .maybeSingle();
+
+    if (userError || !user) {
+      return res.status(404).json({ success: false, message: 'No account found for this phone number' });
+    }
+
+    const resetToken = crypto.randomUUID();
+    const expiresAt = Date.now() + 15 * 60 * 1000; // 15 minutes
+
+    passwordResetSessions.set(resetToken, {
+      phone,
+      resetToken,
+      verifiedAt: Date.now(),
+      expiresAt,
+      used: false
     });
+
+    await logger.info('Password reset phone verified via Firebase', user.id, { phone });
+
+    return res.json({
+      success: true,
+      message: 'Phone verified. You can now reset your password.',
+      reset_token: resetToken,
+      expires_at: new Date(expiresAt).toISOString()
+    });
+  } catch (error: any) {
+    await logger.error('Failed to verify password reset', undefined, { error: error?.message });
+    return res.status(500).json({ success: false, message: 'Failed to verify OTP' });
   }
 });
 

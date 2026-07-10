@@ -2,7 +2,7 @@
   "project_info": {
     "project_number": "502704204773",
     "project_id": "taptrade-d4ca5",
-    "storage_bucket": "taptrade-d4ca5.appspot.com"
+    "storage_bucket": "taptrade-d4ca5.firebasestorage.app"
   },
   "client": [
     {
@@ -14,11 +14,27 @@
       },
       "oauth_client": [
         {
-          "client_id": "502704204773-v9g3q2nmd77ucmis719oknqij038q081.apps.googleusercontent.com",
+          "client_id": "502704204773-ib2hni0ojv346ognoo0a9k7c66g3ssfd.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.tap.trade",
+            "certificate_hash": "658b7fe95dc28a2f04dc5570ae023c5abdab4d7e"
+          }
+        },
+        {
+          "client_id": "502704204773-il66adhi2vidg8b48rok4j5be7k0sb2h.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.tap.trade",
             "certificate_hash": "9249905f3c31dc4a39b7ac9d5c8c0dabcc94c8f7"
+          }
+        },
+        {
+          "client_id": "502704204773-v9g3q2nmd77ucmis719oknqij038q081.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.tap.trade",
+            "certificate_hash": "1cb36f4055882fdccf193727dac19c9db7433b79"
           }
         },
         {
@@ -37,6 +53,14 @@
             {
               "client_id": "502704204773-n3lt16ucipfhkemt3uuq8kubk7r7mfhv.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "502704204773-39ov5e2o9v40jc5ph3aehb5gb3soeb59.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.tap.trade",
+                "app_store_id": "6747976013"
+              }
             }
           ]
         }

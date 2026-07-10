@@ -6,7 +6,7 @@ import 'package:taptrade/Models/SignUpRequestModel/signUpRequestModel.dart';
 import 'package:taptrade/Screens/UserDetail/AddInterest/addInterest.dart';
 import 'package:taptrade/Services/ApiResponse/apiResponse.dart';
 import 'package:taptrade/Services/IntegrationServices/authService.dart';
-import 'package:taptrade/Services/IntegrationServices/unoSendSmsService.dart';
+import 'package:taptrade/Services/IntegrationServices/firebasePhoneAuthService.dart';
 import 'package:taptrade/Services/SharedPreferenceService/sharePreferenceService.dart';
 import 'package:taptrade/Services/logService.dart';
 import 'package:taptrade/Utills/appColors.dart';
@@ -41,7 +41,8 @@ class _VerifyPhoneOtpScreenState extends State<VerifyPhoneOtpScreen> {
   @override
   void initState() {
     super.initState();
-    _startResendTimer();
+    // Send the OTP via Firebase as soon as this screen opens
+    WidgetsBinding.instance.addPostFrameCallback((_) => _sendOtp());
   }
 
   @override
@@ -84,6 +85,49 @@ class _VerifyPhoneOtpScreenState extends State<VerifyPhoneOtpScreen> {
     return AppLocalizations.of(context)?.resendCodeIn(timeStr) ?? 'Resend in $timeStr';
   }
 
+  Future<void> _sendOtp() async {
+    setState(() {
+      isLoading = true;
+      otpError = null;
+    });
+
+    printLog('[VerifyPhoneOtp] Sending OTP via Firebase to ${widget.phoneNumber}');
+
+    await FirebasePhoneAuthService.instance.sendOtp(
+      phoneNumber: widget.phoneNumber,
+      context: context,
+      onCodeSent: (verificationId) {
+        if (!mounted) return;
+        setState(() => isLoading = false);
+        _startResendTimer();
+        ShowMessage.notify(
+          context,
+          AppLocalizations.of(context)?.verificationCodeSentTo(widget.phoneNumber) ??
+              'Verification code sent',
+        );
+      },
+      onAutoVerify: (credential) async {
+        if (!mounted) return;
+        printLog('[VerifyPhoneOtp] Auto-verification triggered');
+        setState(() => isLoading = true);
+        final userCredential = await FirebasePhoneAuthService.instance
+            .signInWithCredential(credential, context);
+        if (userCredential != null) {
+          await _completeRegistration();
+        } else if (mounted) {
+          setState(() => isLoading = false);
+        }
+      },
+      onError: (error) {
+        if (!mounted) return;
+        setState(() {
+          isLoading = false;
+          otpError = error;
+        });
+      },
+    );
+  }
+
   Future<void> _verifyOtp() async {
     final code = otpController.text.trim();
 
@@ -97,21 +141,20 @@ class _VerifyPhoneOtpScreenState extends State<VerifyPhoneOtpScreen> {
       otpError = null;
     });
 
-    printLog('[VerifyPhoneOtp] Verifying OTP via UnoSend');
+    printLog('[VerifyPhoneOtp] Verifying OTP via Firebase');
 
-    final result = await UnoSendSmsService.instance.verifyOtp(
-      phoneNumber: widget.phoneNumber,
-      code: code,
+    final userCredential = await FirebasePhoneAuthService.instance.verifyOtp(
+      otp: code,
       context: context,
     );
 
-    if (result['success'] == true && result['phone_verified'] == true) {
+    if (userCredential != null) {
       printLog('[VerifyPhoneOtp] Verification successful');
       await _completeRegistration();
     } else {
       setState(() {
         isLoading = false;
-        otpError = result['message'] ?? 'Invalid code. Please try again.';
+        otpError = 'Invalid code. Please try again.';
       });
     }
   }
@@ -192,27 +235,8 @@ class _VerifyPhoneOtpScreenState extends State<VerifyPhoneOtpScreen> {
   Future<void> _resendOtp() async {
     if (_resendSeconds > 0 || isLoading) return;
 
-    setState(() => isLoading = true);
-
-    printLog('[VerifyPhoneOtp] Resending OTP via UnoSend');
-
-    final result = await UnoSendSmsService.instance.sendOtp(
-      phoneNumber: widget.phoneNumber,
-      context: context,
-    );
-
-    setState(() => isLoading = false);
-
-    if (result['success'] == true) {
-      _startResendTimer();
-      ShowMessage.notify(context, AppLocalizations.of(context)?.verificationCodeSentTo(widget.phoneNumber) ?? 'Verification code sent');
-    } else {
-      ShowMessage.inDialog(
-        context,
-        result['message'] ?? 'Failed to resend code',
-        true,
-      );
-    }
+    printLog('[VerifyPhoneOtp] Resending OTP via Firebase');
+    await _sendOtp();
   }
 
   @override

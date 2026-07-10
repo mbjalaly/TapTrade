@@ -4,7 +4,7 @@ import 'package:get/get.dart';
 import 'package:taptrade/Controller/userController.dart';
 import 'package:taptrade/Services/ApiResponse/apiResponse.dart';
 import 'package:taptrade/Services/IntegrationServices/profileService.dart';
-import 'package:taptrade/Services/IntegrationServices/unoSendSmsService.dart';
+import 'package:taptrade/Services/IntegrationServices/firebasePhoneAuthService.dart';
 import 'package:taptrade/Services/logService.dart';
 import 'package:taptrade/Utills/appColors.dart';
 import 'package:taptrade/Utills/showMessages.dart';
@@ -82,25 +82,34 @@ class _VerifyProfilePhoneScreenState extends State<VerifyProfilePhoneScreen> {
   Future<void> _sendInitialOtp() async {
     setState(() => isLoading = true);
 
-    printLog('[VerifyProfilePhone] Sending initial OTP to ${widget.phoneNumber}');
+    printLog('[VerifyProfilePhone] Sending OTP via Firebase to ${widget.phoneNumber}');
 
-    final result = await UnoSendSmsService.instance.sendOtp(
+    await FirebasePhoneAuthService.instance.sendOtp(
       phoneNumber: widget.phoneNumber,
       context: context,
+      onCodeSent: (verificationId) {
+        if (!mounted) return;
+        setState(() => isLoading = false);
+        _startResendTimer();
+        ShowMessage.notify(context, AppLocalizations.of(context)?.verificationCodeSentTo(widget.phoneNumber) ?? 'Verification code sent');
+      },
+      onAutoVerify: (credential) async {
+        if (!mounted) return;
+        setState(() => isLoading = true);
+        final userCredential = await FirebasePhoneAuthService.instance
+            .signInWithCredential(credential, context);
+        if (userCredential != null) {
+          await _updatePhoneVerifiedStatus();
+        } else if (mounted) {
+          setState(() => isLoading = false);
+        }
+      },
+      onError: (error) {
+        if (!mounted) return;
+        setState(() => isLoading = false);
+        ShowMessage.inDialog(context, error, true);
+      },
     );
-
-    setState(() => isLoading = false);
-
-    if (result['success'] == true) {
-      _startResendTimer();
-      ShowMessage.notify(context, AppLocalizations.of(context)?.verificationCodeSentTo(widget.phoneNumber) ?? 'Verification code sent');
-    } else {
-      ShowMessage.inDialog(
-        context,
-        result['message'] ?? 'Failed to send verification code',
-        true,
-      );
-    }
   }
 
   Future<void> _verifyOtp() async {
@@ -116,21 +125,20 @@ class _VerifyProfilePhoneScreenState extends State<VerifyProfilePhoneScreen> {
       otpError = null;
     });
 
-    printLog('[VerifyProfilePhone] Verifying OTP');
+    printLog('[VerifyProfilePhone] Verifying OTP via Firebase');
 
-    final result = await UnoSendSmsService.instance.verifyOtp(
-      phoneNumber: widget.phoneNumber,
-      code: code,
+    final userCredential = await FirebasePhoneAuthService.instance.verifyOtp(
+      otp: code,
       context: context,
     );
 
-    if (result['success'] == true && result['phone_verified'] == true) {
+    if (userCredential != null) {
       printLog('[VerifyProfilePhone] Verification successful');
       await _updatePhoneVerifiedStatus();
     } else {
       setState(() {
         isLoading = false;
-        otpError = result['message'] ?? 'Invalid code. Please try again.';
+        otpError = 'Invalid code. Please try again.';
       });
     }
   }
@@ -191,28 +199,8 @@ class _VerifyProfilePhoneScreenState extends State<VerifyProfilePhoneScreen> {
 
   Future<void> _resendOtp() async {
     if (_resendSeconds > 0 || isLoading) return;
-
-    setState(() => isLoading = true);
-
-    printLog('[VerifyProfilePhone] Resending OTP');
-
-    final result = await UnoSendSmsService.instance.sendOtp(
-      phoneNumber: widget.phoneNumber,
-      context: context,
-    );
-
-    setState(() => isLoading = false);
-
-    if (result['success'] == true) {
-      _startResendTimer();
-      ShowMessage.notify(context, 'Verification code sent');
-    } else {
-      ShowMessage.inDialog(
-        context,
-        result['message'] ?? 'Failed to resend code',
-        true,
-      );
-    }
+    printLog('[VerifyProfilePhone] Resending OTP via Firebase');
+    await _sendInitialOtp();
   }
 
   @override
@@ -311,17 +299,6 @@ class _VerifyProfilePhoneScreenState extends State<VerifyProfilePhoneScreen> {
               ),
             ),
 
-            const SizedBox(height: 8),
-
-            Text(
-              '', // Phone number is already included in the localized message above
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primaryColor,
-              ),
-            ),
-
             const SizedBox(height: 40),
 
             // OTP Input
@@ -332,11 +309,6 @@ class _VerifyProfilePhoneScreenState extends State<VerifyProfilePhoneScreen> {
               focusedPinTheme: focusedPinTheme,
               onChanged: (_) => _clearError(),
               onCompleted: (_) => _verifyOtp(),
-              errorText: otpError,
-              errorTextStyle: TextStyle(
-                color: Colors.red,
-                fontSize: 14,
-              ),
             ),
 
             if (otpError != null) ...[
@@ -368,21 +340,21 @@ class _VerifyProfilePhoneScreenState extends State<VerifyProfilePhoneScreen> {
                 ),
                 child: isLoading
                     ? SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
                     : Text(
-                        AppLocalizations.of(context)?.verifyYourPhone ?? 'Verify Code',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
+                  AppLocalizations.of(context)?.verifyYourPhone ?? 'Verify Code',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
               ),
             ),
 
