@@ -6,9 +6,6 @@
     integrations:
       app_store_connect: TapTrade ASC Key
     environment:
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.tap.trade
       groups:
         - dotenv
       flutter: stable
@@ -24,7 +21,13 @@
         script: |
           cd ios && pod install
       - name: Set up code signing
-        script: xcode-project use-profiles
+        script: |
+          keychain initialize
+          app-store-connect fetch-signing-files "com.tap.trade" \
+            --type IOS_APP_STORE \
+            --create
+          keychain add-certificates
+          xcode-project use-profiles
       - name: Build IPA
         script: |
           flutter build ipa --release \
