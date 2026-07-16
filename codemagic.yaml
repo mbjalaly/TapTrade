@@ -8,6 +8,7 @@
     environment:
       groups:
         - dotenv
+        - signing
       flutter: stable
       xcode: latest
       cocoapods: default
@@ -23,8 +24,10 @@
       - name: Set up code signing
         script: |
           keychain initialize
+          echo "$CERT_KEY_BASE64" | base64 --decode > /tmp/cert_key.pem
           app-store-connect fetch-signing-files "com.tap.trade" \
             --type IOS_APP_STORE \
+            --certificate-key @file:/tmp/cert_key.pem \
             --create
           keychain add-certificates
           xcode-project use-profiles
